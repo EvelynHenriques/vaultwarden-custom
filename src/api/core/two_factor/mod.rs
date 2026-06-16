@@ -2,13 +2,12 @@ use chrono::{TimeDelta, Utc};
 use data_encoding::BASE32;
 use num_traits::FromPrimitive;
 use rocket::{Route, serde::json::Json};
-use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
     CONFIG,
     api::{
-        EmptyResult, JsonResult, PasswordOrOtpData,
+        EmptyResult, JsonResult,
         core::log_event,
     },
     auth::Headers,
@@ -21,7 +20,6 @@ use crate::{
         },
     },
     mail,
-    util::NumberOrString,
 };
 
 pub mod authenticator;
@@ -97,8 +95,8 @@ async fn get_twofactor(headers: Headers, conn: DbConn) -> Json<Value> {
 }
 
 #[post("/two-factor/get-recover", data = "<data>")]
-async fn get_recover(data: Json<PasswordOrOtpData>, _headers: Headers, _conn: DbConn) -> JsonResult {
-    let _ = data;
+async fn get_recover(data: Json<Value>, _headers: Headers, _conn: DbConn) -> JsonResult {
+    drop(data);
     err!("Only authenticator app 2FA is allowed")
 }
 
@@ -110,22 +108,14 @@ async fn generate_recover_code(user: &mut User, conn: &DbConn) {
     }
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct DisableTwoFactorData {
-    master_password_hash: Option<String>,
-    otp: Option<String>,
-    r#type: NumberOrString,
-}
-
 #[post("/two-factor/disable", data = "<data>")]
-async fn disable_twofactor(data: Json<DisableTwoFactorData>, _headers: Headers, _conn: DbConn) -> JsonResult {
-    let _ = data;
+async fn disable_twofactor(data: Json<Value>, _headers: Headers, _conn: DbConn) -> JsonResult {
+    drop(data);
     err!("Only authenticator app 2FA is allowed")
 }
 
 #[put("/two-factor/disable", data = "<data>")]
-async fn disable_twofactor_put(data: Json<DisableTwoFactorData>, headers: Headers, conn: DbConn) -> JsonResult {
+async fn disable_twofactor_put(data: Json<Value>, headers: Headers, conn: DbConn) -> JsonResult {
     disable_twofactor(data, headers, conn).await
 }
 
