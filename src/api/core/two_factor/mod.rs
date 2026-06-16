@@ -9,7 +9,7 @@ use crate::{
     CONFIG,
     api::{
         EmptyResult, JsonResult, PasswordOrOtpData,
-        core::{log_event, log_user_event},
+        core::log_event,
     },
     auth::Headers,
     crypto,
@@ -32,10 +32,6 @@ pub mod protected_actions;
 pub mod webauthn;
 pub mod yubikey;
 
-fn has_global_duo_credentials() -> bool {
-    CONFIG._enable_duo() && CONFIG.duo_host().is_some() && CONFIG.duo_ikey().is_some() && CONFIG.duo_skey().is_some()
-}
-
 /// Only authenticator app 2FA is allowed for user-managed providers in this deployment.
 pub fn is_allowed_mandatory_twofactor_provider(provider_type: &TwoFactorType) -> bool {
     matches!(provider_type, TwoFactorType::Authenticator | TwoFactorType::Remember)
@@ -49,39 +45,15 @@ pub fn reject_non_authenticator_twofactor_setup() -> EmptyResult {
     err!("Only authenticator app 2FA is allowed")
 }
 
-pub fn is_twofactor_provider_usable(provider_type: &TwoFactorType, provider_data: Option<&str>) -> bool {
+pub fn is_twofactor_provider_usable(provider_type: &TwoFactorType, _provider_data: Option<&str>) -> bool {
     if !is_allowed_mandatory_twofactor_provider(provider_type) {
         return false;
     }
-    #[derive(Deserialize)]
-    struct DuoProviderData {
-        host: String,
-        ik: String,
-        sk: String,
-    }
 
     match provider_type {
-        TwoFactorType::Authenticator | TwoFactorType::Remember => true,
-        TwoFactorType::RecoveryCode => false,
-        TwoFactorType::Email => CONFIG._enable_email_2fa(),
-        TwoFactorType::Duo | TwoFactorType::OrganizationDuo => {
-            provider_data
-                .and_then(|raw| serde_json::from_str::<DuoProviderData>(raw).ok())
-                .is_some_and(|duo| !duo.host.is_empty() && !duo.ik.is_empty() && !duo.sk.is_empty())
-                || has_global_duo_credentials()
-        }
-        TwoFactorType::YubiKey => {
-            CONFIG._enable_yubico() && CONFIG.yubico_client_id().is_some() && CONFIG.yubico_secret_key().is_some()
-        }
-        TwoFactorType::Webauthn => CONFIG.is_webauthn_2fa_supported(),
+        TwoFactorType::Authenticator => true,
         TwoFactorType::Remember => !CONFIG.disable_2fa_remember(),
-        TwoFactorType::U2f
-        | TwoFactorType::U2fRegisterChallenge
-        | TwoFactorType::U2fLoginChallenge
-        | TwoFactorType::EmailVerificationChallenge
-        | TwoFactorType::WebauthnRegisterChallenge
-        | TwoFactorType::WebauthnLoginChallenge
-        | TwoFactorType::ProtectedActions => false,
+        _ => false,
     }
 }
 
@@ -125,11 +97,8 @@ async fn get_twofactor(headers: Headers, conn: DbConn) -> Json<Value> {
 }
 
 #[post("/two-factor/get-recover", data = "<data>")]
-async fn get_recover(
-    _data: Json<PasswordOrOtpData>,
-    _headers: Headers,
-    _conn: DbConn,
-) -> JsonResult {
+async fn get_recover(data: Json<PasswordOrOtpData>, _headers: Headers, _conn: DbConn) -> JsonResult {
+    let _ = data;
     reject_non_authenticator_twofactor_setup()
 }
 
@@ -150,11 +119,8 @@ struct DisableTwoFactorData {
 }
 
 #[post("/two-factor/disable", data = "<data>")]
-async fn disable_twofactor(
-    _data: Json<DisableTwoFactorData>,
-    _headers: Headers,
-    _conn: DbConn,
-) -> JsonResult {
+async fn disable_twofactor(data: Json<DisableTwoFactorData>, _headers: Headers, _conn: DbConn) -> JsonResult {
+    let _ = data;
     reject_non_authenticator_twofactor_setup()
 }
 
