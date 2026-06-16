@@ -239,7 +239,7 @@ pub async fn send_incomplete_2fa_notifications(pool: DbPool) {
 // https://github.com/bitwarden/clients/pull/2839
 // https://github.com/bitwarden/server/pull/2016
 //
-// The HTML part is hidden via the CSS patches done via the bw_web_build repo
+// Device verification settings are not used in this deployment.
 #[get("/two-factor/get-device-verification-settings")]
 fn get_device_verification_settings(_headers: Headers, _conn: DbConn) -> Json<Value> {
     Json(json!({

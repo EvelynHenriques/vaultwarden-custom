@@ -1,0 +1,20 @@
+diff --git a/apps/web/src/app/oss-routing.module.ts b/apps/web/src/app/oss-routing.module.ts
+--- a/apps/web/src/app/oss-routing.module.ts
++++ b/apps/web/src/app/oss-routing.module.ts
+@@ -94,6 +94,7 @@ import { BrowserExtensionPromptInstallComponent } from "./vault/components/brows
+ import { BrowserExtensionPromptComponent } from "./vault/components/browser-extension-prompt/browser-extension-prompt.component";
+ import { SetupExtensionComponent } from "./vault/components/setup-extension/setup-extension.component";
+ import { setupExtensionRedirectGuard } from "./vault/guards/setup-extension-redirect.guard";
++import { mandatoryAuthenticatorGuard } from "./vault/guards/mandatory-authenticator.guard";
+ import { VaultModule } from "./vault/individual-vault/vault.module";
+ 
+ const routes: Routes = [
+@@ -631,7 +632,7 @@ const routes: Routes = [
+   {
+     path: "",
+     component: UserLayoutComponent,
+-    canActivate: [deepLinkGuard(), authGuard],
++    canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorGuard],
+     children: [
+       {
+         path: "vault",
