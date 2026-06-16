@@ -84,6 +84,7 @@ async fn verify_yubikey_otp(otp: String) -> EmptyResult {
 
 #[post("/two-factor/get-yubikey", data = "<data>")]
 async fn generate_yubikey(data: Json<PasswordOrOtpData>, headers: Headers, conn: DbConn) -> JsonResult {
+    super::reject_non_authenticator_twofactor_setup()?;
     // Make sure the credentials are set
     get_yubico_credentials()?;
 
@@ -117,6 +118,7 @@ async fn generate_yubikey(data: Json<PasswordOrOtpData>, headers: Headers, conn:
 
 #[post("/two-factor/yubikey", data = "<data>")]
 async fn activate_yubikey(data: Json<EnableYubikeyData>, headers: Headers, conn: DbConn) -> JsonResult {
+    super::reject_non_authenticator_twofactor_setup()?;
     let data: EnableYubikeyData = data.into_inner();
     let mut user = headers.user;
 

@@ -25,6 +25,7 @@ use crate::{
             AttachmentId, CipherId, Collection, CollectionId, Device, DeviceId, DeviceType, EmergencyAccessId,
             Membership, MembershipId, MembershipStatus, MembershipType, OrgApiKeyId, OrganizationId, SendFileId,
             SendId, User, UserId, UserStampException,
+            TwoFactor, TwoFactorType,
         },
     },
     error::Error,
@@ -607,6 +608,61 @@ pub struct Headers {
     pub ip: ClientIp,
 }
 
+async fn user_has_authenticator_2fa(user_id: &UserId, conn: &DbConn) -> bool {
+    TwoFactor::find_by_user_and_type(user_id, TwoFactorType::Authenticator as i32, conn)
+        .await
+        .is_some()
+}
+
+fn mandatory_authenticator_2fa_allowed_route(request: &Request<'_>) -> bool {
+    let Some(route_name) = request.route().and_then(|route| route.name.as_deref()) else {
+        return false;
+    };
+
+    matches!(
+        route_name,
+        // Let the web vault load enough account state to render the settings UI.
+        "profile"
+            | "revision_date"
+            | "sync"
+            | "get_auth_requests_pending"
+            | "get_twofactor"
+            | "get_device_verification_settings"
+            // Let the user generate and activate the Authenticator app provider.
+            | "generate_authenticator"
+            | "activate_authenticator"
+            | "activate_authenticator_put"
+    )
+}
+
+fn is_authenticator_disable_route(route_name: &str) -> bool {
+    matches!(
+        route_name,
+        "disable_authenticator" | "disable_twofactor" | "disable_twofactor_put"
+    )
+}
+
+fn is_blocked_alternative_twofactor_route(route_name: &str) -> bool {
+    matches!(
+        route_name,
+        "get_recover"
+            | "get_email"
+            | "send_email"
+            | "email"
+            | "get_duo"
+            | "activate_duo"
+            | "activate_duo_put"
+            | "get_webauthn"
+            | "generate_webauthn_challenge"
+            | "activate_webauthn"
+            | "activate_webauthn_put"
+            | "delete_webauthn"
+            | "generate_yubikey"
+            | "activate_yubikey"
+            | "activate_yubikey_put"
+    )
+}
+
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for Headers {
     type Error = &'static str;
@@ -678,6 +734,36 @@ impl<'r> FromRequest<'r> for Headers {
             } else {
                 err_handler!("Invalid security stamp")
             }
+        }
+
+        if let Some(route_name) = request.route().and_then(|route| route.name.as_deref())
+            && is_blocked_alternative_twofactor_route(route_name)
+        {
+            error!(target: "auth", "Forbidden Error: Only authenticator app 2FA is allowed");
+            return Outcome::Error((
+                rocket::http::Status::Forbidden,
+                "Only authenticator app 2FA is allowed",
+            ));
+        }
+
+        let has_authenticator = user_has_authenticator_2fa(&user.uuid, &conn).await;
+
+        if !mandatory_authenticator_2fa_allowed_route(request) && !has_authenticator {
+            error!(target: "auth", "Forbidden Error: User must configure Authenticator 2FA before using this endpoint");
+            return Outcome::Error((
+                rocket::http::Status::Forbidden,
+                "Authenticator app setup is required before continuing",
+            ));
+        }
+
+        if let Some(route_name) = request.route().and_then(|route| route.name.as_deref())
+            && is_authenticator_disable_route(route_name)
+        {
+            error!(target: "auth", "Forbidden Error: Authenticator 2FA cannot be disabled");
+            return Outcome::Error((
+                rocket::http::Status::Forbidden,
+                "Authenticator app 2FA cannot be disabled",
+            ));
         }
 
         Outcome::Success(Headers {

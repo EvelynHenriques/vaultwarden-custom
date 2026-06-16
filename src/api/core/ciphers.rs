@@ -22,7 +22,8 @@ use crate::{
         models::{
             Archive, Attachment, AttachmentId, Cipher, CipherId, Collection, CollectionCipher, CollectionGroup,
             CollectionId, CollectionUser, EventType, Favorite, Folder, FolderCipher, FolderId, Group, Membership,
-            MembershipType, OrgPolicy, OrgPolicyType, OrganizationId, RepromptType, Send, UserId,
+            MembershipType, OrgPolicy, OrgPolicyType, OrganizationId, RepromptType, Send, TwoFactor, TwoFactorType,
+            UserId,
         },
     },
     util::{NumberOrString, deser_opt_nonempty_str, save_temp_file},
@@ -121,6 +122,32 @@ struct SyncData {
 #[get("/sync?<data..>")]
 async fn sync(data: SyncData, headers: Headers, client_version: Option<ClientVersion>, conn: DbConn) -> JsonResult {
     let user_json = headers.user.to_json(&conn).await;
+
+    if TwoFactor::find_by_user_and_type(&headers.user.uuid, TwoFactorType::Authenticator as i32, &conn)
+        .await
+        .is_none()
+    {
+        let domains_json = if data.exclude_domains {
+            Value::Null
+        } else {
+            api::core::get_eq_domains(&headers, true).into_inner()
+        };
+
+        return Ok(Json(json!({
+            "profile": user_json,
+            "folders": [],
+            "collections": [],
+            "policies": [],
+            "ciphers": [],
+            "domains": domains_json,
+            "sends": [],
+            "userDecryption": {
+                "masterPasswordUnlock": Value::Null,
+            },
+            "MandatoryAuthenticatorSetup": true,
+            "object": "sync"
+        })));
+    }
 
     // Get all ciphers which are visible by the user
     let mut ciphers = Cipher::find_by_user_visible(&headers.user.uuid, &conn).await;

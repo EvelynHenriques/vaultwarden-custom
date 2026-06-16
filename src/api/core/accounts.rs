@@ -22,7 +22,8 @@ use crate::{
         models::{
             AuthRequest, AuthRequestId, Cipher, CipherId, Device, DeviceId, DeviceType, DeviceWithAuthRequest,
             EmergencyAccess, EmergencyAccessId, EventType, Folder, FolderId, Invitation, Membership, MembershipId,
-            OrgPolicy, OrgPolicyType, Organization, OrganizationId, Send, SendId, User, UserId, UserKdfType,
+            OrgPolicy, OrgPolicyType, Organization, OrganizationId, Send, SendId, TwoFactor, TwoFactorType, User,
+            UserId, UserKdfType,
         },
     },
     mail,
@@ -189,7 +190,7 @@ pub async fn register(data: Json<RegisterData>, email_verification: bool, conn: 
             // Normal user registration, when email verification is required
             (Some(email_verification_token), None, None, None, None) => {
                 let claims = crate::auth::decode_register_verify(email_verification_token)?;
-                if claims.sub != data.email {
+                if claims.sub.to_lowercase() != email {
                     err!("Email verification token does not match email");
                 }
 
@@ -197,6 +198,7 @@ pub async fn register(data: Json<RegisterData>, email_verification: bool, conn: 
                 if claims.name.is_some() {
                     data.name = claims.name;
                 }
+                // Clicking the pre-signup verification link confirms email ownership.
                 email_verified = claims.verified;
             }
             // Emergency access registration
@@ -410,7 +412,14 @@ async fn post_set_password(data: Json<SetPasswordData>, headers: Headers, conn: 
 
 #[get("/accounts/profile")]
 async fn profile(headers: Headers, conn: DbConn) -> Json<Value> {
-    Json(headers.user.to_json(&conn).await)
+    let mut user_json = headers.user.to_json(&conn).await;
+    let has_authenticator =
+        TwoFactor::find_by_user_and_type(&headers.user.uuid, TwoFactorType::Authenticator as i32, &conn)
+            .await
+            .is_some();
+    user_json["MandatoryAuthenticatorSetup"] = json!(!has_authenticator);
+    user_json["AuthenticatorDisableBlocked"] = json!(has_authenticator);
+    Json(user_json)
 }
 
 #[derive(Debug, Deserialize)]

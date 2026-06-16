@@ -555,6 +555,12 @@ async fn authenticated_response(
         },
     });
 
+    let mandatory_authenticator_setup =
+        TwoFactor::find_by_user_and_type(&user.uuid, TwoFactorType::Authenticator as i32, conn)
+            .await
+            .is_none();
+    result["MandatoryAuthenticatorSetup"] = json!(mandatory_authenticator_setup);
+
     if !user.akey.is_empty() {
         result["Key"] = Value::String(user.akey.clone());
     }
@@ -858,20 +864,7 @@ async fn twofactor_auth(
             }
         }
         Some(TwoFactorType::RecoveryCode) => {
-            // Check if recovery code is correct
-            if !user.check_valid_recovery_code(twofactor_code) {
-                err!("Recovery code is incorrect. Try again.")
-            }
-
-            // Remove all twofactors from the user
-            TwoFactor::delete_all_by_user(&user.uuid, conn).await?;
-            enforce_2fa_policy(user, &user.uuid, device.atype, &ip.ip, conn).await?;
-
-            log_user_event(EventType::UserRecovered2fa as i32, &user.uuid, device.atype, &ip.ip, conn).await;
-
-            // Remove the recovery code, not needed without twofactors
-            user.totp_recover = None;
-            user.save(conn).await?;
+            err!("Recovery code login is not allowed")
         }
         _ => err!(
             "Invalid two factor provider",
@@ -1045,21 +1038,22 @@ async fn register_verification_email(
     conn: DbConn,
 ) -> ApiResult<RegisterVerificationResponse> {
     let data = data.into_inner();
+    let email = data.email.to_lowercase();
 
     // the registration can only continue if signup is allowed or there exists an invitation
-    if !(CONFIG.is_signup_allowed(&data.email)
-        || (!CONFIG.mail_enabled() && Invitation::find_by_mail(&data.email, &conn).await.is_some()))
+    if !(CONFIG.is_signup_allowed(&email)
+        || (!CONFIG.mail_enabled() && Invitation::find_by_mail(&email, &conn).await.is_some()))
     {
         err!("Registration not allowed or user already exists")
     }
 
     let should_send_mail = CONFIG.mail_enabled() && CONFIG.signups_verify();
 
-    let token_claims = auth::generate_register_verify_claims(data.email.clone(), data.name.clone(), should_send_mail);
+    let token_claims = auth::generate_register_verify_claims(email.clone(), data.name.clone(), should_send_mail);
     let token = auth::encode_jwt(&token_claims);
 
     if should_send_mail {
-        let user = User::find_by_mail(&data.email, &conn).await;
+        let user = User::find_by_mail(&email, &conn).await;
         if user.as_ref().is_some_and(|u| u.private_key.is_some()) {
             // There is still a timing side channel here in that the code
             // paths that send mail take noticeably longer than ones that don't.
@@ -1069,7 +1063,7 @@ async fn register_verification_email(
             let sleep_ms: u64 = rng.random_range(900..=1100);
             tokio::time::sleep(tokio::time::Duration::from_millis(sleep_ms)).await;
         } else {
-            mail::send_register_verify_email(&data.email, &token).await?;
+            mail::send_register_verify_email(&email, &token).await?;
         }
 
         Ok(RegisterVerificationResponse::NoContent(()))

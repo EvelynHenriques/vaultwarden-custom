@@ -36,7 +36,23 @@ fn has_global_duo_credentials() -> bool {
     CONFIG._enable_duo() && CONFIG.duo_host().is_some() && CONFIG.duo_ikey().is_some() && CONFIG.duo_skey().is_some()
 }
 
+/// Only authenticator app 2FA is allowed for user-managed providers in this deployment.
+pub fn is_allowed_mandatory_twofactor_provider(provider_type: &TwoFactorType) -> bool {
+    matches!(provider_type, TwoFactorType::Authenticator | TwoFactorType::Remember)
+}
+
+pub fn is_allowed_mandatory_twofactor_setup(provider_type: &TwoFactorType) -> bool {
+    matches!(provider_type, TwoFactorType::Authenticator)
+}
+
+pub fn reject_non_authenticator_twofactor_setup() -> EmptyResult {
+    err!("Only authenticator app 2FA is allowed")
+}
+
 pub fn is_twofactor_provider_usable(provider_type: &TwoFactorType, provider_data: Option<&str>) -> bool {
+    if !is_allowed_mandatory_twofactor_provider(provider_type) {
+        return false;
+    }
     #[derive(Deserialize)]
     struct DuoProviderData {
         host: String,
@@ -45,7 +61,8 @@ pub fn is_twofactor_provider_usable(provider_type: &TwoFactorType, provider_data
     }
 
     match provider_type {
-        TwoFactorType::Authenticator | TwoFactorType::RecoveryCode => true,
+        TwoFactorType::Authenticator | TwoFactorType::Remember => true,
+        TwoFactorType::RecoveryCode => false,
         TwoFactorType::Email => CONFIG._enable_email_2fa(),
         TwoFactorType::Duo | TwoFactorType::OrganizationDuo => {
             provider_data
@@ -94,7 +111,9 @@ async fn get_twofactor(headers: Headers, conn: DbConn) -> Json<Value> {
         .iter()
         .filter_map(|tf| {
             let provider_type = TwoFactorType::from_i32(tf.atype)?;
-            is_twofactor_provider_usable(&provider_type, Some(&tf.data)).then(|| TwoFactor::to_json_provider(tf))
+            (is_allowed_mandatory_twofactor_setup(&provider_type)
+                && is_twofactor_provider_usable(&provider_type, Some(&tf.data)))
+            .then(|| TwoFactor::to_json_provider(tf))
         })
         .collect();
 
@@ -106,16 +125,12 @@ async fn get_twofactor(headers: Headers, conn: DbConn) -> Json<Value> {
 }
 
 #[post("/two-factor/get-recover", data = "<data>")]
-async fn get_recover(data: Json<PasswordOrOtpData>, headers: Headers, conn: DbConn) -> JsonResult {
-    let data: PasswordOrOtpData = data.into_inner();
-    let user = headers.user;
-
-    data.validate(&user, true, &conn).await?;
-
-    Ok(Json(json!({
-        "code": user.totp_recover,
-        "object": "twoFactorRecover"
-    })))
+async fn get_recover(
+    _data: Json<PasswordOrOtpData>,
+    _headers: Headers,
+    _conn: DbConn,
+) -> JsonResult {
+    reject_non_authenticator_twofactor_setup()
 }
 
 async fn generate_recover_code(user: &mut User, conn: &DbConn) {
@@ -135,35 +150,12 @@ struct DisableTwoFactorData {
 }
 
 #[post("/two-factor/disable", data = "<data>")]
-async fn disable_twofactor(data: Json<DisableTwoFactorData>, headers: Headers, conn: DbConn) -> JsonResult {
-    let data: DisableTwoFactorData = data.into_inner();
-    let user = headers.user;
-
-    // Delete directly after a valid token has been provided
-    PasswordOrOtpData {
-        master_password_hash: data.master_password_hash,
-        otp: data.otp,
-    }
-    .validate(&user, true, &conn)
-    .await?;
-
-    let type_ = data.r#type.into_i32()?;
-
-    if let Some(twofactor) = TwoFactor::find_by_user_and_type(&user.uuid, type_, &conn).await {
-        twofactor.delete(&conn).await?;
-        log_user_event(EventType::UserDisabled2fa as i32, &user.uuid, headers.device.atype, &headers.ip.ip, &conn)
-            .await;
-    }
-
-    if TwoFactor::find_by_user(&user.uuid, &conn).await.is_empty() {
-        enforce_2fa_policy(&user, &user.uuid, headers.device.atype, &headers.ip.ip, &conn).await?;
-    }
-
-    Ok(Json(json!({
-        "enabled": false,
-        "type": type_,
-        "object": "twoFactorProvider"
-    })))
+async fn disable_twofactor(
+    _data: Json<DisableTwoFactorData>,
+    _headers: Headers,
+    _conn: DbConn,
+) -> JsonResult {
+    reject_non_authenticator_twofactor_setup()
 }
 
 #[put("/two-factor/disable", data = "<data>")]

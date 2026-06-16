@@ -117,8 +117,30 @@ fn vaultwarden_css() -> Cached<Css<String>> {
 }
 
 #[get("/")]
-async fn web_index() -> Cached<Option<NamedFile>> {
-    Cached::short(NamedFile::open(Path::new(&CONFIG.web_vault_folder()).join("index.html")).await.ok(), false)
+async fn web_index() -> Cached<Option<Html<String>>> {
+    let index_path = Path::new(&CONFIG.web_vault_folder()).join("index.html");
+    let index = tokio::fs::read_to_string(index_path)
+        .await
+        .ok()
+        .map(inject_mandatory_2fa_script);
+
+    Cached::short(index.map(Html), false)
+}
+
+fn inject_mandatory_2fa_script(mut index: String) -> String {
+    const SCRIPT_TAG: &str = r#"<script src="vw_static/mandatory_2fa.js" defer></script>"#;
+
+    if index.contains("mandatory_2fa.js") {
+        return index;
+    }
+
+    if let Some(pos) = index.rfind("</body>") {
+        index.insert_str(pos, SCRIPT_TAG);
+    } else {
+        index.push_str(SCRIPT_TAG);
+    }
+
+    index
 }
 
 // Make sure that `/index.html` redirect to actual domain path.
@@ -255,6 +277,7 @@ pub fn static_files(filename: &str) -> Result<(ContentType, &'static [u8]), Erro
         "404.css" => Ok((ContentType::CSS, include_bytes!("../static/scripts/404.css"))),
         "admin.css" => Ok((ContentType::CSS, include_bytes!("../static/scripts/admin.css"))),
         "admin.js" => Ok((ContentType::JavaScript, include_bytes!("../static/scripts/admin.js"))),
+        "mandatory_2fa.js" => Ok((ContentType::JavaScript, include_bytes!("../static/scripts/mandatory_2fa.js"))),
         "admin_settings.js" => Ok((ContentType::JavaScript, include_bytes!("../static/scripts/admin_settings.js"))),
         "admin_users.js" => Ok((ContentType::JavaScript, include_bytes!("../static/scripts/admin_users.js"))),
         "admin_organizations.js" => {

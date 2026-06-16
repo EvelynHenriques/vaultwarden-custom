@@ -38,6 +38,7 @@ struct SendEmailLoginData {
 /// Does not require Bearer token
 #[post("/two-factor/send-email-login", data = "<data>")] // JsonResult
 async fn send_email_login(data: Json<SendEmailLoginData>, client_headers: ClientHeaders, conn: DbConn) -> EmptyResult {
+    super::reject_non_authenticator_twofactor_setup()?;
     let data: SendEmailLoginData = data.into_inner();
 
     if !CONFIG._enable_email_2fa() {
@@ -125,6 +126,7 @@ pub async fn send_token(user_id: &UserId, conn: &DbConn) -> EmptyResult {
 /// When user clicks on Manage email 2FA show the user the related information
 #[post("/two-factor/get-email", data = "<data>")]
 async fn get_email(data: Json<PasswordOrOtpData>, headers: Headers, conn: DbConn) -> JsonResult {
+    super::reject_non_authenticator_twofactor_setup()?;
     let data: PasswordOrOtpData = data.into_inner();
     let user = headers.user;
 
@@ -158,6 +160,7 @@ struct SendEmailData {
 /// Send a verification email to the specified email address to check whether it exists/belongs to user.
 #[post("/two-factor/send-email", data = "<data>")]
 async fn send_email(data: Json<SendEmailData>, headers: Headers, conn: DbConn) -> EmptyResult {
+    super::reject_non_authenticator_twofactor_setup()?;
     let data: SendEmailData = data.into_inner();
     let user = headers.user;
 
@@ -202,6 +205,7 @@ struct EmailData {
 /// Verify email belongs to user and can be used for 2FA email codes.
 #[put("/two-factor/email", data = "<data>")]
 async fn email(data: Json<EmailData>, headers: Headers, conn: DbConn) -> JsonResult {
+    super::reject_non_authenticator_twofactor_setup()?;
     let data: EmailData = data.into_inner();
     let mut user = headers.user;
 

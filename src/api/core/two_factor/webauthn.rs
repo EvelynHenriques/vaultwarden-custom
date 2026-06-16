@@ -109,6 +109,7 @@ impl WebauthnRegistration {
 
 #[post("/two-factor/get-webauthn", data = "<data>")]
 async fn get_webauthn(data: Json<PasswordOrOtpData>, headers: Headers, conn: DbConn) -> JsonResult {
+    super::reject_non_authenticator_twofactor_setup()?;
     if !CONFIG.is_webauthn_2fa_supported() {
         err!("Configured `DOMAIN` is not compatible with Webauthn")
     }
@@ -130,6 +131,7 @@ async fn get_webauthn(data: Json<PasswordOrOtpData>, headers: Headers, conn: DbC
 
 #[post("/two-factor/get-webauthn-challenge", data = "<data>")]
 async fn generate_webauthn_challenge(data: Json<PasswordOrOtpData>, headers: Headers, conn: DbConn) -> JsonResult {
+    super::reject_non_authenticator_twofactor_setup()?;
     let data: PasswordOrOtpData = data.into_inner();
     let user = headers.user;
 
@@ -254,6 +256,7 @@ impl From<PublicKeyCredentialCopy> for PublicKeyCredential {
 
 #[post("/two-factor/webauthn", data = "<data>")]
 async fn activate_webauthn(data: Json<EnableWebauthnData>, headers: Headers, conn: DbConn) -> JsonResult {
+    super::reject_non_authenticator_twofactor_setup()?;
     let data: EnableWebauthnData = data.into_inner();
     let mut user = headers.user;
 
@@ -317,6 +320,7 @@ struct DeleteU2FData {
 
 #[delete("/two-factor/webauthn", data = "<data>")]
 async fn delete_webauthn(data: Json<DeleteU2FData>, headers: Headers, conn: DbConn) -> JsonResult {
+    super::reject_non_authenticator_twofactor_setup()?;
     let id = data.id.into_i32()?;
     if !headers.user.check_valid_password(&data.master_password_hash) {
         err!("Invalid password");
