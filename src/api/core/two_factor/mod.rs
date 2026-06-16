@@ -99,7 +99,7 @@ async fn get_twofactor(headers: Headers, conn: DbConn) -> Json<Value> {
 #[post("/two-factor/get-recover", data = "<data>")]
 async fn get_recover(data: Json<PasswordOrOtpData>, _headers: Headers, _conn: DbConn) -> JsonResult {
     let _ = data;
-    reject_non_authenticator_twofactor_setup()
+    err!("Only authenticator app 2FA is allowed")
 }
 
 async fn generate_recover_code(user: &mut User, conn: &DbConn) {
@@ -121,7 +121,7 @@ struct DisableTwoFactorData {
 #[post("/two-factor/disable", data = "<data>")]
 async fn disable_twofactor(data: Json<DisableTwoFactorData>, _headers: Headers, _conn: DbConn) -> JsonResult {
     let _ = data;
-    reject_non_authenticator_twofactor_setup()
+    err!("Only authenticator app 2FA is allowed")
 }
 
 #[put("/two-factor/disable", data = "<data>")]
