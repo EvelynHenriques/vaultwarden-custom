@@ -1,0 +1,6 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./web-vault-custom/apps/web/src/app/auth/settings/account" }
+  ]
+}

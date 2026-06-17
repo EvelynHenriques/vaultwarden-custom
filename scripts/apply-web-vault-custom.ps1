@@ -11,16 +11,28 @@ if (-not (Test-Path $ClientsDir)) {
     throw "Bitwarden clients directory not found: $ClientsDir"
 }
 
+$OverlayFiles = @(
+    "apps/web/src/app/auth/settings/account/account.component.ts",
+    "apps/web/src/app/auth/settings/account/account.component.html",
+    "apps/web/src/app/auth/settings/two-factor/two-factor-setup.component.ts",
+    "apps/web/src/app/auth/settings/two-factor/two-factor-setup.component.html",
+    "apps/web/src/app/auth/settings/two-factor/two-factor-setup-authenticator.component.ts",
+    "apps/web/src/app/auth/settings/two-factor/two-factor-setup-authenticator.component.html",
+    "apps/web/src/app/vault/guards/mandatory-authenticator.guard.ts",
+    "apps/web/src/app/vault/guards/mandatory-authenticator.policy.ts"
+)
+
 Write-Host "Applying Vaultwarden web-vault customizations from $CustomDir"
 
-Get-ChildItem $CustomDir -Recurse -File | Where-Object {
-    $_.FullName -notmatch [regex]::Escape([IO.Path]::Combine($CustomDir.Path, "patches"))
-} | ForEach-Object {
-    $relative = $_.FullName.Substring($CustomDir.Path.Length + 1)
+foreach ($relative in $OverlayFiles) {
+    $source = Join-Path $CustomDir $relative
+    if (-not (Test-Path $source)) {
+        throw "Missing overlay file: $relative"
+    }
     $destination = Join-Path $ClientsDir $relative
     $destinationDir = Split-Path $destination -Parent
     New-Item -ItemType Directory -Force -Path $destinationDir | Out-Null
-    Copy-Item $_.FullName $destination -Force
+    Copy-Item $source $destination -Force
     Write-Host "  updated $relative"
 }
 

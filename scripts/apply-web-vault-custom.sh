@@ -10,18 +10,30 @@ if [[ ! -d "${CLIENTS_DIR}" ]]; then
   exit 1
 fi
 
+OVERLAY_FILES=(
+  "apps/web/src/app/auth/settings/account/account.component.ts"
+  "apps/web/src/app/auth/settings/account/account.component.html"
+  "apps/web/src/app/auth/settings/two-factor/two-factor-setup.component.ts"
+  "apps/web/src/app/auth/settings/two-factor/two-factor-setup.component.html"
+  "apps/web/src/app/auth/settings/two-factor/two-factor-setup-authenticator.component.ts"
+  "apps/web/src/app/auth/settings/two-factor/two-factor-setup-authenticator.component.html"
+  "apps/web/src/app/vault/guards/mandatory-authenticator.guard.ts"
+  "apps/web/src/app/vault/guards/mandatory-authenticator.policy.ts"
+)
+
 echo "Applying Vaultwarden web-vault customizations from ${CUSTOM_DIR}"
 
-while IFS= read -r -d '' file; do
-  relative="${file#${CUSTOM_DIR}/}"
-  if [[ "${relative}" == patches/* ]]; then
-    continue
+for relative in "${OVERLAY_FILES[@]}"; do
+  source="${CUSTOM_DIR}/${relative}"
+  if [[ ! -f "${source}" ]]; then
+    echo "  missing overlay file: ${relative}" >&2
+    exit 1
   fi
   destination="${CLIENTS_DIR}/${relative}"
   mkdir -p "$(dirname "${destination}")"
-  cp "${file}" "${destination}"
+  cp "${source}" "${destination}"
   echo "  updated ${relative}"
-done < <(find "${CUSTOM_DIR}" -type f ! -path "${CUSTOM_DIR}/patches/*" -print0)
+done
 
 patch_file="${CUSTOM_DIR}/patches/oss-routing.module.patch"
 if [[ -f "${patch_file}" ]]; then

@@ -10,6 +10,7 @@ declare module "@angular/core" {
   export function inject<T>(token: new (...args: never[]) => T): T;
   export function inject<T>(token: abstract new (...args: never[]) => T): T;
   export function Component(metadata: unknown): ClassDecorator;
+  export function NgModule(metadata: unknown): ClassDecorator;
   export function Inject(token: unknown): ParameterDecorator;
   export function Output(): PropertyDecorator;
   export class EventEmitter<T> {
@@ -40,7 +41,34 @@ declare module "@angular/router" {
 declare module "@angular/common";
 declare module "@angular/forms";
 
-declare module "rxjs";
+declare module "rxjs" {
+  export interface OperatorFunction<T, R> {
+    (source: Observable<T>): Observable<R>;
+  }
+
+  export class Observable<T> {
+    pipe<R>(op: OperatorFunction<T, R>): Observable<R>;
+    pipe<A, B>(op1: OperatorFunction<T, A>, op2: OperatorFunction<A, B>): Observable<B>;
+    pipe(...operations: OperatorFunction<unknown, unknown>[]): Observable<unknown>;
+  }
+
+  export class Subject<T> extends Observable<T> {
+    next(value: T): void;
+    complete(): void;
+  }
+
+  export class Subscription {
+    unsubscribe(): void;
+  }
+
+  export function firstValueFrom<T>(source: Observable<T>): Promise<T>;
+  export function lastValueFrom<T>(source: Observable<T>): Promise<T>;
+  export function first<T>(): OperatorFunction<T, T>;
+  export function map<T, R>(project: (value: T, index?: number) => R): OperatorFunction<T, R>;
+  export function takeUntil<T>(notifier: Observable<unknown>): OperatorFunction<T, T>;
+  export function switchMap<T, R>(project: (value: T) => Observable<R>): OperatorFunction<T, R>;
+}
+
 declare module "rxjs/operators";
 
 declare module "@bitwarden/common/auth/enums/two-factor-provider-type" {
@@ -206,6 +234,12 @@ declare module "@bitwarden/angular/billing/components/premium-badge" {
   export class PremiumBadgeComponent {}
 }
 
+declare module "@bitwarden/auth/common" {
+  export class UserDecryptionOptionsServiceAbstraction {
+    hasMasterPasswordById$(userId: string): import("rxjs").Observable<boolean>;
+  }
+}
+
 declare module "@bitwarden/auth/angular" {
   export class UserVerificationDialogComponent {
     static open(
@@ -215,10 +249,23 @@ declare module "@bitwarden/auth/angular" {
   }
 }
 
+declare module "@bitwarden/common/admin-console/abstractions/organization/organization.service.abstraction" {
+  import { Observable } from "rxjs";
+
+  export interface Organization {
+    userIsManagedByOrganization: boolean;
+  }
+
+  export class OrganizationService {
+    organizations$(userId: string): Observable<Organization[]>;
+  }
+}
+
 declare module "@bitwarden/components" {
   export class DialogRef<T, U> {
     componentInstance: U;
     close(): void;
+    closed: import("rxjs").Observable<T>;
   }
   export class DialogService {
     openSimpleDialog(config: unknown): Promise<boolean>;

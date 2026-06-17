@@ -1,7 +1,6 @@
-import { Component, OnDestroy, OnInit } from "@angular/core";
-import { firstValueFrom, lastValueFrom, map, Observable, Subject, takeUntil } from "rxjs";
+import { Component, OnInit } from "@angular/core";
+import { firstValueFrom, lastValueFrom, map, Observable } from "rxjs";
 
-import { AccountDeletionService } from "@bitwarden/angular/auth/account-deletion/account-deletion.service";
 import { UserDecryptionOptionsServiceAbstraction } from "@bitwarden/auth/common";
 import { OrganizationService } from "@bitwarden/common/admin-console/abstractions/organization/organization.service.abstraction";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
@@ -15,6 +14,7 @@ import { PurgeVaultComponent } from "../../../vault/settings/purge-vault.compone
 import { ChangeEmailComponent } from "./change-email.component";
 import { DangerZoneComponent } from "./danger-zone.component";
 import { DeauthorizeSessionsComponent } from "./deauthorize-sessions.component";
+import { DeleteAccountDialogComponent } from "./delete-account-dialog.component";
 import { ProfileComponent } from "./profile.component";
 
 // FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
@@ -29,9 +29,7 @@ import { ProfileComponent } from "./profile.component";
     DangerZoneComponent,
   ],
 })
-export class AccountComponent implements OnInit, OnDestroy {
-  private destroy$ = new Subject<void>();
-
+export class AccountComponent implements OnInit {
   showChangeEmail$: Observable<boolean> = new Observable();
   showPurgeVault$: Observable<boolean> = new Observable();
   showDeleteAccount$: Observable<boolean> = new Observable();
@@ -41,7 +39,6 @@ export class AccountComponent implements OnInit, OnDestroy {
     private dialogService: DialogService,
     private userDecryptionOptionsService: UserDecryptionOptionsServiceAbstraction,
     private organizationService: OrganizationService,
-    private accountDeletionService: AccountDeletionService,
   ) {}
 
   async ngOnInit() {
@@ -77,11 +74,7 @@ export class AccountComponent implements OnInit, OnDestroy {
   };
 
   deleteAccount = async () => {
-    await this.accountDeletionService.openDeleteAccountFlow();
+    const dialogRef = DeleteAccountDialogComponent.open(this.dialogService);
+    await lastValueFrom(dialogRef.closed);
   };
-
-  ngOnDestroy() {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
 }
