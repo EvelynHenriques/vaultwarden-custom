@@ -133,8 +133,8 @@ bit-nav-logo bit-nav-item a:before {
 bit-nav-logo bit-nav-item .bwi-shield {
   @extend %vw-hide;
 }
-/* Hide Device Login Protection button on user settings page */
-app-user-layout app-danger-zone button:nth-child(1) {
+/* Hide new device login protection on/off (account danger zone) */
+app-user-layout app-danger-zone ng-container button {
   @extend %vw-hide;
 }
 

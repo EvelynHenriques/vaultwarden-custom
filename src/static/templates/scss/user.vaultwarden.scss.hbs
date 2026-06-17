@@ -1,1 +1,76 @@
-/* See the wiki for examples and details: https://github.com/dani-garcia/vaultwarden/wiki/Customize-Vaultwarden-CSS */
+/* Olive green theme overrides for the web vault (injected via Vaultwarden CSS). */
+
+:root {
+  /* Tailwind-style RGB tokens used by Bitwarden primary utilities */
+  --color-primary-100: 237 242 227;
+  --color-primary-200: 214 224 194;
+  --color-primary-300: 181 198 149;
+  --color-primary-400: 139 162 95;
+  --color-primary-500: 107 126 58;
+  --color-primary-600: 85 107 47;
+  --color-primary-700: 68 85 38;
+  --color-primary-800: 54 68 30;
+  --color-primary-900: 42 53 24;
+}
+
+.tw-bg-primary-600,
+.tw-bg-primary-500,
+.tw-bg-primary-700 {
+  background-color: rgb(85 107 47) !important;
+}
+
+.tw-bg-primary-600:hover,
+.tw-bg-primary-500:hover,
+.tw-bg-primary-700:hover {
+  background-color: rgb(68 85 38) !important;
+}
+
+.tw-text-primary-600,
+.tw-text-primary-500,
+.tw-text-primary-700,
+a.tw-text-primary-600,
+bit-link.tw-text-primary-600 {
+  color: rgb(85 107 47) !important;
+}
+
+.tw-text-primary-600:hover,
+a.tw-text-primary-600:hover {
+  color: rgb(68 85 38) !important;
+}
+
+.tw-border-primary-600,
+.tw-border-primary-500 {
+  border-color: rgb(85 107 47) !important;
+}
+
+.tw-ring-primary-600 {
+  --tw-ring-color: rgb(85 107 47) !important;
+}
+
+button[buttonType="primary"],
+button[buttontype="primary"] {
+  background-color: rgb(85 107 47) !important;
+  border-color: rgb(85 107 47) !important;
+}
+
+button[buttonType="primary"]:hover,
+button[buttontype="primary"]:hover {
+  background-color: rgb(68 85 38) !important;
+  border-color: rgb(68 85 38) !important;
+}
+
+bit-nav-item a.tw-bg-primary-600,
+bit-nav-item a[class*="tw-bg-primary"] {
+  background-color: rgb(85 107 47) !important;
+}
+
+bit-nav-item a.tw-text-primary-600,
+bit-nav-item a[class*="tw-text-primary"] {
+  color: rgb(214 224 194) !important;
+}
+
+/* Sidebar / top bar accents */
+bit-nav-logo,
+app-header {
+  --color-primary-600: 85 107 47;
+}

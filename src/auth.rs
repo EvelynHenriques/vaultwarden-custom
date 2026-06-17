@@ -621,11 +621,15 @@ fn mandatory_authenticator_2fa_allowed_route(request: &Request<'_>) -> bool {
 
     matches!(
         route_name,
-        // Let the web vault load enough account state to render the 2FA setup UI.
-        "profile"
+        // Session/bootstrap: sync returns an empty vault until Authenticator is configured (see ciphers::sync).
+        "sync" | "revision_date" | "profile"
+            // Account initialization after registration (before Authenticator exists).
+            | "post_set_password"
+            | "post_keys"
+            | "verify_password"
+            // 2FA setup UI and Authenticator enrollment.
             | "get_twofactor"
             | "get_device_verification_settings"
-            // Let the user generate and activate the Authenticator app provider.
             | "generate_authenticator"
             | "activate_authenticator"
             | "activate_authenticator_put"

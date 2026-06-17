@@ -20,10 +20,15 @@ export function clearMandatoryAuthenticatorGuardCache(): void {
   resetMandatoryAuthenticatorSetupState();
 }
 
-/** Only the authenticator setup page is reachable until 2FA is configured. */
+/** Routes reachable while mandatory Authenticator setup is pending. */
 export function isMandatorySetupAllowedUrl(url: string): boolean {
   const path = url.split("?")[0];
-  return path.includes(MANDATORY_TWO_FACTOR_SETUP_URL);
+  return (
+    path.includes(MANDATORY_TWO_FACTOR_SETUP_URL) ||
+    path.startsWith("/settings/security") ||
+    path === "/settings" ||
+    path === "/lock"
+  );
 }
 
 export async function resolveMandatoryAuthenticatorAccess(
