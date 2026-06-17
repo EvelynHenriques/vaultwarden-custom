@@ -124,13 +124,13 @@ fn parse_args() {
     let version = VERSION.unwrap_or("(Version info from Git not present)");
 
     if pargs.contains(["-h", "--help"]) {
-        println!("Vaultwarden {version}");
+        println!("{product} {version}", product = CONFIG.product_name());
         print!("{HELP}");
         exit(0);
     } else if pargs.contains(["-v", "--version"]) {
         config::SKIP_CONFIG_VALIDATION.store(true, Ordering::Relaxed);
         let web_vault_version = util::get_active_web_release();
-        println!("Vaultwarden {version}");
+        println!("{product} {version}", product = CONFIG.product_name());
         println!("Web-Vault {web_vault_version}");
         exit(0);
     }
@@ -211,10 +211,11 @@ fn install_rustls_crypto_provider() {
 }
 
 fn launch_info() {
+    let product = CONFIG.product_name();
     println!(
         "\
         /--------------------------------------------------------------------\\\n\
-        |                        Starting Vaultwarden                        |"
+        |                        Starting {product:<32} |"
     );
 
     if let Some(version) = VERSION {
@@ -224,13 +225,6 @@ fn launch_info() {
     println!(
         "\
         |--------------------------------------------------------------------|\n\
-        | This is an *unofficial* Bitwarden implementation, DO NOT use the   |\n\
-        | official channels to report bugs/features, regardless of client.   |\n\
-        | Send usage/configuration questions or feature requests to:         |\n\
-        |   https://github.com/dani-garcia/vaultwarden/discussions or        |\n\
-        |   https://vaultwarden.discourse.group/                             |\n\
-        | Report suspected bugs/issues in the software itself at:            |\n\
-        |   https://github.com/dani-garcia/vaultwarden/issues/new            |\n\
         \\--------------------------------------------------------------------/\n"
     );
 }

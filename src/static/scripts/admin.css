@@ -86,3 +86,12 @@ img {
     display: block;
     overflow: visible;
 }
+
+.btn-primary {
+    --bs-btn-bg: #556b2f;
+    --bs-btn-border-color: #556b2f;
+    --bs-btn-hover-bg: #445526;
+    --bs-btn-hover-border-color: #445526;
+    --bs-btn-active-bg: #36421e;
+    --bs-btn-active-border-color: #36421e;
+}

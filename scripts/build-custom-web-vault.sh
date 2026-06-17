@@ -31,4 +31,11 @@ popd >/dev/null
 
 rm -rf "${OUTPUT_DIR}"
 mv "${CLIENTS_DIR}/apps/web/build" "${OUTPUT_DIR}"
+
+# Rebrand page metadata in the built web-vault
+if [[ -f "${OUTPUT_DIR}/index.html" ]]; then
+  sed -i 's/<title>Bitwarden<\/title>/<title>Cofre<\/title>/g' "${OUTPUT_DIR}/index.html" 2>/dev/null || \
+    sed -i '' 's/<title>Bitwarden<\/title>/<title>Cofre<\/title>/g' "${OUTPUT_DIR}/index.html" 2>/dev/null || true
+fi
+
 echo "Custom web-vault build available at ${OUTPUT_DIR}"

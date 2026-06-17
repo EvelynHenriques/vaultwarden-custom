@@ -9,25 +9,13 @@
 # 	https://docs.docker.com/develop/develop-images/multistage-build/
 # 	https://whitfin.io/speeding-up-rust-docker-builds/
 
-####################### VAULT BUILD IMAGE #######################
-# The web-vault digest specifies a particular web-vault build on Docker Hub.
-# Using the digest instead of the tag name provides better security,
-# as the digest of an image is immutable, whereas a tag name can later
-# be changed to point to a malicious image.
+####################### WEB VAULT #######################
+# The Docker image expects a locally built web-vault directory.
+# Run ./scripts/build-custom-web-vault.sh before building this image.
+# To use the upstream web-vault image instead, restore the vault stage below
+# and replace `COPY ./web-vault` with `COPY --from=vault /web-vault ./web-vault`.
 #
-# To verify the current digest for a given tag name:
-# - From https://hub.docker.com/r/vaultwarden/web-vault/tags,
-#   click the tag name to view the digest of the image it currently points to.
-# - From the command line:
-#     $ docker pull docker.io/vaultwarden/web-vault:v2026.4.1
-#     $ docker image inspect --format "{{.RepoDigests}}" docker.io/vaultwarden/web-vault:v2026.4.1
-#     [docker.io/vaultwarden/web-vault@sha256:ca2a4251c4e63c9ad428262b4dd452789a1b9f6fce71da351e93dceed0d2edbe]
-#
-# - Conversely, to get the tag name from the digest:
-#     $ docker image inspect --format "{{.RepoTags}}" docker.io/vaultwarden/web-vault@sha256:ca2a4251c4e63c9ad428262b4dd452789a1b9f6fce71da351e93dceed0d2edbe
-#     [docker.io/vaultwarden/web-vault:v2026.4.1]
-#
-FROM --platform=linux/amd64 docker.io/vaultwarden/web-vault@sha256:ca2a4251c4e63c9ad428262b4dd452789a1b9f6fce71da351e93dceed0d2edbe AS vault
+# FROM --platform=linux/amd64 docker.io/vaultwarden/web-vault@sha256:... AS vault
 
 ########################## Cross Compile Docker Helper Scripts ##########################
 ## We use the linux/amd64 no matter which Build Platform, since these are all bash scripts
@@ -163,11 +151,15 @@ EXPOSE 80
 
 # Copies the files from the context (Rocket.toml file and web-vault)
 # and the binary from the "build" stage to the current stage
+#
+# Build the custom web-vault first:
+#   export COMMIT_HASH=b9658a795ff0aa10f927667f8b286c4ec1552d9a
+#   ./scripts/build-custom-web-vault.sh
 WORKDIR /
 
 COPY docker/healthcheck.sh docker/start.sh /
 
-COPY --from=vault /web-vault ./web-vault
+COPY ./web-vault ./web-vault
 COPY --from=build /app/target/final/vaultwarden .
 
 HEALTHCHECK --interval=60s --timeout=10s CMD ["/healthcheck.sh"]

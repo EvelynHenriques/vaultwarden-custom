@@ -652,8 +652,11 @@ make_config! {
         /// Admin token/Argon2 PHC |> The plain text token or Argon2 PHC string used to authenticate in this very same page. Changing it here will not deauthorize the current session!
         admin_token:            Pass,   true,   option;
 
+        /// Product name |> Display name used in the web UI, emails, and admin panel
+        product_name:           String, true,   def,    "Cofre".to_owned();
+
         /// Invitation organization name |> Name shown in the invitation emails that don't come from a specific organization
-        invitation_org_name:    String, true,   def,    "Vaultwarden".to_owned();
+        invitation_org_name:    String, true,   def,    "Cofre".to_owned();
 
         /// Events days retain |> Number of days to retain events stored in the database. If unset, events are kept indefinitely.
         events_days_retain:     i64,    false,   option;
@@ -880,7 +883,7 @@ make_config! {
         /// From Address
         smtp_from:                     String, true,   def,     String::new();
         /// From Name
-        smtp_from_name:                String, true,   def,     "Vaultwarden".to_owned();
+        smtp_from_name:                String, true,   def,     "Cofre".to_owned();
         /// Username
         smtp_username:                 String, true,   option;
         /// Password
@@ -1612,13 +1615,18 @@ impl Config {
     }
 
     pub fn render_template<T: serde::ser::Serialize>(&self, name: &str, data: &T) -> Result<String, Error> {
+        let mut merged = serde_json::to_value(data).map_err(|e| err!(format!("Failed to serialize template data: {e}")))?;
+        if let serde_json::Value::Object(ref mut map) = merged {
+            map.entry("product_name".to_owned()).or_insert_with(|| self.product_name().into());
+        }
+
         if self.reload_templates() {
             warn!("RELOADING TEMPLATES");
             let hb = load_templates(CONFIG.templates_folder());
-            hb.render(name, data).map_err(Into::into)
+            hb.render(name, &merged).map_err(Into::into)
         } else {
             let hb = &self.inner.read().unwrap().templates;
-            hb.render(name, data).map_err(Into::into)
+            hb.render(name, &merged).map_err(Into::into)
         }
     }
 

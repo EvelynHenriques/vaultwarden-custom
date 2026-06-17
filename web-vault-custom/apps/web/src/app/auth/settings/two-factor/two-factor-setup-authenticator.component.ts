@@ -199,11 +199,11 @@ export class TwoFactorSetupAuthenticatorComponent
     new window.QRious({
       element: document.getElementById("qr"),
       value:
-        "otpauth://totp/Bitwarden:" +
+        "otpauth://totp/Cofre:" +
         Utils.encodeRFC3986URIComponent(email) +
         "?secret=" +
         encodeURIComponent(this.key) +
-        "&issuer=Bitwarden",
+        "&issuer=Cofre",
       size: 160,
     });
   }
@@ -220,18 +220,6 @@ export class TwoFactorSetupAuthenticatorComponent
     const confirmed = await this.dialogService.openSimpleDialog({
       title: this.i18nService.t("continueToExternalUrlTitle", hostname),
       content: this.i18nService.t("continueToExternalUrlDesc"),
-      type: "info",
-      acceptButtonText: { key: "continue" },
-    });
-    if (confirmed) {
-      this.platformUtilsService.launchUri(url);
-    }
-  }
-
-  async launchBitwardenUrl(url: string) {
-    const confirmed = await this.dialogService.openSimpleDialog({
-      title: this.i18nService.t("twoStepContinueToBitwardenUrlTitle"),
-      content: this.i18nService.t("twoStepContinueToBitwardenUrlDesc"),
       type: "info",
       acceptButtonText: { key: "continue" },
     });
