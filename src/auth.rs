@@ -621,11 +621,8 @@ fn mandatory_authenticator_2fa_allowed_route(request: &Request<'_>) -> bool {
 
     matches!(
         route_name,
-        // Let the web vault load enough account state to render the settings UI.
+        // Let the web vault load enough account state to render the 2FA setup UI.
         "profile"
-            | "revision_date"
-            | "sync"
-            | "get_auth_requests_pending"
             | "get_twofactor"
             | "get_device_verification_settings"
             // Let the user generate and activate the Authenticator app provider.

@@ -45,6 +45,7 @@ import { TwoFactorSetupEmailComponent } from "./two-factor-setup-email.component
 import { TwoFactorSetupWebAuthnComponent } from "./two-factor-setup-webauthn.component";
 import { TwoFactorSetupYubiKeyComponent } from "./two-factor-setup-yubikey.component";
 import { TwoFactorVerifyComponent } from "./two-factor-verify.component";
+import { markMandatoryAuthenticatorSetupComplete } from "../../../vault/guards/mandatory-authenticator.policy";
 
 // FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
 // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
@@ -320,6 +321,9 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
         p.enabled = enabled;
       }
     });
+    if (enabled && type === TwoFactorProviderType.Authenticator) {
+      markMandatoryAuthenticatorSetupComplete();
+    }
     this.evaluatePolicies();
   }
 

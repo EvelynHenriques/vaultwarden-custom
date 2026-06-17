@@ -18,3 +18,11 @@ diff --git a/apps/web/src/app/oss-routing.module.ts b/apps/web/src/app/oss-routi
      children: [
        {
          path: "vault",
+@@ -776,6 +777,7 @@ const routes: Routes = [
+   },
+   {
+     path: "organizations",
++    canActivate: [authGuard, mandatoryAuthenticatorGuard],
+     loadChildren: () =>
+       import("./admin-console/organizations/organization.module").then((m) => m.OrganizationModule),
+   },
