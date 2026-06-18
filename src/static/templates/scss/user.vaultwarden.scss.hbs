@@ -361,7 +361,7 @@ app-password-manager-logo {
 bit-nav-logo::after,
 auth-password-manager-logo::after,
 app-password-manager-logo::after {
-  content: "EBVault";
+  content: "EB Vault";
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -402,6 +402,58 @@ bit-side-nav .tw-text-fg-body-subtle {
 bit-side-nav bit-nav-logo::after,
 .theme_light bit-side-nav bit-nav-logo::after {
   color: #{$text-light} !important;
+}
+
+/* Auth / registration pages — olive-green hero icons */
+.layout_frontend bit-landing-hero bit-svg svg,
+.layout_frontend bit-landing-hero svg,
+auth-anon-layout bit-landing-hero svg,
+bit-landing-hero svg {
+  filter: hue-rotate(68deg) saturate(1.15) brightness(1.05);
+}
+
+.layout_frontend bit-landing-hero svg [fill="#175DDC"],
+.layout_frontend bit-landing-hero svg [fill="#175ddc"],
+.layout_frontend bit-landing-hero svg [fill="#0054de"],
+.layout_frontend bit-landing-hero svg [fill="#2F5DD0"],
+.layout_frontend bit-landing-hero svg [stroke="#175DDC"],
+.layout_frontend bit-landing-hero svg [stroke="#175ddc"] {
+  fill: #{$olive-600} !important;
+  stroke: #{$olive-600} !important;
+}
+
+.layout_frontend bit-landing-hero svg [fill="#FFD400"],
+.layout_frontend bit-landing-hero svg [fill="#ffd400"],
+.layout_frontend bit-landing-hero svg [fill="#F9A825"] {
+  fill: #{$olive-400} !important;
+}
+
+/* Registration / login — prevent terms text truncation */
+.layout_frontend bit-landing-card,
+.layout_frontend bit-landing-content,
+.layout_frontend bit-base-card {
+  overflow: visible !important;
+}
+
+.layout_frontend bit-landing-card form p[bitTypography="helper"],
+.layout_frontend bit-landing-card p.tw-text-xs,
+.layout_frontend bit-landing-content p {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere;
+  line-height: 1.5 !important;
+  max-width: 100%;
+}
+
+.layout_frontend bit-landing-footer {
+  color: #{$text-dark-muted};
+}
+
+.theme_dark.layout_frontend bit-landing-footer,
+body.theme_dark.layout_frontend bit-landing-footer {
+  color: #{$text-light-muted};
 }
 
 .theme_dark bit-form-field label,

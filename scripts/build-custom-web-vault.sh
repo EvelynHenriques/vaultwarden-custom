@@ -38,7 +38,7 @@ fi
 
 "${SCRIPT_DIR}/apply-web-vault-custom.sh" "${CLIENTS_DIR}"
 
-# Rebrand locale strings (Bitwarden/Vaultwarden -> EBVault) before webpack bundles them.
+# Rebrand locale strings (Bitwarden/Vaultwarden -> EB Vault) before webpack bundles them.
 "${SCRIPT_DIR}/patch-web-vault-branding.sh" "${CLIENTS_DIR}/apps/web/src/locales"
 
 pushd "${CLIENTS_DIR}" >/dev/null
@@ -59,8 +59,8 @@ mv "${CLIENTS_DIR}/apps/web/build" "${OUTPUT_DIR}"
 # Rebrand page metadata and inject Vaultwarden dynamic CSS link (official web-vault builds include this; OSS builds do not).
 if [[ -f "${OUTPUT_DIR}/index.html" ]]; then
   INDEX="${OUTPUT_DIR}/index.html"
-  sed -i 's/<title>[^<]*<\/title>/<title>EBVault<\/title>/' "${INDEX}" 2>/dev/null || \
-    sed -i '' 's/<title>[^<]*<\/title>/<title>EBVault<\/title>/' "${INDEX}" 2>/dev/null || true
+  sed -i 's/<title>[^<]*<\/title>/<title>EB Vault<\/title>/' "${INDEX}" 2>/dev/null || \
+    sed -i '' 's/<title>[^<]*<\/title>/<title>EB Vault<\/title>/' "${INDEX}" 2>/dev/null || true
   if ! grep -q 'vaultwarden.css' "${INDEX}"; then
     sed -i 's|</head>|<link rel="stylesheet" href="css/vaultwarden.css" />\n</head>|' "${INDEX}" 2>/dev/null || \
       sed -i '' 's|</head>|<link rel="stylesheet" href="css/vaultwarden.css" />\n</head>|' "${INDEX}" 2>/dev/null || true

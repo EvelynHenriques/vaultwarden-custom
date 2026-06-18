@@ -15,7 +15,7 @@ import { SharedModule } from "../shared";
   imports: [SharedModule, EnvironmentSelectorComponent],
 })
 export class FrontendLayoutComponent implements OnInit, OnDestroy {
-  readonly productName = "EBVault";
+  readonly productName = "EB Vault";
   year = "2015";
 
   constructor(private platformUtilsService: PlatformUtilsService) {}

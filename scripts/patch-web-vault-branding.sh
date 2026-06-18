@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Replace user-visible Bitwarden / Vaultwarden / legacy Cofre strings with EBVault.
+# Replace user-visible Bitwarden / Vaultwarden / legacy branding with EB Vault.
 # Preserves bitwarden.com URLs and package identifiers.
 set -euo pipefail
 
@@ -18,15 +18,18 @@ patch_file() {
     -e 's/vault\.bitwarden\.com/\x01VAULTBW\x01/g' \
     -e 's/com\.8bit\.bitwarden/\x01BWPKG\x01/g' \
     -e 's/github\.com\/bitwarden/\x01GHBW\x01/g' \
-    -e 's/Mais produtos do Bitwarden/Mais produtos do EBVault/g' \
-    -e 's/Mais do Bitwarden/Mais do EBVault/g' \
-    -e 's/Bitwarden Authenticator/EBVault Authenticator/g' \
-    -e 's/Autenticador Cofre/Autenticador EBVault/g' \
-    -e 's/Autenticador cofre/Autenticador EBVault/g' \
-    -e 's/Bitwarden/EBVault/g' \
-    -e 's/Vaultwarden/EBVault/g' \
-    -e 's/Cofre/EBVault/g' \
-    -e 's/cofre/EBVault/g' \
+    -e 's/Mais produtos do Bitwarden/Mais produtos do EB Vault/g' \
+    -e 's/Mais do Bitwarden/Mais do EB Vault/g' \
+    -e 's/Bitwarden Authenticator/EB Vault Authenticator/g' \
+    -e 's/Autenticador EBVault/Autenticador EB Vault/g' \
+    -e 's/Autenticador Cofre/Autenticador EB Vault/g' \
+    -e 's/Bitwarden Inc\./EB Vault/g' \
+    -e 's/Bitwarden Inc/EB Vault/g' \
+    -e 's/Bitwarden/EB Vault/g' \
+    -e 's/Vaultwarden/EB Vault/g' \
+    -e 's/EBVault/EB Vault/g' \
+    -e 's/Cofre/EB Vault/g' \
+    -e 's/cofre/EB Vault/g' \
     -e 's/\x01BWDOMAIN\x01/bitwarden.com/g' \
     -e 's/\x01VAULTBW\x01/vault.bitwarden.com/g' \
     -e 's/\x01BWPKG\x01/com.8bit.bitwarden/g' \
@@ -35,7 +38,7 @@ patch_file() {
   mv "${tmp}" "${file}"
 }
 
-echo "Patching EBVault branding under ${TARGET_DIR}"
+echo "Patching EB Vault branding under ${TARGET_DIR}"
 
 while IFS= read -r -d '' file; do
   patch_file "${file}"

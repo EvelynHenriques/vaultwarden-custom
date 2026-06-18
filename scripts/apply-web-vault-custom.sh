@@ -23,6 +23,8 @@ OVERLAY_FILES=(
   "apps/web/src/app/layouts/web-side-nav.component.html"
   "apps/web/src/app/layouts/product-switcher/navigation-switcher/navigation-switcher.component.html"
   "apps/web/src/app/layouts/product-switcher/product-switcher.component.html"
+  "libs/components/src/anon-layout/anon-layout.component.html"
+  "libs/auth/src/angular/registration/registration-start/registration-start.component.html"
   "apps/web/src/app/vault/guards/mandatory-authenticator.guard.ts"
   "apps/web/src/app/vault/guards/mandatory-authenticator.policy.ts"
 )
