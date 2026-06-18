@@ -12,6 +12,23 @@ if [[ -z "${COMMIT_HASH}" ]]; then
   exit 1
 fi
 
+# The Angular web-vault build typically needs 4–8 GiB of free RAM.
+# On small servers, stop Docker containers first or build on another machine and copy ./web-vault.
+if [[ "${SKIP_MEM_CHECK:-}" != "1" ]] && command -v free >/dev/null 2>&1; then
+  avail_kb="$(free | awk '/^Mem:/ {print $7}')"
+  avail_mb=$((avail_kb / 1024))
+  if (( avail_mb < 2048 )); then
+    echo "WARNING: Only ~${avail_mb} MiB memory available (need at least ~2 GiB, ideally 4+ GiB)." >&2
+    echo "The build will likely be killed by the OOM killer during 'npm run dist:oss:selfhost'." >&2
+    echo "" >&2
+    echo "Options:" >&2
+    echo "  1. Stop services to free RAM:  docker compose -f /vaultwarden/docker-compose.yml stop" >&2
+    echo "  2. Build on a PC with more RAM, then copy the web-vault/ folder to this server." >&2
+    echo "  3. Force anyway (may hang or die):  SKIP_MEM_CHECK=1 $0" >&2
+    exit 1
+  fi
+fi
+
 if [[ ! -d "${CLIENTS_DIR}/.git" ]]; then
   rm -rf "${CLIENTS_DIR}"
   git clone --depth 1 "https://github.com/bitwarden/clients.git" "${CLIENTS_DIR}"
@@ -24,6 +41,8 @@ fi
 pushd "${CLIENTS_DIR}" >/dev/null
 npm ci --ignore-scripts
 pushd apps/web >/dev/null
+# Limit Node heap (override with NODE_OPTIONS if you have more RAM).
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=2048}"
 npm run dist:oss:selfhost
 printf '{"version":"%s-vw-mandatory-2fa"}' "${COMMIT_HASH}" > build/vw-version.json
 popd >/dev/null
