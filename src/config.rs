@@ -1615,7 +1615,8 @@ impl Config {
     }
 
     pub fn render_template<T: serde::ser::Serialize>(&self, name: &str, data: &T) -> Result<String, Error> {
-        let mut merged = serde_json::to_value(data).map_err(|e| err!(format!("Failed to serialize template data: {e}")))?;
+        let mut merged =
+            serde_json::to_value(data).map_err(|e| Error::from(("Failed to serialize template data", e)))?;
         if let serde_json::Value::Object(ref mut map) = merged {
             map.entry("product_name".to_owned()).or_insert_with(|| self.product_name().into());
         }

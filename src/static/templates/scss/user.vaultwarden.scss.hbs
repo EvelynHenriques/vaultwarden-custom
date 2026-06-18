@@ -194,3 +194,30 @@ app-two-factor-auth {
   --color-brand-700: #{$olive-700};
   --color-bg-brand: #{$olive-700};
 }
+
+/* 2025+ buttons use semantic Tailwind utilities (tw-bg-bg-brand, etc.) */
+.tw-bg-bg-brand,
+.tw-bg-bg-brand-strong,
+.tw-bg-bg-brand-stronger,
+.tw-bg-brand-700,
+.tw-bg-brand-800 {
+  background-color: #{$olive-600} !important;
+}
+
+.tw-bg-bg-brand:hover,
+.tw-bg-bg-brand-strong:hover,
+.tw-bg-brand-700:hover,
+.tw-bg-brand-800:hover {
+  background-color: #{$olive-700} !important;
+}
+
+.tw-text-fg-brand,
+.tw-text-fg-brand-strong,
+.tw-text-brand-700 {
+  color: #{$olive-600} !important;
+}
+
+.tw-border-border-brand,
+.tw-border-brand-700 {
+  border-color: #{$olive-600} !important;
+}

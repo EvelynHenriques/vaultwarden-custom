@@ -116,10 +116,37 @@ fn vaultwarden_css() -> Cached<Css<String>> {
     Cached::ttl(Css(css), 86_400, false)
 }
 
+/// Official Vaultwarden web-vault builds include a link to `/css/vaultwarden.css`.
+/// Custom OSS builds from bitwarden/clients do not — inject it when serving index.html.
+fn inject_vaultwarden_css_link(html: &str) -> String {
+    if html.contains("vaultwarden.css") {
+        return html.to_owned();
+    }
+
+    let css_link = format!(
+        "<link rel=\"stylesheet\" href=\"{}/css/vaultwarden.css\" />",
+        CONFIG.domain_path()
+    );
+
+    if let Some(pos) = html.find("</head>") {
+        let mut out = String::with_capacity(html.len() + css_link.len() + 2);
+        out.push_str(&html[..pos]);
+        out.push_str(&css_link);
+        out.push('\n');
+        out.push_str(&html[pos..]);
+        return out;
+    }
+
+    html.to_owned()
+}
+
 #[get("/")]
 async fn web_index() -> Cached<Option<Html<String>>> {
     let index_path = Path::new(&CONFIG.web_vault_folder()).join("index.html");
-    let index = tokio::fs::read_to_string(index_path).await.ok();
+    let index = tokio::fs::read_to_string(index_path)
+        .await
+        .ok()
+        .map(|html| inject_vaultwarden_css_link(&html));
 
     Cached::short(index.map(Html), false)
 }

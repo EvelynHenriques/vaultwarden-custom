@@ -51,10 +51,15 @@ popd >/dev/null
 rm -rf "${OUTPUT_DIR}"
 mv "${CLIENTS_DIR}/apps/web/build" "${OUTPUT_DIR}"
 
-# Rebrand page metadata in the built web-vault
+# Rebrand page metadata and inject Vaultwarden dynamic CSS link (official web-vault builds include this; OSS builds do not).
 if [[ -f "${OUTPUT_DIR}/index.html" ]]; then
-  sed -i 's/<title>Bitwarden<\/title>/<title>Cofre<\/title>/g' "${OUTPUT_DIR}/index.html" 2>/dev/null || \
-    sed -i '' 's/<title>Bitwarden<\/title>/<title>Cofre<\/title>/g' "${OUTPUT_DIR}/index.html" 2>/dev/null || true
+  INDEX="${OUTPUT_DIR}/index.html"
+  sed -i 's/<title>Bitwarden<\/title>/<title>Cofre<\/title>/g' "${INDEX}" 2>/dev/null || \
+    sed -i '' 's/<title>Bitwarden<\/title>/<title>Cofre<\/title>/g' "${INDEX}" 2>/dev/null || true
+  if ! grep -q 'vaultwarden.css' "${INDEX}"; then
+    sed -i 's|</head>|<link rel="stylesheet" href="css/vaultwarden.css" />\n</head>|' "${INDEX}" 2>/dev/null || \
+      sed -i '' 's|</head>|<link rel="stylesheet" href="css/vaultwarden.css" />\n</head>|' "${INDEX}" 2>/dev/null || true
+  fi
 fi
 
 echo "Custom web-vault build available at ${OUTPUT_DIR}"
