@@ -116,6 +116,29 @@ fn vaultwarden_css() -> Cached<Css<String>> {
     Cached::ttl(Css(css), 86_400, false)
 }
 
+/// Inject dynamic branding and CSS into OSS web-vault index.html.
+fn inject_web_vault_index(html: &str) -> String {
+    let html = inject_vaultwarden_css_link(html);
+    inject_page_title(&html, &CONFIG.product_name())
+}
+
+fn inject_page_title(html: &str, title: &str) -> String {
+    let Some(start) = html.find("<title>") else {
+        return html.to_owned();
+    };
+    let Some(end_rel) = html[start..].find("</title>") else {
+        return html.to_owned();
+    };
+    let end = start + end_rel + "</title>".len();
+    let mut out = String::with_capacity(html.len() + title.len());
+    out.push_str(&html[..start]);
+    out.push_str("<title>");
+    out.push_str(title);
+    out.push_str("</title>");
+    out.push_str(&html[end..]);
+    out
+}
+
 /// Official Vaultwarden web-vault builds include a link to `/css/vaultwarden.css`.
 /// Custom OSS builds from bitwarden/clients do not — inject it when serving index.html.
 fn inject_vaultwarden_css_link(html: &str) -> String {
@@ -146,7 +169,7 @@ async fn web_index() -> Cached<Option<Html<String>>> {
     let index = tokio::fs::read_to_string(index_path)
         .await
         .ok()
-        .map(|html| inject_vaultwarden_css_link(&html));
+        .map(|html| inject_web_vault_index(&html));
 
     Cached::short(index.map(Html), false)
 }

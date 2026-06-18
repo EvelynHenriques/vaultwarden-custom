@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Replace user-visible Bitwarden / Vaultwarden strings with Cofre branding.
+# Replace user-visible Bitwarden / Vaultwarden / legacy Cofre strings with EBVault.
 # Preserves bitwarden.com URLs and package identifiers.
 set -euo pipefail
 
@@ -18,11 +18,13 @@ patch_file() {
     -e 's/vault\.bitwarden\.com/\x01VAULTBW\x01/g' \
     -e 's/com\.8bit\.bitwarden/\x01BWPKG\x01/g' \
     -e 's/github\.com\/bitwarden/\x01GHBW\x01/g' \
-    -e 's/Bitwarden Authenticator/Autenticador Cofre/g' \
-    -e 's/Bitwarden/Cofre/g' \
-    -e 's/bitwarden/cofre/g' \
-    -e 's/Vaultwarden/Cofre/g' \
-    -e 's/vaultwarden/cofre/g' \
+    -e 's/Bitwarden Authenticator/EBVault Authenticator/g' \
+    -e 's/Autenticador Cofre/Autenticador EBVault/g' \
+    -e 's/Autenticador cofre/Autenticador EBVault/g' \
+    -e 's/Bitwarden/EBVault/g' \
+    -e 's/Vaultwarden/EBVault/g' \
+    -e 's/Cofre/EBVault/g' \
+    -e 's/cofre/EBVault/g' \
     -e 's/\x01BWDOMAIN\x01/bitwarden.com/g' \
     -e 's/\x01VAULTBW\x01/vault.bitwarden.com/g' \
     -e 's/\x01BWPKG\x01/com.8bit.bitwarden/g' \
@@ -31,7 +33,7 @@ patch_file() {
   mv "${tmp}" "${file}"
 }
 
-echo "Patching Cofre branding under ${TARGET_DIR}"
+echo "Patching EBVault branding under ${TARGET_DIR}"
 
 while IFS= read -r -d '' file; do
   patch_file "${file}"
@@ -43,7 +45,6 @@ done < <(find "${TARGET_DIR}" -type f \( \
   -name '*.webmanifest' \
   \) -print0 2>/dev/null)
 
-# Built output may embed locale chunks under assets/
 while IFS= read -r -d '' file; do
   patch_file "${file}"
   echo "  ${file#"${TARGET_DIR}/"}"

@@ -1,4 +1,4 @@
-/* Olive green theme for the web vault (loaded via /css/vaultwarden.css). */
+/* EBVault olive-green theme (loaded via /css/vaultwarden.css). */
 
 $olive-50: #f4f6ef;
 $olive-100: #e9eedc;
@@ -11,8 +11,12 @@ $olive-700: #445526;
 $olive-800: #36421e;
 $olive-900: #2a3518;
 $olive-950: #1a2110;
+$text-light: #f4f6ef;
+$text-light-muted: #d3ddb8;
+$text-dark: #2a3518;
+$text-dark-muted: #556b2f;
 
-@mixin olive-theme-vars {
+@mixin olive-brand-vars {
   --color-primary-100: 237 242 227;
   --color-primary-200: 214 224 194;
   --color-primary-300: 181 198 149;
@@ -22,23 +26,6 @@ $olive-950: #1a2110;
   --color-primary-700: 68 85 38;
   --color-primary-800: 54 68 30;
   --color-primary-900: 42 53 24;
-
-  --color-background-alt2: 85 107 47;
-  --color-background-alt3: 68 85 38;
-  --color-background-alt4: 42 53 24;
-
-  --color-marketing-logo: 85 107 47;
-  --color-bw-blue: 85 107 47;
-  --color-hover-default: rgb(68 85 38 / 0.12);
-
-  --color-info-100: 237 242 227;
-  --color-info-600: 139 162 95;
-  --color-info-700: 85 107 47;
-
-  --color-illustration-outline: 42 53 24;
-  --color-illustration-bg-primary: 237 242 227;
-  --color-illustration-bg-secondary: 181 198 149;
-  --color-illustration-logo: 85 107 47;
 
   --color-brand-050: #{$olive-50};
   --color-brand-100: #{$olive-100};
@@ -53,7 +40,98 @@ $olive-950: #1a2110;
   --color-brand-950: #{$olive-950};
   --color-brand-950-rgb: 26, 33, 16;
 
-  /* Remap gray scale to olive-dark (removes blue-tinted UI chrome) */
+  --color-marketing-logo: 85 107 47;
+  --color-bw-blue: 85 107 47;
+
+  --color-bg-brand: var(--color-brand-600);
+  --color-bg-brand-strong: var(--color-brand-700);
+  --color-bg-brand-stronger: var(--color-brand-800);
+  --color-bg-brand-soft: var(--color-brand-100);
+  --color-bg-brand-medium: var(--color-brand-200);
+  --color-bg-brand-softer: var(--color-brand-050);
+
+  --color-fg-brand: var(--color-brand-600);
+  --color-fg-brand-strong: var(--color-brand-800);
+  --color-fg-brand-soft: var(--color-brand-300);
+
+  --color-border-brand: var(--color-brand-600);
+  --color-border-brand-soft: var(--color-brand-300);
+  --color-border-brand-strong: var(--color-brand-800);
+
+  --color-nav-bg-primary: var(--color-brand-800);
+  --color-nav-bg-primary-strong: var(--color-brand-900);
+  --color-nav-border-primary: var(--color-brand-700);
+
+  --color-bg-avatar-brand: var(--color-brand-600);
+  --color-bg-avatar-brand-hover: var(--color-brand-700);
+}
+
+/* ========== LIGHT THEME ========== */
+:root,
+.theme_light {
+  @include olive-brand-vars;
+
+  --color-background: 244 246 239;
+  --color-background-alt: 233 238 220;
+  --color-background-alt2: 214 224 194;
+  --color-background-alt3: 181 198 149;
+  --color-background-alt4: 139 162 95;
+
+  --color-gray-050: #{$olive-50};
+  --color-gray-100: #{$olive-100};
+  --color-gray-200: #{$olive-200};
+  --color-gray-300: #{$olive-300};
+  --color-gray-400: #{$olive-500};
+  --color-gray-500: #{$olive-600};
+  --color-gray-600: #{$olive-700};
+  --color-gray-700: #{$olive-800};
+  --color-gray-800: #{$olive-900};
+  --color-gray-900: #{$olive-900};
+  --color-gray-950: #{$olive-950};
+
+  --color-text-main: 42 53 24;
+  --color-text-muted: 85 107 47;
+  --color-text-contrast: 244 246 239;
+
+  --color-fg-heading: #{$text-dark};
+  --color-fg-body: #{$text-dark};
+  --color-fg-body-subtle: #{$text-dark-muted};
+  --color-fg-disabled: #{$olive-500};
+  --color-fg-contrast: #{$text-light};
+
+  --color-bg-primary: #{$olive-50};
+  --color-bg-secondary: #{$olive-100};
+  --color-bg-tertiary: #{$olive-50};
+  --color-bg-quaternary: #{$olive-200};
+  --color-bg-dark: #{$olive-800};
+
+  --color-border-base: #{$olive-300};
+  --color-border-strong: #{$olive-500};
+  --color-border-muted: #{$olive-200};
+
+  --color-nav-bg-secondary: #{$olive-100};
+  --color-nav-bg-secondary-strong: #{$olive-200};
+  --color-nav-border-secondary: #{$olive-300};
+
+  --color-hover-default: rgb(68 85 38 / 0.08);
+  --tw-ring-offset-color: #{$olive-50};
+
+  color: #{$text-dark};
+}
+
+/* ========== DARK THEME ========== */
+.theme_dark {
+  @include olive-brand-vars;
+
+  --color-background: 26 33 16;
+  --color-background-alt: 34 42 22;
+  --color-background-alt2: 42 53 24;
+  --color-background-alt3: 54 68 30;
+  --color-background-alt4: 26 33 16;
+
+  --color-primary-600: 139 162 95;
+  --color-primary-700: 181 198 149;
+
   --color-gray-050: #{$olive-100};
   --color-gray-100: #{$olive-200};
   --color-gray-200: #{$olive-300};
@@ -66,186 +144,137 @@ $olive-950: #1a2110;
   --color-gray-900: #{$olive-900};
   --color-gray-950: #{$olive-950};
   --color-gray-950-rgb: 26, 33, 16;
-  --color-gray-400-rgb: 107, 126, 58;
-
-  --color-fg-brand-soft: var(--color-brand-200);
-  --color-fg-brand: var(--color-brand-400);
-  --color-fg-brand-strong: var(--color-brand-300);
-
-  --color-bg-brand-softer: var(--color-brand-050);
-  --color-bg-brand-soft: var(--color-brand-100);
-  --color-bg-brand-medium: var(--color-brand-200);
-  --color-bg-brand: var(--color-brand-600);
-  --color-bg-brand-strong: var(--color-brand-700);
-  --color-bg-brand-stronger: var(--color-brand-800);
-
-  --color-bg-primary: var(--color-gray-950);
-  --color-bg-secondary: var(--color-gray-900);
-  --color-bg-tertiary: var(--color-gray-950);
-  --color-bg-quaternary: var(--color-gray-800);
-  --color-bg-dark: var(--color-gray-900);
-
-  --color-border-brand-soft: var(--color-brand-300);
-  --color-border-brand: var(--color-brand-600);
-  --color-border-brand-strong: var(--color-brand-800);
-  --color-border-base: var(--color-gray-800);
-  --color-border-strong: var(--color-gray-700);
-
-  --color-nav-bg-primary: var(--color-brand-800);
-  --color-nav-bg-primary-strong: var(--color-brand-900);
-  --color-nav-border-primary: var(--color-brand-700);
-  --color-nav-bg-secondary: var(--color-gray-900);
-  --color-nav-bg-secondary-strong: var(--color-gray-800);
-  --color-nav-border-secondary: var(--color-gray-800);
-
-  --color-bg-avatar-brand: var(--color-brand-600);
-  --color-bg-avatar-brand-hover: var(--color-brand-700);
-
-  --tw-ring-offset-color: #{$olive-950};
-}
-
-:root,
-.theme_light {
-  @include olive-theme-vars;
-
-  --color-background: 244 246 239;
-  --color-background-alt: 233 238 220;
-}
-
-.theme_dark {
-  @include olive-theme-vars;
-
-  --color-background: 26 33 16;
-  --color-background-alt: 34 42 22;
-  --color-background-alt2: 42 53 24;
-  --color-background-alt3: 54 68 30;
-  --color-background-alt4: 26 33 16;
-
-  --color-primary-600: 139 162 95;
-  --color-primary-700: 181 198 149;
-
-  --color-secondary-100: 42 53 24;
-  --color-secondary-300: 68 85 38;
-  --color-secondary-500: 107 126 58;
-  --color-secondary-600: 139 162 95;
-  --color-secondary-700: 181 198 149;
 
   --color-text-main: 233 238 220;
   --color-text-muted: 181 198 149;
+  --color-text-contrast: 26 33 16;
 
-  --color-hover-default: rgb(181 198 149 / 0.1);
-  --color-hover-contrast: rgb(0 0 0 / 0.2);
+  --color-fg-heading: #{$text-light};
+  --color-fg-body: #{$text-light};
+  --color-fg-body-subtle: #{$text-light-muted};
+  --color-fg-disabled: #{$olive-500};
+  --color-fg-contrast: #{$text-dark};
 
-  --color-marketing-logo: 181 198 149;
-  --color-bw-blue: 139 162 95;
-
-  --color-illustration-outline: 181 198 149;
-  --color-illustration-bg-primary: 42 53 24;
-  --color-illustration-bg-secondary: 68 85 38;
-  --color-illustration-logo: 181 198 149;
-
-  --color-fg-heading: var(--color-gray-050);
-  --color-fg-body: var(--color-gray-200);
   --color-fg-brand: var(--color-brand-300);
   --color-fg-brand-strong: var(--color-brand-200);
 
+  --color-bg-primary: #{$olive-950};
+  --color-bg-secondary: #{$olive-900};
+  --color-bg-tertiary: #{$olive-950};
+  --color-bg-quaternary: #{$olive-800};
+  --color-bg-dark: #{$olive-900};
+
+  --color-border-base: #{$olive-800};
+  --color-border-strong: #{$olive-700};
+  --color-border-muted: #{$olive-900};
+
+  --color-nav-bg-secondary: #{$olive-900};
+  --color-nav-bg-secondary-strong: #{$olive-800};
+  --color-nav-border-secondary: #{$olive-800};
+
   --color-bg-brand: var(--color-brand-500);
   --color-bg-brand-strong: var(--color-brand-400);
-  --color-bg-brand-stronger: var(--color-brand-300);
 
-  --color-nav-bg-primary: var(--color-brand-800);
-  --color-nav-bg-primary-strong: var(--color-brand-900);
+  --color-hover-default: rgb(181 198 149 / 0.1);
+  --tw-ring-offset-color: #{$olive-950};
+
+  color: #{$text-light};
 }
 
-/* Page shells */
-html,
-body,
-app-root,
-.layout_frontend,
-app-user-layout,
-#layout-content,
-bit-layout-content,
-.main-content,
-.tw-bg-bg-primary,
-.tw-bg-bg-secondary,
-.tw-bg-bg-tertiary,
-.tw-bg-background,
-.tw-bg-background-alt {
-  background-color: #{$olive-950} !important;
+/* Readable text — dark theme */
+.theme_dark [bitTypography],
+.theme_dark bit-label,
+.theme_dark label,
+.theme_dark p,
+.theme_dark span,
+.theme_dark td,
+.theme_dark th,
+.theme_dark li,
+.theme_dark h1,
+.theme_dark h2,
+.theme_dark h3,
+.theme_dark h4,
+.theme_dark bit-form-field,
+.theme_dark bit-section,
+.theme_dark bit-callout,
+.theme_dark .tw-text-fg-body,
+.theme_dark .tw-text-fg-heading,
+.theme_dark .tw-text-fg-body-subtle,
+.theme_dark .tw-text-secondary-500,
+.theme_dark .tw-text-secondary-600,
+.theme_dark .tw-text-secondary-700,
+.theme_dark .tw-text-muted,
+.theme_dark .text-muted {
+  color: #{$text-light};
 }
 
-.theme_light html,
-.theme_light body,
-.theme_light .tw-bg-bg-primary,
-.theme_light .tw-bg-bg-secondary {
-  background-color: #{$olive-50} !important;
+.theme_dark .tw-text-fg-body-subtle,
+.theme_dark .tw-text-fg-disabled,
+.theme_dark small,
+.theme_dark [bitTypography="helper"] {
+  color: #{$text-light-muted};
 }
 
-/* Login / auth panels */
-app-login,
-app-unlock,
-app-two-factor-auth,
-app-auth-layout,
-auth-layout,
-.bit-auth-card,
-[class*="auth-card"] {
-  --color-background: 26 33 16;
-  --color-background-alt: 42 53 24;
-  background-color: #{$olive-950} !important;
+/* Readable text — light theme */
+.theme_light [bitTypography],
+.theme_light bit-label,
+.theme_light label,
+.theme_light p,
+.theme_light span,
+.theme_light td,
+.theme_light th,
+.theme_light li,
+.theme_light h1,
+.theme_light h2,
+.theme_light h3,
+.theme_light h4,
+.theme_light bit-form-field,
+.theme_light bit-section,
+.theme_light .tw-text-fg-body,
+.theme_light .tw-text-fg-heading {
+  color: #{$text-dark};
 }
 
-app-login form,
-app-unlock form,
-app-two-factor-auth form,
-.tw-bg-background-alt,
-.tw-bg-bg-secondary {
-  background-color: #{$olive-900} !important;
-  border-color: #{$olive-800} !important;
+.theme_light .tw-text-fg-body-subtle,
+.theme_light .tw-text-fg-disabled,
+.theme_light small {
+  color: #{$text-dark-muted};
 }
 
-/* Buttons */
+/* Primary actions */
 button[buttonType="primary"],
 button[buttontype="primary"],
 .tw-bg-bg-brand,
 .tw-bg-bg-brand-strong,
-.tw-bg-bg-brand-stronger,
-.tw-bg-brand-700,
-.tw-bg-brand-800,
-.tw-bg-primary-600,
-.tw-bg-primary-500,
-.tw-bg-primary-700 {
+.tw-bg-primary-600 {
   background-color: #{$olive-600} !important;
   border-color: #{$olive-600} !important;
-  color: #{$olive-50} !important;
+  color: #{$text-light} !important;
 }
 
 button[buttonType="primary"]:hover,
 button[buttontype="primary"]:hover,
-.tw-bg-bg-brand:hover,
-.tw-bg-brand-700:hover {
+.tw-bg-bg-brand:hover {
   background-color: #{$olive-700} !important;
   border-color: #{$olive-700} !important;
 }
 
-button[buttonType="secondary"],
-button[buttontype="secondary"],
-.tw-bg-bg-secondary[class*="button"],
-.tw-border-border-base {
-  background-color: #{$olive-900} !important;
-  border-color: #{$olive-700} !important;
-  color: #{$olive-100} !important;
+.theme_light button[buttonType="secondary"],
+.theme_light button[buttontype="secondary"] {
+  background-color: #{$olive-100} !important;
+  border-color: #{$olive-400} !important;
+  color: #{$text-dark} !important;
 }
 
-button[buttonType="secondary"]:hover,
-button[buttontype="secondary"]:hover {
-  background-color: #{$olive-800} !important;
+.theme_dark button[buttonType="secondary"],
+.theme_dark button[buttontype="secondary"] {
+  background-color: #{$olive-900} !important;
+  border-color: #{$olive-700} !important;
+  color: #{$text-light} !important;
 }
 
 /* Links & accents */
 .tw-text-primary-600,
-.tw-text-primary-500,
-.tw-text-primary-700,
-.tw-text-brand-700,
 .tw-text-fg-brand,
 .tw-text-fg-brand-strong,
 a.tw-text-primary-600,
@@ -254,35 +283,62 @@ a[routerlink="/signup"] {
   color: #{$olive-400} !important;
 }
 
-.tw-border-primary-600,
-.tw-border-primary-500,
-.tw-border-brand-700,
-.tw-border-border-brand,
-.tw-ring-brand-700,
-.tw-ring-primary-600 {
-  border-color: #{$olive-600} !important;
-  --tw-ring-color: #{$olive-600} !important;
+.theme_light .tw-text-primary-600,
+.theme_light .tw-text-fg-brand,
+.theme_light a.tw-text-primary-600 {
+  color: #{$olive-700} !important;
 }
 
-/* Avatars & tab highlights */
-bit-avatar,
-.avatar,
-.tw-bg-avatar-brand,
-.tw-bg-bg-avatar-brand,
-[class*="tw-bg-avatar-brand"] {
-  background-color: #{$olive-700} !important;
+/* Dropdowns / selects (fix blue highlight) */
+.ng-dropdown-panel,
+.ng-dropdown-panel .ng-dropdown-panel-items,
+bit-select-panel,
+[role="listbox"] {
+  background-color: #{$olive-900} !important;
 }
 
-bit-nav-item a.tw-bg-primary-600,
-bit-nav-item a[class*="tw-bg-primary"],
-bit-nav-item a[class*="tw-bg-brand"],
+.theme_light .ng-dropdown-panel,
+.theme_light bit-select-panel,
+.theme_light [role="listbox"] {
+  background-color: #{$olive-100} !important;
+}
+
+.ng-option.ng-option-selected,
+.ng-option.ng-option-marked,
+.ng-option.ng-option-selected.ng-option-marked,
+[role="option"][aria-selected="true"],
+.bit-select-option-selected {
+  background-color: #{$olive-600} !important;
+  color: #{$text-light} !important;
+}
+
+.ng-option,
+[role="option"] {
+  color: #{$text-light} !important;
+}
+
+.theme_light .ng-option,
+.theme_light [role="option"] {
+  color: #{$text-dark} !important;
+}
+
+/* Nav active item */
 bit-nav-item a[aria-current="page"],
-bit-nav-item a.active {
+bit-nav-item a.active,
+bit-nav-item a.tw-bg-primary-600 {
   background-color: #{$olive-700} !important;
-  color: #{$olive-100} !important;
+  color: #{$text-light} !important;
 }
 
-/* Logo wordmark -> cofre */
+/* Avatars */
+bit-avatar,
+.tw-bg-avatar-brand,
+[class*="tw-bg-avatar-brand"] {
+  background-color: #{$olive-600} !important;
+  color: #{$text-light} !important;
+}
+
+/* Logo wordmark -> EBVault */
 bit-nav-logo bit-svg svg,
 auth-password-manager-logo svg,
 app-password-manager-logo svg,
@@ -305,16 +361,83 @@ app-password-manager-logo {
 bit-nav-logo::after,
 auth-password-manager-logo::after,
 app-password-manager-logo::after {
-  content: "cofre";
-  color: #{$olive-100};
-  font-size: 1.35rem;
+  content: "EBVault";
+  font-size: 1.25rem;
   font-weight: 700;
-  letter-spacing: -0.03em;
-  text-transform: lowercase;
+  letter-spacing: -0.02em;
   line-height: 2rem;
 }
 
-.layout_frontend bit-nav-logo::after,
-app-auth-layout auth-password-manager-logo::after {
-  color: #{$olive-300};
+.theme_dark bit-nav-logo::after,
+.theme_dark auth-password-manager-logo::after {
+  color: #{$text-light};
 }
+
+.theme_dark bit-nav-item a:not([aria-current="page"]),
+.theme_dark bit-nav-group .tw-text-fg-body,
+.theme_dark bit-nav-group span,
+.theme_dark app-sidebar a,
+.theme_dark #bit-side-nav a {
+  color: #{$text-light} !important;
+}
+
+.theme_light bit-nav-item a:not([aria-current="page"]),
+.theme_light #bit-side-nav a {
+  color: #{$text-dark} !important;
+}
+
+.theme_dark bit-form-field label,
+.theme_dark .tw-text-primary-700,
+.theme_dark .tw-text-primary-800,
+.theme_dark .tw-text-blue-600,
+.theme_dark .tw-text-blue-700 {
+  color: #{$text-light} !important;
+}
+
+.theme_light bit-form-field label {
+  color: #{$text-dark} !important;
+}
+
+.theme_dark th,
+.theme_dark thead td,
+.theme_dark .tw-text-secondary-700,
+.theme_dark .tw-text-secondary-800 {
+  color: #{$text-light-muted} !important;
+}
+
+.theme_dark bit-empty-state,
+.theme_dark bit-empty-state p,
+.theme_dark bit-empty-state span {
+  color: #{$text-light} !important;
+}
+
+.theme_dark bit-callout,
+.theme_dark bit-section-header {
+  color: #{$text-light};
+}
+
+.theme_light bit-empty-state p {
+  color: #{$text-dark-muted} !important;
+}
+
+/* Inputs */
+.theme_dark input,
+.theme_dark select,
+.theme_dark textarea,
+.theme_dark bit-select,
+.theme_dark .ng-select-container {
+  color: #{$text-light} !important;
+  background-color: #{$olive-900} !important;
+  border-color: #{$olive-700} !important;
+}
+
+.theme_light input,
+.theme_light select,
+.theme_light textarea,
+.theme_light bit-select,
+.theme_light .ng-select-container {
+  color: #{$text-dark} !important;
+  background-color: #{$olive-50} !important;
+  border-color: #{$olive-400} !important;
+}
+
