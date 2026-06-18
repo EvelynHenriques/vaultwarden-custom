@@ -11,30 +11,38 @@ head {
 }
 
 /* Hide the Subscription tab (sidebar + settings nav) */
-bit-nav-item[route="settings/subscription"],
-bit-nav-item[route="subscription"],
-a[routerlink="/settings/subscription"],
-a[href$="/settings/subscription"] {
+bit-nav-item:has(a[href*="subscription"]),
+a[href*="/settings/subscription"],
+a[href*="subscription/"],
+a[routerlink*="subscription"],
+billing-free-families-nav-item,
+app-billing-free-families-nav-item,
+app-upgrade-nav-button {
   @extend %vw-hide;
 }
 
-/* Hide Bitwarden / EBVault marketing blocks */
+/* Hide product switcher / "More from Bitwarden" marketing */
+navigation-product-switcher,
+product-switcher,
+app-product-switcher,
+product-switcher-content section:has(a[href*="bitwarden.com"]),
+product-switcher-content section:has(a[routerlink="sm-landing"]) {
+  @extend %vw-hide;
+}
+
+/* Hide Bitwarden external marketing links */
 a[href$="/settings/sponsored-families"],
 a[href*="bitwarden.com"],
-a[href*="secretsmanager.com"],
-bit-nav-item[route="about"],
-bit-nav-item[route="settings/about"],
-bit-nav-item[route="register-security-contact"],
-bit-nav-item[route="settings/register-security-contact"] {
+a[href*="secretsmanager.com"] {
   @extend %vw-hide;
 }
 
-bit-nav-group:has(a[href*="bitwarden.com"]),
-bit-nav-group:has(a[href*="secretsmanager"]),
-bit-nav-group:has(bit-nav-item[route="settings/about"]),
-bit-nav-product-switcher,
-app-nav-product-switcher,
-a[routerlink="/about"] {
+/* Hide Bitwarden marketing pages and routes */
+app-sm-landing,
+app-request-sm-access,
+a[routerlink="/sm-landing"],
+a[routerlink="sm-landing"],
+a[href*="sm-landing"] {
   @extend %vw-hide;
 }
 

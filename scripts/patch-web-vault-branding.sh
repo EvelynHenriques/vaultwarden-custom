@@ -18,6 +18,8 @@ patch_file() {
     -e 's/vault\.bitwarden\.com/\x01VAULTBW\x01/g' \
     -e 's/com\.8bit\.bitwarden/\x01BWPKG\x01/g' \
     -e 's/github\.com\/bitwarden/\x01GHBW\x01/g' \
+    -e 's/Mais produtos do Bitwarden/Mais produtos do EBVault/g' \
+    -e 's/Mais do Bitwarden/Mais do EBVault/g' \
     -e 's/Bitwarden Authenticator/EBVault Authenticator/g' \
     -e 's/Autenticador Cofre/Autenticador EBVault/g' \
     -e 's/Autenticador cofre/Autenticador EBVault/g' \

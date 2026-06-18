@@ -368,22 +368,40 @@ app-password-manager-logo::after {
   line-height: 2rem;
 }
 
-.theme_dark bit-nav-logo::after,
 .theme_dark auth-password-manager-logo::after {
   color: #{$text-light};
 }
 
-.theme_dark bit-nav-item a:not([aria-current="page"]),
-.theme_dark bit-nav-group .tw-text-fg-body,
-.theme_dark bit-nav-group span,
-.theme_dark app-sidebar a,
-.theme_dark #bit-side-nav a {
+/* Side nav: always light text on olive-green background (both themes) */
+bit-side-nav span,
+bit-side-nav p,
+bit-side-nav a,
+bit-side-nav bit-nav-item,
+bit-side-nav bit-nav-group,
+bit-side-nav navigation-product-switcher,
+bit-side-nav navigation-product-switcher a,
+bit-side-nav navigation-product-switcher span,
+.theme_light bit-side-nav span,
+.theme_light bit-side-nav p,
+.theme_light bit-side-nav a,
+.theme_light bit-side-nav bit-nav-item,
+.theme_light bit-side-nav bit-nav-group,
+.theme_light app-side-nav bit-side-nav span,
+.theme_light app-side-nav bit-side-nav a {
   color: #{$text-light} !important;
 }
 
-.theme_light bit-nav-item a:not([aria-current="page"]),
-.theme_light #bit-side-nav a {
-  color: #{$text-dark} !important;
+bit-side-nav .tw-text-xs,
+bit-side-nav .tw-text-alt2,
+bit-side-nav .\!tw-text-alt2,
+bit-side-nav .tw-text-fg-nav,
+bit-side-nav .tw-text-fg-body-subtle {
+  color: #{$text-light-muted} !important;
+}
+
+bit-side-nav bit-nav-logo::after,
+.theme_light bit-side-nav bit-nav-logo::after {
+  color: #{$text-light} !important;
 }
 
 .theme_dark bit-form-field label,

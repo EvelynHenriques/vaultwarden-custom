@@ -1,0 +1,34 @@
+diff --git a/apps/web/src/app/oss-routing.module.ts b/apps/web/src/app/oss-routing.module.ts
+--- a/apps/web/src/app/oss-routing.module.ts
++++ b/apps/web/src/app/oss-routing.module.ts
+@@ -631,14 +631,14 @@ const routes: Routes = [
+       {
+         path: "sm-landing",
+-        component: SMLandingComponent,
+-        data: { titleId: "moreProductsFromBitwarden" },
++        redirectTo: "vault",
++        pathMatch: "full",
+       },
+       {
+         path: "request-sm-access",
+-        component: RequestSMAccessComponent,
+-        data: { titleId: "requestAccessToSecretsManager" },
++        redirectTo: "vault",
++        pathMatch: "full",
+       },
+       {
+         path: "create-organization",
+         component: CreateOrganizationComponent,
+@@ -672,10 +672,9 @@ const routes: Routes = [
+           },
+           {
+             path: "subscription",
+-            loadChildren: () =>
+-              import("./billing/individual/individual-billing.module").then(
+-                (m) => m.IndividualBillingModule,
+-              ),
++            redirectTo: "account",
++            pathMatch: "prefix",
+           },
+           {
+             path: AuthWebRouteSegment.EmergencyAccess,

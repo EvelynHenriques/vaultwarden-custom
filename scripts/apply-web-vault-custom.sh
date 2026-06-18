@@ -19,6 +19,10 @@ OVERLAY_FILES=(
   "apps/web/src/app/auth/settings/two-factor/two-factor-setup-authenticator.component.html"
   "apps/web/src/app/layouts/frontend-layout.component.ts"
   "apps/web/src/app/layouts/frontend-layout.component.html"
+  "apps/web/src/app/layouts/user-layout.component.html"
+  "apps/web/src/app/layouts/web-side-nav.component.html"
+  "apps/web/src/app/layouts/product-switcher/navigation-switcher/navigation-switcher.component.html"
+  "apps/web/src/app/layouts/product-switcher/product-switcher.component.html"
   "apps/web/src/app/vault/guards/mandatory-authenticator.guard.ts"
   "apps/web/src/app/vault/guards/mandatory-authenticator.policy.ts"
 )
@@ -47,6 +51,18 @@ if [[ -f "${patch_file}" ]]; then
   else
     echo "  warning: could not apply patches/oss-routing.module.patch" >&2
     echo "  add mandatoryAuthenticatorGuard to oss-routing.module.ts manually" >&2
+  fi
+fi
+
+marketing_patch="${CUSTOM_DIR}/patches/oss-routing-marketing.patch"
+if [[ -f "${marketing_patch}" ]]; then
+  if git -C "${CLIENTS_DIR}" apply --check "${marketing_patch}" >/dev/null 2>&1; then
+    git -C "${CLIENTS_DIR}" apply "${marketing_patch}"
+    echo "  applied patches/oss-routing-marketing.patch"
+  elif patch -p1 --forward --input="${marketing_patch}" --directory="${CLIENTS_DIR}"; then
+    echo "  applied patches/oss-routing-marketing.patch with patch(1)"
+  else
+    echo "  warning: could not apply patches/oss-routing-marketing.patch" >&2
   fi
 fi
 
