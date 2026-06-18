@@ -53,36 +53,27 @@
       {{ "continue" | i18n }}
     </button>
 
-    <p
-      bitTypography="helper"
-      class="tw-text-main tw-text-xs tw-mb-0 tw-whitespace-normal tw-break-words tw-leading-relaxed tw-text-center"
-    >
-      {{ "byContinuingYouAgreeToThe" | i18n }}
-      <a
-        bitLink
-        linkType="primary"
-        href="https://bitwarden.com/terms/"
-        target="_blank"
-        rel="noreferrer"
-        >{{ "termsOfService" | i18n }}</a
-      >
-      {{ "and" | i18n }}
-      <a
-        bitLink
-        linkType="primary"
-        href="https://bitwarden.com/privacy/"
-        target="_blank"
-        rel="noreferrer"
-        >{{ "privacyPolicy" | i18n }}</a
-      >
-    </p>
+    <bit-error-summary *ngIf="showErrorSummary" [formGroup]="formGroup"></bit-error-summary>
+  </form>
 
-    <bit-error-summary *ngIf="showErrorSummary" [formGroup]="formGroup"></bit-error-summary></form
-></ng-container>
+  <p
+    bitTypography="helper"
+    class="tw-text-main tw-text-xs tw-mt-2 tw-mb-0 tw-whitespace-normal tw-break-words tw-leading-relaxed tw-text-center"
+  >
+    {{ "byContinuingYouAgreeToThe" | i18n }}
+    <a bitLink linkType="primary" href="#" rel="noreferrer">{{ "termsOfService" | i18n }}</a>
+    {{ "and" | i18n }}
+    <a bitLink linkType="primary" href="#" rel="noreferrer">{{ "privacyPolicy" | i18n }}</a>
+  </p>
+</ng-container>
 
 <ng-container *ngIf="state === RegistrationStartState.CHECK_EMAIL">
   <div class="tw-flex tw-flex-col tw-items-center tw-justify-center">
-    <p bitTypography="body1" class="tw-text-center tw-mb-3 tw-text-main tw-whitespace-normal tw-break-words" id="follow_the_link_body">
+    <p
+      bitTypography="body1"
+      class="tw-text-center tw-mb-3 tw-text-main tw-whitespace-normal tw-break-words"
+      id="follow_the_link_body"
+    >
       {{ "followTheLinkInTheEmailSentTo" | i18n }}
       <span class="tw-font-medium">{{ email.value }}</span>
       {{ "andContinueCreatingYourAccount" | i18n }}

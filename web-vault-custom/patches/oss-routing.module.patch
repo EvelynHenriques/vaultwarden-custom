@@ -9,20 +9,21 @@ diff --git a/apps/web/src/app/oss-routing.module.ts b/apps/web/src/app/oss-routi
  import { VaultModule } from "./vault/individual-vault/vault.module";
  
  const routes: Routes = [
-@@ -631,7 +632,7 @@ const routes: Routes = [
+@@ -631,7 +632,8 @@ const routes: Routes = [
    {
      path: "",
      component: UserLayoutComponent,
 -    canActivate: [deepLinkGuard(), authGuard],
-+    canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorGuard],
++    canActivate: [deepLinkGuard(), authGuard],
++    canActivateChild: [mandatoryAuthenticatorGuard],
      children: [
        {
          path: "vault",
-@@ -776,6 +777,7 @@ const routes: Routes = [
+@@ -776,6 +778,7 @@ const routes: Routes = [
    },
    {
      path: "organizations",
-+    canActivate: [authGuard, mandatoryAuthenticatorGuard],
++    canActivateChild: [mandatoryAuthenticatorGuard],
      loadChildren: () =>
        import("./admin-console/organizations/organization.module").then((m) => m.OrganizationModule),
    },

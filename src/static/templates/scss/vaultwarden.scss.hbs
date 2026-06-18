@@ -147,14 +147,10 @@ bit-dialog div.tw-col-span-4:has(input[formcontrolname*="access"], input[formcon
   @extend %vw-hide;
 }
 
-/* Change collapsed menu icon to Vaultwarden */
+/* Change collapsed menu icon to Vaultwarden — hidden; logo slot reserved for EB Vault assets */
 bit-nav-logo bit-nav-item a:before {
-  content: "";
-  background-image: url("../images/icon-white.svg");
-  background-repeat: no-repeat;
-  background-position: center center;
-  height: 32px;
-  display: block;
+  display: none !important;
+  content: none !important;
 }
 bit-nav-logo bit-nav-item .bwi-shield {
   @extend %vw-hide;

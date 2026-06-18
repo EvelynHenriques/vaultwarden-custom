@@ -1,5 +1,5 @@
 import { inject } from "@angular/core";
-import { CanActivateFn, Router } from "@angular/router";
+import { CanActivateChildFn, Router } from "@angular/router";
 
 import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 
@@ -15,7 +15,8 @@ export {
   resetMandatoryAuthenticatorSetupState,
 } from "./mandatory-authenticator.policy";
 
-export const mandatoryAuthenticatorGuard: CanActivateFn = async (_route, state) => {
+/** Blocks every authenticated route until Authenticator 2FA is configured. */
+export const mandatoryAuthenticatorGuard: CanActivateChildFn = async (_route, state) => {
   if (isMandatorySetupAllowedUrl(state.url)) {
     return true;
   }
@@ -26,7 +27,6 @@ export const mandatoryAuthenticatorGuard: CanActivateFn = async (_route, state) 
   try {
     return await resolveMandatoryAuthenticatorAccess(router, twoFactorService);
   } catch {
-    // Fail closed: keep the user on the setup flow when state cannot be verified.
     return router.createUrlTree([MANDATORY_TWO_FACTOR_SETUP_URL]);
   }
 };

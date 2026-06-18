@@ -68,4 +68,16 @@ if [[ -f "${marketing_patch}" ]]; then
   fi
 fi
 
+org_routing_patch="${CUSTOM_DIR}/patches/organization-routing.module.patch"
+if [[ -f "${org_routing_patch}" ]]; then
+  if git -C "${CLIENTS_DIR}" apply --check "${org_routing_patch}" >/dev/null 2>&1; then
+    git -C "${CLIENTS_DIR}" apply "${org_routing_patch}"
+    echo "  applied patches/organization-routing.module.patch"
+  elif patch -p1 --forward --input="${org_routing_patch}" --directory="${CLIENTS_DIR}"; then
+    echo "  applied patches/organization-routing.module.patch with patch(1)"
+  else
+    echo "  warning: could not apply patches/organization-routing.module.patch" >&2
+  fi
+fi
+
 echo "Done."

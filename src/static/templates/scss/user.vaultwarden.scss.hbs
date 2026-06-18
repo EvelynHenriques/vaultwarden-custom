@@ -338,38 +338,29 @@ bit-avatar,
   color: #{$text-light} !important;
 }
 
-/* Logo wordmark -> EBVault */
+/* Sidebar logo area — reserved for future EB Vault assets */
 bit-nav-logo bit-svg svg,
 auth-password-manager-logo svg,
 app-password-manager-logo svg,
 img.new-logo-themed,
-.new-logo-themed img {
-  opacity: 0 !important;
-  width: 0 !important;
-  height: 0 !important;
-  overflow: hidden !important;
-  position: absolute !important;
+.new-logo-themed img,
+bit-nav-logo bit-nav-item a:before,
+bit-nav-logo bit-nav-item .bwi-shield {
+  display: none !important;
 }
 
 bit-nav-logo,
 auth-password-manager-logo,
 app-password-manager-logo {
-  position: relative;
-  min-height: 2rem;
+  min-height: 1.5rem;
+  margin: 0.25rem 0 0.75rem;
 }
 
 bit-nav-logo::after,
 auth-password-manager-logo::after,
 app-password-manager-logo::after {
-  content: "EB Vault";
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 2rem;
-}
-
-.theme_dark auth-password-manager-logo::after {
-  color: #{$text-light};
+  content: none !important;
+  display: none !important;
 }
 
 /* Side nav: always light text on olive-green background (both themes) */
@@ -399,52 +390,97 @@ bit-side-nav .tw-text-fg-body-subtle {
   color: #{$text-light-muted} !important;
 }
 
-bit-side-nav bit-nav-logo::after,
-.theme_light bit-side-nav bit-nav-logo::after {
-  color: #{$text-light} !important;
+bit-side-nav .tw-text-fg-body-subtle {
+  color: #{$text-light-muted} !important;
 }
 
-/* Auth / registration pages — olive-green hero icons */
+/* Auth / registration / login — olive-green illustrations (no pink/purple) */
 .layout_frontend bit-landing-hero bit-svg svg,
 .layout_frontend bit-landing-hero svg,
 auth-anon-layout bit-landing-hero svg,
+bit-landing-hero bit-svg svg,
 bit-landing-hero svg {
-  filter: hue-rotate(68deg) saturate(1.15) brightness(1.05);
+  filter: hue-rotate(115deg) saturate(1.25) brightness(1.02) !important;
 }
 
 .layout_frontend bit-landing-hero svg [fill="#175DDC"],
 .layout_frontend bit-landing-hero svg [fill="#175ddc"],
 .layout_frontend bit-landing-hero svg [fill="#0054de"],
 .layout_frontend bit-landing-hero svg [fill="#2F5DD0"],
+.layout_frontend bit-landing-hero svg [fill="#1252A3"],
 .layout_frontend bit-landing-hero svg [stroke="#175DDC"],
-.layout_frontend bit-landing-hero svg [stroke="#175ddc"] {
+.layout_frontend bit-landing-hero svg [stroke="#175ddc"],
+bit-landing-hero svg [fill="#175DDC"],
+bit-landing-hero svg [fill="#175ddc"] {
   fill: #{$olive-600} !important;
   stroke: #{$olive-600} !important;
 }
 
 .layout_frontend bit-landing-hero svg [fill="#FFD400"],
 .layout_frontend bit-landing-hero svg [fill="#ffd400"],
-.layout_frontend bit-landing-hero svg [fill="#F9A825"] {
+.layout_frontend bit-landing-hero svg [fill="#F9A825"],
+.layout_frontend bit-landing-hero svg [fill="#FFBF00"] {
   fill: #{$olive-400} !important;
+}
+
+.layout_frontend bit-landing-hero svg [fill="#E54670"],
+.layout_frontend bit-landing-hero svg [fill="#e54670"],
+.layout_frontend bit-landing-hero svg [fill="#D926B8"],
+.layout_frontend bit-landing-hero svg [fill="#d926b8"],
+.layout_frontend bit-landing-hero svg [fill="#A855F7"],
+.layout_frontend bit-landing-hero svg [fill="#a855f7"],
+.layout_frontend bit-landing-hero svg [fill="#9333EA"],
+.layout_frontend bit-landing-hero svg [fill="#9333ea"],
+.layout_frontend bit-landing-hero svg [fill="#BF90FF"],
+.layout_frontend bit-landing-hero svg [fill="#bf90ff"],
+.layout_frontend bit-landing-hero svg [fill="#FF057F"],
+.layout_frontend bit-landing-hero svg [fill="#ff057f"],
+.layout_frontend bit-landing-hero svg [fill="#E94598"],
+.layout_frontend bit-landing-hero svg [fill="#e94598"],
+bit-landing-hero svg [fill="#E54670"],
+bit-landing-hero svg [fill="#D926B8"],
+bit-landing-hero svg [fill="#A855F7"] {
+  fill: #{$olive-500} !important;
+  stroke: #{$olive-500} !important;
 }
 
 /* Registration / login — prevent terms text truncation */
 .layout_frontend bit-landing-card,
 .layout_frontend bit-landing-content,
-.layout_frontend bit-base-card {
+.layout_frontend bit-base-card,
+.layout_frontend bit-landing-card form {
   overflow: visible !important;
+  min-height: auto !important;
+  max-height: none !important;
 }
 
 .layout_frontend bit-landing-card form p[bitTypography="helper"],
+.layout_frontend bit-landing-card p[bitTypography="helper"],
 .layout_frontend bit-landing-card p.tw-text-xs,
-.layout_frontend bit-landing-content p {
+.layout_frontend bit-landing-content p,
+.layout_frontend p[bitTypography="helper"] {
+  display: block !important;
   white-space: normal !important;
   overflow: visible !important;
   text-overflow: unset !important;
   word-break: break-word !important;
-  overflow-wrap: anywhere;
+  overflow-wrap: anywhere !important;
   line-height: 1.5 !important;
-  max-width: 100%;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Main content — prevent clipped callouts/labels (Export, Settings, etc.) */
+bit-callout,
+bit-callout p,
+bit-callout span,
+bit-section p,
+bit-form-field bit-label,
+bit-container p {
+  white-space: normal !important;
+  overflow: visible !important;
+  word-break: break-word !important;
 }
 
 .layout_frontend bit-landing-footer {

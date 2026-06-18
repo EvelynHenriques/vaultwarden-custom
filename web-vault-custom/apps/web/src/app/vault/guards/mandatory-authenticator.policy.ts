@@ -20,14 +20,26 @@ export function clearMandatoryAuthenticatorGuardCache(): void {
   resetMandatoryAuthenticatorSetupState();
 }
 
-/** Routes reachable while mandatory Authenticator setup is pending. */
+/** Normalize router URLs (hash routing, query strings). */
+export function normalizeMandatorySetupPath(url: string): string {
+  let path = url.split("?")[0].split("#")[0].trim();
+  if (!path.startsWith("/")) {
+    path = `/${path}`;
+  }
+  return path.replace(/\/+$/, "") || "/";
+}
+
+/** Only the mandatory Authenticator setup page (and lock screen) are reachable. */
 export function isMandatorySetupAllowedUrl(url: string): boolean {
-  const path = url.split("?")[0];
+  const path = normalizeMandatorySetupPath(url);
+
+  if (path === "/lock") {
+    return true;
+  }
+
   return (
-    path.includes(MANDATORY_TWO_FACTOR_SETUP_URL) ||
-    path.startsWith("/settings/security") ||
-    path === "/settings" ||
-    path === "/lock"
+    path === MANDATORY_TWO_FACTOR_SETUP_URL ||
+    path.startsWith(`${MANDATORY_TWO_FACTOR_SETUP_URL}/`)
   );
 }
 
