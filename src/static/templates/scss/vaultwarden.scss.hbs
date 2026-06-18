@@ -16,7 +16,16 @@ bit-nav-item[route="settings/subscription"] {
 }
 
 /* Hide any link pointing to Free Bitwarden Families */
-a[href$="/settings/sponsored-families"] {
+a[href$="/settings/sponsored-families"],
+a[href*="bitwarden.com"],
+bit-nav-item[route="about"],
+bit-nav-item[route="settings/about"] {
+  @extend %vw-hide;
+}
+
+/* Hide "More from Bitwarden" marketing block in sidebar */
+bit-nav-group:has(a[href*="bitwarden.com"]),
+bit-nav-group:has(bit-nav-item[route="settings/about"]) {
   @extend %vw-hide;
 }
 

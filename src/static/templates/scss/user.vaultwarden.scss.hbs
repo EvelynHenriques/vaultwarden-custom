@@ -1,6 +1,5 @@
-/* Olive green theme for the web vault (injected via /css/vaultwarden.css). */
+/* Olive green theme for the web vault (loaded via /css/vaultwarden.css). */
 
-/* Shared olive palette */
 $olive-50: #f4f6ef;
 $olive-100: #e9eedc;
 $olive-200: #d3ddb8;
@@ -13,9 +12,7 @@ $olive-800: #36421e;
 $olive-900: #2a3518;
 $olive-950: #1a2110;
 
-:root,
-.theme_light {
-  /* Legacy RGB tokens (Tailwind primary utilities) */
+@mixin olive-theme-vars {
   --color-primary-100: 237 242 227;
   --color-primary-200: 214 224 194;
   --color-primary-300: 181 198 149;
@@ -26,21 +23,23 @@ $olive-950: #1a2110;
   --color-primary-800: 54 68 30;
   --color-primary-900: 42 53 24;
 
-  /* Login / marketing backgrounds (replace default blue gradient) */
   --color-background-alt2: 85 107 47;
   --color-background-alt3: 68 85 38;
   --color-background-alt4: 42 53 24;
 
   --color-marketing-logo: 85 107 47;
   --color-bw-blue: 85 107 47;
-  --color-hover-default: rgb(68 85 38 / 0.1);
+  --color-hover-default: rgb(68 85 38 / 0.12);
+
+  --color-info-100: 237 242 227;
+  --color-info-600: 139 162 95;
+  --color-info-700: 85 107 47;
 
   --color-illustration-outline: 42 53 24;
   --color-illustration-bg-primary: 237 242 227;
   --color-illustration-bg-secondary: 181 198 149;
   --color-illustration-logo: 85 107 47;
 
-  /* New design-system brand palette */
   --color-brand-050: #{$olive-50};
   --color-brand-100: #{$olive-100};
   --color-brand-200: #{$olive-200};
@@ -54,170 +53,268 @@ $olive-950: #1a2110;
   --color-brand-950: #{$olive-950};
   --color-brand-950-rgb: 26, 33, 16;
 
-  /* Semantic brand tokens */
+  /* Remap gray scale to olive-dark (removes blue-tinted UI chrome) */
+  --color-gray-050: #{$olive-100};
+  --color-gray-100: #{$olive-200};
+  --color-gray-200: #{$olive-300};
+  --color-gray-300: #{$olive-400};
+  --color-gray-400: #{$olive-500};
+  --color-gray-500: #{$olive-600};
+  --color-gray-600: #{$olive-700};
+  --color-gray-700: #{$olive-800};
+  --color-gray-800: #{$olive-900};
+  --color-gray-900: #{$olive-900};
+  --color-gray-950: #{$olive-950};
+  --color-gray-950-rgb: 26, 33, 16;
+  --color-gray-400-rgb: 107, 126, 58;
+
   --color-fg-brand-soft: var(--color-brand-200);
-  --color-fg-brand: var(--color-brand-700);
-  --color-fg-brand-strong: var(--color-brand-800);
+  --color-fg-brand: var(--color-brand-400);
+  --color-fg-brand-strong: var(--color-brand-300);
 
   --color-bg-brand-softer: var(--color-brand-050);
   --color-bg-brand-soft: var(--color-brand-100);
   --color-bg-brand-medium: var(--color-brand-200);
-  --color-bg-brand: var(--color-brand-700);
-  --color-bg-brand-strong: var(--color-brand-800);
-  --color-bg-brand-stronger: var(--color-brand-900);
+  --color-bg-brand: var(--color-brand-600);
+  --color-bg-brand-strong: var(--color-brand-700);
+  --color-bg-brand-stronger: var(--color-brand-800);
 
-  --color-border-brand-soft: var(--color-brand-200);
-  --color-border-brand: var(--color-brand-700);
-  --color-border-brand-strong: var(--color-brand-900);
+  --color-bg-primary: var(--color-gray-950);
+  --color-bg-secondary: var(--color-gray-900);
+  --color-bg-tertiary: var(--color-gray-950);
+  --color-bg-quaternary: var(--color-gray-800);
+  --color-bg-dark: var(--color-gray-900);
 
-  /* Sidebar / navigation */
+  --color-border-brand-soft: var(--color-brand-300);
+  --color-border-brand: var(--color-brand-600);
+  --color-border-brand-strong: var(--color-brand-800);
+  --color-border-base: var(--color-gray-800);
+  --color-border-strong: var(--color-gray-700);
+
   --color-nav-bg-primary: var(--color-brand-800);
   --color-nav-bg-primary-strong: var(--color-brand-900);
   --color-nav-border-primary: var(--color-brand-700);
-  --color-nav-bg-secondary-hover: rgba(var(--color-brand-950-rgb), 0.1);
-  --color-nav-bg-secondary-hover-strong: rgba(var(--color-brand-950-rgb), 0.25);
+  --color-nav-bg-secondary: var(--color-gray-900);
+  --color-nav-bg-secondary-strong: var(--color-gray-800);
+  --color-nav-border-secondary: var(--color-gray-800);
 
-  --color-bg-avatar-brand: var(--color-brand-700);
-  --color-bg-avatar-brand-hover: var(--color-brand-800);
+  --color-bg-avatar-brand: var(--color-brand-600);
+  --color-bg-avatar-brand-hover: var(--color-brand-700);
+
+  --tw-ring-offset-color: #{$olive-950};
+}
+
+:root,
+.theme_light {
+  @include olive-theme-vars;
+
+  --color-background: 244 246 239;
+  --color-background-alt: 233 238 220;
 }
 
 .theme_dark {
-  --color-primary-100: 54 68 30;
-  --color-primary-300: 85 107 47;
+  @include olive-theme-vars;
+
+  --color-background: 26 33 16;
+  --color-background-alt: 34 42 22;
+  --color-background-alt2: 42 53 24;
+  --color-background-alt3: 54 68 30;
+  --color-background-alt4: 26 33 16;
+
   --color-primary-600: 139 162 95;
   --color-primary-700: 181 198 149;
 
-  --color-background-alt2: 54 68 30;
-  --color-background-alt3: 68 85 38;
-  --color-background-alt4: 26 33 16;
+  --color-secondary-100: 42 53 24;
+  --color-secondary-300: 68 85 38;
+  --color-secondary-500: 107 126 58;
+  --color-secondary-600: 139 162 95;
+  --color-secondary-700: 181 198 149;
 
-  --color-marketing-logo: 139 162 95;
+  --color-text-main: 233 238 220;
+  --color-text-muted: 181 198 149;
+
+  --color-hover-default: rgb(181 198 149 / 0.1);
+  --color-hover-contrast: rgb(0 0 0 / 0.2);
+
+  --color-marketing-logo: 181 198 149;
   --color-bw-blue: 139 162 95;
-  --color-hover-default: rgb(181 198 149 / 0.12);
 
   --color-illustration-outline: 181 198 149;
   --color-illustration-bg-primary: 42 53 24;
   --color-illustration-bg-secondary: 68 85 38;
-  --color-illustration-logo: 139 162 95;
+  --color-illustration-logo: 181 198 149;
 
-  --color-brand-050: #1a2110;
-  --color-brand-100: #2a3518;
-  --color-brand-200: #36421e;
-  --color-brand-300: #445526;
-  --color-brand-400: #556b2f;
-  --color-brand-500: #6b7e3a;
-  --color-brand-600: #8ba25f;
-  --color-brand-700: #b5c695;
-  --color-brand-800: #d3ddb8;
-  --color-brand-900: #e9eedc;
-  --color-brand-950: #f4f6ef;
-  --color-brand-950-rgb: 244, 246, 239;
+  --color-fg-heading: var(--color-gray-050);
+  --color-fg-body: var(--color-gray-200);
+  --color-fg-brand: var(--color-brand-300);
+  --color-fg-brand-strong: var(--color-brand-200);
 
-  --color-nav-bg-primary: var(--color-brand-300);
-  --color-nav-bg-primary-strong: var(--color-brand-400);
-  --color-nav-border-primary: var(--color-brand-500);
+  --color-bg-brand: var(--color-brand-500);
+  --color-bg-brand-strong: var(--color-brand-400);
+  --color-bg-brand-stronger: var(--color-brand-300);
+
+  --color-nav-bg-primary: var(--color-brand-800);
+  --color-nav-bg-primary-strong: var(--color-brand-900);
 }
 
-/* Utility-class fallbacks for components that hardcode Tailwind primary classes */
-.tw-bg-primary-600,
-.tw-bg-primary-500,
-.tw-bg-primary-700,
-.tw-bg-brand-700,
-.tw-bg-brand-800 {
-  background-color: #{$olive-600} !important;
-}
-
-.tw-bg-primary-600:hover,
-.tw-bg-primary-500:hover,
-.tw-bg-primary-700:hover,
-.tw-bg-brand-700:hover,
-.tw-bg-brand-800:hover {
-  background-color: #{$olive-700} !important;
-}
-
-.tw-text-primary-600,
-.tw-text-primary-500,
-.tw-text-primary-700,
-.tw-text-brand-700,
-a.tw-text-primary-600,
-bit-link.tw-text-primary-600 {
-  color: #{$olive-600} !important;
-}
-
-.tw-text-primary-600:hover,
-a.tw-text-primary-600:hover {
-  color: #{$olive-700} !important;
-}
-
-.tw-border-primary-600,
-.tw-border-primary-500,
-.tw-border-brand-700 {
-  border-color: #{$olive-600} !important;
-}
-
-.tw-ring-primary-600,
-.tw-ring-brand-700 {
-  --tw-ring-color: #{$olive-600} !important;
-}
-
-button[buttonType="primary"],
-button[buttontype="primary"],
-button[buttonType="primary"].primary,
-button[buttontype="primary"].primary {
-  background-color: #{$olive-600} !important;
-  border-color: #{$olive-600} !important;
-}
-
-button[buttonType="primary"]:hover,
-button[buttontype="primary"]:hover {
-  background-color: #{$olive-700} !important;
-  border-color: #{$olive-700} !important;
-}
-
-bit-nav-item a.tw-bg-primary-600,
-bit-nav-item a[class*="tw-bg-primary"],
-bit-nav-item a[class*="tw-bg-brand"] {
-  background-color: #{$olive-600} !important;
-}
-
-bit-nav-item a.tw-text-primary-600,
-bit-nav-item a[class*="tw-text-primary"] {
-  color: #{$olive-200} !important;
-}
-
-/* Auth layout / login panel accents */
+/* Page shells */
+html,
+body,
+app-root,
 .layout_frontend,
+app-user-layout,
+#layout-content,
+bit-layout-content,
+.main-content,
+.tw-bg-bg-primary,
+.tw-bg-bg-secondary,
+.tw-bg-bg-tertiary,
+.tw-bg-background,
+.tw-bg-background-alt {
+  background-color: #{$olive-950} !important;
+}
+
+.theme_light html,
+.theme_light body,
+.theme_light .tw-bg-bg-primary,
+.theme_light .tw-bg-bg-secondary {
+  background-color: #{$olive-50} !important;
+}
+
+/* Login / auth panels */
 app-login,
 app-unlock,
-app-two-factor-auth {
-  --color-primary-600: 85 107 47;
-  --color-brand-700: #{$olive-700};
-  --color-bg-brand: #{$olive-700};
+app-two-factor-auth,
+app-auth-layout,
+auth-layout,
+.bit-auth-card,
+[class*="auth-card"] {
+  --color-background: 26 33 16;
+  --color-background-alt: 42 53 24;
+  background-color: #{$olive-950} !important;
 }
 
-/* 2025+ buttons use semantic Tailwind utilities (tw-bg-bg-brand, etc.) */
+app-login form,
+app-unlock form,
+app-two-factor-auth form,
+.tw-bg-background-alt,
+.tw-bg-bg-secondary {
+  background-color: #{$olive-900} !important;
+  border-color: #{$olive-800} !important;
+}
+
+/* Buttons */
+button[buttonType="primary"],
+button[buttontype="primary"],
 .tw-bg-bg-brand,
 .tw-bg-bg-brand-strong,
 .tw-bg-bg-brand-stronger,
 .tw-bg-brand-700,
-.tw-bg-brand-800 {
+.tw-bg-brand-800,
+.tw-bg-primary-600,
+.tw-bg-primary-500,
+.tw-bg-primary-700 {
   background-color: #{$olive-600} !important;
+  border-color: #{$olive-600} !important;
+  color: #{$olive-50} !important;
 }
 
+button[buttonType="primary"]:hover,
+button[buttontype="primary"]:hover,
 .tw-bg-bg-brand:hover,
-.tw-bg-bg-brand-strong:hover,
-.tw-bg-brand-700:hover,
-.tw-bg-brand-800:hover {
+.tw-bg-brand-700:hover {
+  background-color: #{$olive-700} !important;
+  border-color: #{$olive-700} !important;
+}
+
+button[buttonType="secondary"],
+button[buttontype="secondary"],
+.tw-bg-bg-secondary[class*="button"],
+.tw-border-border-base {
+  background-color: #{$olive-900} !important;
+  border-color: #{$olive-700} !important;
+  color: #{$olive-100} !important;
+}
+
+button[buttonType="secondary"]:hover,
+button[buttontype="secondary"]:hover {
+  background-color: #{$olive-800} !important;
+}
+
+/* Links & accents */
+.tw-text-primary-600,
+.tw-text-primary-500,
+.tw-text-primary-700,
+.tw-text-brand-700,
+.tw-text-fg-brand,
+.tw-text-fg-brand-strong,
+a.tw-text-primary-600,
+bit-link.tw-text-primary-600,
+a[routerlink="/signup"] {
+  color: #{$olive-400} !important;
+}
+
+.tw-border-primary-600,
+.tw-border-primary-500,
+.tw-border-brand-700,
+.tw-border-border-brand,
+.tw-ring-brand-700,
+.tw-ring-primary-600 {
+  border-color: #{$olive-600} !important;
+  --tw-ring-color: #{$olive-600} !important;
+}
+
+/* Avatars & tab highlights */
+bit-avatar,
+.avatar,
+.tw-bg-avatar-brand,
+.tw-bg-bg-avatar-brand,
+[class*="tw-bg-avatar-brand"] {
   background-color: #{$olive-700} !important;
 }
 
-.tw-text-fg-brand,
-.tw-text-fg-brand-strong,
-.tw-text-brand-700 {
-  color: #{$olive-600} !important;
+bit-nav-item a.tw-bg-primary-600,
+bit-nav-item a[class*="tw-bg-primary"],
+bit-nav-item a[class*="tw-bg-brand"],
+bit-nav-item a[aria-current="page"],
+bit-nav-item a.active {
+  background-color: #{$olive-700} !important;
+  color: #{$olive-100} !important;
 }
 
-.tw-border-border-brand,
-.tw-border-brand-700 {
-  border-color: #{$olive-600} !important;
+/* Logo wordmark -> cofre */
+bit-nav-logo bit-svg svg,
+auth-password-manager-logo svg,
+app-password-manager-logo svg,
+img.new-logo-themed,
+.new-logo-themed img {
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+}
+
+bit-nav-logo,
+auth-password-manager-logo,
+app-password-manager-logo {
+  position: relative;
+  min-height: 2rem;
+}
+
+bit-nav-logo::after,
+auth-password-manager-logo::after,
+app-password-manager-logo::after {
+  content: "cofre";
+  color: #{$olive-100};
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-transform: lowercase;
+  line-height: 2rem;
+}
+
+.layout_frontend bit-nav-logo::after,
+app-auth-layout auth-password-manager-logo::after {
+  color: #{$olive-300};
 }
