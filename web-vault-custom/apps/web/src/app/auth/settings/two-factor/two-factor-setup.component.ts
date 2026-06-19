@@ -1,6 +1,6 @@
 // FIXME: Update this file to be type safe and remove this and next line
 // @ts-strict-ignore
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, OnDestroy, OnInit, inject } from "@angular/core";
 import {
   first,
   lastValueFrom,
@@ -68,6 +68,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
   protected destroy$ = new Subject<void>();
   private twoFactorAuthPolicyAppliesToActiveUser: boolean;
   protected twoFactorSetupSubscription: Subscription;
+  private readonly syncService = inject(SyncService);
 
   constructor(
     protected dialogService: DialogService,
@@ -80,7 +81,6 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     protected i18nService: I18nService,
     protected userVerificationService: UserVerificationService,
     protected toastService: ToastService,
-    private syncService: SyncService,
   ) {
     this.canAccessPremium$ = this.accountService.activeAccount$.pipe(
       switchMap((account) =>

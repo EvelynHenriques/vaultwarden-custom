@@ -58,6 +58,37 @@ if [[ -f "${patch_file}" ]]; then
   fi
 fi
 
+import_patch="${CUSTOM_DIR}/patches/oss-routing-mandatory-import.patch"
+if [[ -f "${import_patch}" ]]; then
+  if git -C "${CLIENTS_DIR}" apply --check "${import_patch}" >/dev/null 2>&1; then
+    git -C "${CLIENTS_DIR}" apply "${import_patch}"
+    echo "  applied patches/oss-routing-mandatory-import.patch"
+  elif patch -p1 --forward --input="${import_patch}" --directory="${CLIENTS_DIR}"; then
+    echo "  applied patches/oss-routing-mandatory-import.patch with patch(1)"
+  fi
+fi
+
+ROUTING_FILE="${CLIENTS_DIR}/apps/web/src/app/oss-routing.module.ts"
+if [[ -f "${ROUTING_FILE}" ]] \
+  && grep -q 'mandatoryAuthenticatorActivate' "${ROUTING_FILE}" \
+  && ! grep -q 'mandatoryAuthenticatorActivate,' "${ROUTING_FILE}"; then
+  echo "  fixing mandatoryAuthenticatorActivate import in oss-routing.module.ts"
+  python3 - "${ROUTING_FILE}" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+old = 'import { mandatoryAuthenticatorGuard } from "./vault/guards/mandatory-authenticator.guard";'
+new = """import {
+  mandatoryAuthenticatorActivate,
+  mandatoryAuthenticatorGuard,
+} from "./vault/guards/mandatory-authenticator.guard";"""
+if old in text:
+    path.write_text(text.replace(old, new), encoding="utf-8")
+PY
+fi
+
 marketing_patch="${CUSTOM_DIR}/patches/oss-routing-marketing.patch"
 if [[ -f "${marketing_patch}" ]]; then
   if git -C "${CLIENTS_DIR}" apply --check "${marketing_patch}" >/dev/null 2>&1; then
