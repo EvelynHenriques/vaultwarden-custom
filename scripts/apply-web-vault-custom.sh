@@ -19,7 +19,7 @@ OVERLAY_FILES=(
   "apps/web/src/app/auth/settings/two-factor/two-factor-setup-authenticator.component.html"
   "apps/web/src/app/layouts/frontend-layout.component.ts"
   "apps/web/src/app/layouts/frontend-layout.component.html"
-  "libs/auth/src/angular/login/login-secondary-content/login-secondary-content.component.html"
+  "libs/auth/src/angular/login/login-secondary-content.component.ts"
   "apps/web/src/app/layouts/user-layout.component.ts"
   "apps/web/src/app/layouts/user-layout.component.html"
   "apps/web/src/app/layouts/web-side-nav.component.html"

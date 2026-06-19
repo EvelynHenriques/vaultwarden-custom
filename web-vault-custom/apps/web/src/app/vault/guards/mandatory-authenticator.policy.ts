@@ -6,13 +6,21 @@ import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 export const MANDATORY_TWO_FACTOR_SETUP_URL = "/settings/security/two-factor";
 
 let authenticatorSetupCompleteForSession = false;
+let mandatoryAuthenticatorRequired = false;
+let providerStatusKnown = false;
+let statusCheckPromise: Promise<void> | null = null;
 
 export function markMandatoryAuthenticatorSetupComplete(): void {
   authenticatorSetupCompleteForSession = true;
+  mandatoryAuthenticatorRequired = false;
+  providerStatusKnown = true;
 }
 
 export function resetMandatoryAuthenticatorSetupState(): void {
   authenticatorSetupCompleteForSession = false;
+  mandatoryAuthenticatorRequired = false;
+  providerStatusKnown = false;
+  statusCheckPromise = null;
 }
 
 /** @deprecated Use resetMandatoryAuthenticatorSetupState */
@@ -22,6 +30,11 @@ export function clearMandatoryAuthenticatorGuardCache(): void {
 
 export function isMandatoryAuthenticatorSetupComplete(): boolean {
   return authenticatorSetupCompleteForSession;
+}
+
+/** True once we know Authenticator 2FA is still required for this session. */
+export function isMandatoryAuthenticatorSetupRequired(): boolean {
+  return mandatoryAuthenticatorRequired && !authenticatorSetupCompleteForSession;
 }
 
 /** Normalize router URLs (hash routing, query strings). */
@@ -47,6 +60,55 @@ export function isMandatorySetupAllowedUrl(url: string): boolean {
   );
 }
 
+async function refreshMandatoryAuthenticatorStatus(
+  twoFactorService: TwoFactorService,
+): Promise<void> {
+  if (statusCheckPromise) {
+    await statusCheckPromise;
+    return;
+  }
+
+  statusCheckPromise = (async () => {
+    try {
+      const providerList = await twoFactorService.getEnabledTwoFactorProviders();
+      const hasEnabledAuthenticator = providerList.data.some(
+        (provider) =>
+          provider.type === TwoFactorProviderType.Authenticator && provider.enabled === true,
+      );
+
+      if (hasEnabledAuthenticator) {
+        authenticatorSetupCompleteForSession = true;
+        mandatoryAuthenticatorRequired = false;
+      } else {
+        mandatoryAuthenticatorRequired = true;
+      }
+    } catch {
+      // API errors must redirect to setup — never treat as logout.
+      mandatoryAuthenticatorRequired = true;
+    } finally {
+      providerStatusKnown = true;
+      statusCheckPromise = null;
+    }
+  })();
+
+  await statusCheckPromise;
+}
+
+/** Resolves provider status once per session; safe to call from layout init and guards. */
+export async function ensureMandatoryAuthenticatorStatus(
+  twoFactorService: TwoFactorService,
+): Promise<boolean> {
+  if (authenticatorSetupCompleteForSession) {
+    return true;
+  }
+
+  if (!providerStatusKnown) {
+    await refreshMandatoryAuthenticatorStatus(twoFactorService);
+  }
+
+  return authenticatorSetupCompleteForSession;
+}
+
 export async function resolveMandatoryAuthenticatorAccess(
   router: Router,
   twoFactorService: TwoFactorService,
@@ -55,14 +117,13 @@ export async function resolveMandatoryAuthenticatorAccess(
     return true;
   }
 
-  const providerList = await twoFactorService.getEnabledTwoFactorProviders();
-  const hasEnabledAuthenticator = providerList.data.some(
-    (provider) =>
-      provider.type === TwoFactorProviderType.Authenticator && provider.enabled === true,
-  );
+  if (mandatoryAuthenticatorRequired && providerStatusKnown) {
+    return router.createUrlTree([MANDATORY_TWO_FACTOR_SETUP_URL]);
+  }
 
-  if (hasEnabledAuthenticator) {
-    authenticatorSetupCompleteForSession = true;
+  await ensureMandatoryAuthenticatorStatus(twoFactorService);
+
+  if (authenticatorSetupCompleteForSession) {
     return true;
   }
 

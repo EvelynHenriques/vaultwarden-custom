@@ -20,10 +20,11 @@ import { SendPolicyService } from "@bitwarden/send-ui";
 
 import { CoachmarkComponent, CoachmarkService } from "../vault/components/coachmark";
 import {
+  ensureMandatoryAuthenticatorStatus,
   isMandatoryAuthenticatorSetupComplete,
   isMandatorySetupAllowedUrl,
   MANDATORY_TWO_FACTOR_SETUP_URL,
-  resolveMandatoryAuthenticatorAccess,
+  normalizeMandatorySetupPath,
 } from "../vault/guards/mandatory-authenticator.policy";
 
 import { WebLayoutModule } from "./web-layout.module";
@@ -68,6 +69,7 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly router = inject(Router);
   private readonly twoFactorService = inject(TwoFactorService);
+  private redirectingToMandatorySetup = false;
 
   constructor(
     private syncService: SyncService,
@@ -99,32 +101,30 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
       )
       .subscribe((event) => {
         if (event instanceof NavigationStart) {
-          if (isMandatoryAuthenticatorSetupComplete()) {
-            this.showRouterOutlet = true;
-            return;
-          }
-
-          if (isMandatorySetupAllowedUrl(event.url)) {
-            this.showRouterOutlet = true;
-            return;
-          }
-
-          this.showRouterOutlet = false;
-          void this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl: true });
+          this.updateRouterOutletVisibility(event.url);
           return;
         }
 
         void this.enforceMandatoryAuthenticatorAccess(event.urlAfterRedirects);
       });
 
-    await this.syncService.fullSync(false);
+    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
     await this.enforceMandatoryAuthenticatorAccess(this.router.url);
+
+    if (isMandatoryAuthenticatorSetupComplete()) {
+      await this.syncService.fullSync(false);
+    }
   }
 
   ngOnDestroy(): void {
     document.body.classList.remove("vw-authenticated");
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private updateRouterOutletVisibility(url: string): void {
+    this.showRouterOutlet =
+      isMandatoryAuthenticatorSetupComplete() || isMandatorySetupAllowedUrl(url);
   }
 
   private async enforceMandatoryAuthenticatorAccess(url: string): Promise<void> {
@@ -140,12 +140,32 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
 
     this.showRouterOutlet = false;
 
-    const access = await resolveMandatoryAuthenticatorAccess(this.router, this.twoFactorService);
-    if (access === true) {
+    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
+
+    if (isMandatoryAuthenticatorSetupComplete()) {
+      this.showRouterOutlet = true;
+      await this.syncService.fullSync(false);
+      return;
+    }
+
+    const currentPath = normalizeMandatorySetupPath(url);
+    const setupPath = normalizeMandatorySetupPath(MANDATORY_TWO_FACTOR_SETUP_URL);
+
+    if (currentPath === setupPath) {
       this.showRouterOutlet = true;
       return;
     }
 
-    await this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl: true });
+    if (this.redirectingToMandatorySetup) {
+      return;
+    }
+
+    this.redirectingToMandatorySetup = true;
+    try {
+      await this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl: true });
+      this.showRouterOutlet = true;
+    } finally {
+      this.redirectingToMandatorySetup = false;
+    }
   }
 }

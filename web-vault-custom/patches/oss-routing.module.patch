@@ -1,28 +1,54 @@
 diff --git a/apps/web/src/app/oss-routing.module.ts b/apps/web/src/app/oss-routing.module.ts
 --- a/apps/web/src/app/oss-routing.module.ts
 +++ b/apps/web/src/app/oss-routing.module.ts
-@@ -94,6 +94,7 @@ import { BrowserExtensionPromptInstallComponent } from "./vault/components/brows
+@@ -94,6 +94,10 @@ import { BrowserExtensionPromptInstallComponent } from "./vault/components/brows
  import { BrowserExtensionPromptComponent } from "./vault/components/browser-extension-prompt/browser-extension-prompt.component";
  import { SetupExtensionComponent } from "./vault/components/setup-extension/setup-extension.component";
  import { setupExtensionRedirectGuard } from "./vault/guards/setup-extension-redirect.guard";
-+import { mandatoryAuthenticatorGuard } from "./vault/guards/mandatory-authenticator.guard";
++import {
++  mandatoryAuthenticatorActivate,
++  mandatoryAuthenticatorGuard,
++} from "./vault/guards/mandatory-authenticator.guard";
  import { VaultModule } from "./vault/individual-vault/vault.module";
  
  const routes: Routes = [
-@@ -631,7 +632,8 @@ const routes: Routes = [
+@@ -631,11 +635,12 @@ const routes: Routes = [
    {
      path: "",
      component: UserLayoutComponent,
 -    canActivate: [deepLinkGuard(), authGuard],
-+    canActivate: [deepLinkGuard(), authGuard],
++    canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorActivate],
 +    canActivateChild: [mandatoryAuthenticatorGuard],
      children: [
        {
          path: "vault",
-@@ -776,6 +778,7 @@ const routes: Routes = [
+-        canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard],
++        canActivate: [mandatoryAuthenticatorActivate, premiumInterestRedirectGuard, setupExtensionRedirectGuard],
+         loadChildren: () => VaultModule,
+       },
+       {
+@@ -643,6 +648,7 @@ const routes: Routes = [
+         component: SendComponent,
+         data: { titleId: "send" } satisfies RouteDataProperties,
+         canActivate: [
++          mandatoryAuthenticatorActivate,
+           organizationPolicyGuard((userId, configService, policyService) =>
+             configService
+               .getFeatureFlag$(FeatureFlag.SendControls)
+@@ -736,7 +742,7 @@ const routes: Routes = [
+       },
+       {
+         path: "tools",
+-        canActivate: [authGuard],
++        canActivate: [mandatoryAuthenticatorActivate, authGuard],
+         children: [
+           { path: "", pathMatch: "full", redirectTo: "generator" },
+           {
+@@ -776,6 +782,8 @@ const routes: Routes = [
    },
    {
      path: "organizations",
++    canActivate: [authGuard, mandatoryAuthenticatorActivate],
 +    canActivateChild: [mandatoryAuthenticatorGuard],
      loadChildren: () =>
        import("./admin-console/organizations/organization.module").then((m) => m.OrganizationModule),

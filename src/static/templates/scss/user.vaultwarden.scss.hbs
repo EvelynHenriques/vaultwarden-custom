@@ -15,6 +15,9 @@ $text-light: #f4f6ef;
 $text-light-muted: #d3ddb8;
 $text-dark: #2a3518;
 $text-dark-muted: #556b2f;
+$gold-400: #f5d547;
+$gold-500: #e8c547;
+$gold-600: #d4a017;
 
 @mixin olive-brand-vars {
   --color-primary-100: 237 242 227;
@@ -394,19 +397,25 @@ bit-side-nav .tw-text-fg-body-subtle {
   color: #{$text-light-muted} !important;
 }
 
-/* Auth / login / registration — olive-green illustrations (no pink/purple/blue) */
+/* Auth / login / registration — olive-green base, gold accents (no pink/blue) */
 bit-landing-hero bit-svg,
 bit-landing-hero bit-svg svg,
 bit-landing-hero svg,
 auth-anon-layout bit-landing-hero svg,
 auth-anon-layout-wrapper bit-landing-hero svg,
 app-anon-layout-wrapper bit-landing-hero svg,
-.layout_frontend bit-landing-hero svg {
-  filter: hue-rotate(130deg) saturate(1.45) brightness(1.06) !important;
+.layout_frontend bit-landing-hero svg,
+.theme_dark bit-landing-hero svg,
+.theme_light bit-landing-hero svg {
+  filter: hue-rotate(125deg) saturate(1.35) brightness(1.04) !important;
 }
 
-bit-landing-hero svg stop {
-  stop-color: #{$olive-500} !important;
+bit-landing-hero svg stop:nth-child(odd) {
+  stop-color: #{$olive-600} !important;
+}
+
+bit-landing-hero svg stop:nth-child(even) {
+  stop-color: #{$gold-500} !important;
 }
 
 bit-landing-hero svg [fill="#175DDC"],
@@ -419,6 +428,14 @@ bit-landing-hero svg [fill="#06b6d4"],
 bit-landing-hero svg [fill="#00CFE8"],
 bit-landing-hero svg [fill="#22D3EE"],
 bit-landing-hero svg [fill="#0891B2"],
+bit-landing-hero svg [stroke="#175DDC"],
+bit-landing-hero svg [stroke="#175ddc"],
+bit-landing-hero svg [stroke="#06B6D4"],
+bit-landing-hero svg [stroke="#06b6d4"] {
+  fill: #{$gold-500} !important;
+  stroke: #{$gold-600} !important;
+}
+
 bit-landing-hero svg [fill="#E54670"],
 bit-landing-hero svg [fill="#e54670"],
 bit-landing-hero svg [fill="#D926B8"],
@@ -433,22 +450,19 @@ bit-landing-hero svg [fill="#FF057F"],
 bit-landing-hero svg [fill="#ff057f"],
 bit-landing-hero svg [fill="#E94598"],
 bit-landing-hero svg [fill="#e94598"],
-bit-landing-hero svg [fill="#FFD400"],
-bit-landing-hero svg [fill="#ffd400"],
-bit-landing-hero svg [fill="#F9A825"],
-bit-landing-hero svg [stroke="#175DDC"],
-bit-landing-hero svg [stroke="#175ddc"],
-bit-landing-hero svg [stroke="#06B6D4"],
 bit-landing-hero svg [stroke="#E54670"],
 bit-landing-hero svg [stroke="#D926B8"],
 bit-landing-hero svg [stroke="#A855F7"] {
-  fill: #{$olive-600} !important;
-  stroke: #{$olive-600} !important;
+  fill: #{$gold-400} !important;
+  stroke: #{$gold-600} !important;
 }
 
 bit-landing-hero svg [fill="#FFD400"],
-bit-landing-hero svg [fill="#ffd400"] {
-  fill: #{$olive-400} !important;
+bit-landing-hero svg [fill="#ffd400"],
+bit-landing-hero svg [fill="#F9A825"],
+bit-landing-hero svg [fill="#FFBF00"] {
+  fill: #{$gold-500} !important;
+  stroke: #{$gold-600} !important;
 }
 
 /* Registration / login — prevent terms text truncation */

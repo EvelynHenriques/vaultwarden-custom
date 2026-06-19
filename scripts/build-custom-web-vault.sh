@@ -38,7 +38,7 @@ fi
 
 "${SCRIPT_DIR}/apply-web-vault-custom.sh" "${CLIENTS_DIR}"
 
-# Rebrand locale strings (Bitwarden/Vaultwarden -> EB Vault) before webpack bundles them.
+# Rebrand locale strings (Bitwarden/Vaultwarden -> EBVault) before webpack bundles them.
 "${SCRIPT_DIR}/patch-web-vault-branding.sh" "${CLIENTS_DIR}/apps/web/src/locales"
 
 pushd "${CLIENTS_DIR}" >/dev/null

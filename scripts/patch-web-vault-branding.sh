@@ -25,9 +25,12 @@ patch_file() {
     -e 's/Autenticador Cofre/Autenticador EBVault/g' \
     -e 's/Bitwarden Inc\./EBVault/g' \
     -e 's/Bitwarden Inc/EBVault/g' \
+    -e 's/Novo no Bitwarden?/Novo?/g' \
+    -e 's/New to Bitwarden?/New?/g' \
+    -e 's/Novo no EBVault?/Novo?/g' \
+    -e 's/New to EBVault?/New?/g' \
     -e 's/Conecte-se ao Bitwarden/Conecte-se ao EBVault/g' \
-    -e 's/Novo no Bitwarden/Novo no EBVault/g' \
-    -e 's/New to Bitwarden/New to EBVault/g' \
+    -e 's/Novo no Bitwarden/Novo/g' \
     -e 's/Log in to Bitwarden/Log in to EBVault/g' \
     -e 's/Bitwarden/EBVault/g' \
     -e 's/Vaultwarden/EBVault/g' \

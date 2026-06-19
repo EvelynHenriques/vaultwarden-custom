@@ -34,6 +34,7 @@ import { ProductTierType } from "@bitwarden/common/billing/enums";
 import { ConfigService } from "@bitwarden/common/platform/abstractions/config/config.service";
 import { I18nService } from "@bitwarden/common/platform/abstractions/i18n.service";
 import { MessagingService } from "@bitwarden/common/platform/abstractions/messaging.service";
+import { SyncService } from "@bitwarden/common/platform/sync";
 import { DialogRef, DialogService, ItemModule, ToastService } from "@bitwarden/components";
 
 import { HeaderModule } from "../../../layouts/header/header.module";
@@ -79,6 +80,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     protected i18nService: I18nService,
     protected userVerificationService: UserVerificationService,
     protected toastService: ToastService,
+    private syncService: SyncService,
   ) {
     this.canAccessPremium$ = this.accountService.activeAccount$.pipe(
       switchMap((account) =>
@@ -323,6 +325,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     });
     if (enabled && type === TwoFactorProviderType.Authenticator) {
       markMandatoryAuthenticatorSetupComplete();
+      void this.syncService.fullSync(false);
     }
     this.evaluatePolicies();
   }
