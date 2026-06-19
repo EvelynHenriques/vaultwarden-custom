@@ -65,8 +65,10 @@
     >
       {{ "enable" | i18n }}
     </button>
-    <button bitButton bitFormButton type="button" buttonType="secondary" bitDialogClose>
-      {{ "close" | i18n }}
-    </button>
+    @if (!mandatoryLockActive) {
+      <button bitButton bitFormButton type="button" buttonType="secondary" bitDialogClose>
+        {{ "close" | i18n }}
+      </button>
+    }
   </ng-container>
 </form>

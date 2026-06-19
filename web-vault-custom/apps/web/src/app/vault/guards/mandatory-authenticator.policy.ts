@@ -37,6 +37,17 @@ export function isMandatoryAuthenticatorSetupRequired(): boolean {
   return mandatoryAuthenticatorRequired && !authenticatorSetupCompleteForSession;
 }
 
+/** Global lock mode: default-deny until Authenticator 2FA is confirmed enabled. */
+export function isMandatoryLockModeActive(): boolean {
+  if (isMandatoryAuthenticatorSetupComplete()) {
+    return false;
+  }
+  if (!providerStatusKnown) {
+    return true;
+  }
+  return mandatoryAuthenticatorRequired;
+}
+
 export function isMandatoryAuthenticatorStatusKnown(): boolean {
   return providerStatusKnown;
 }
@@ -64,14 +75,9 @@ export function normalizeMandatorySetupPath(url: string): string {
 /**
  * Whitelist while mandatory 2FA is missing:
  * - /settings/security/two-factor (2FA setup page + dialog)
- * - /lock (vault lock screen; user remains authenticated)
  */
 export function isMandatorySetupAllowedUrl(url: string): boolean {
   const path = normalizeMandatorySetupPath(url);
-
-  if (path === "/lock") {
-    return true;
-  }
 
   return (
     path === MANDATORY_TWO_FACTOR_SETUP_URL ||
@@ -81,7 +87,7 @@ export function isMandatorySetupAllowedUrl(url: string): boolean {
 
 /** Default-deny: block unless 2FA is complete or URL is explicitly whitelisted. */
 export function shouldBlockMandatorySetupNavigation(url: string): boolean {
-  if (isMandatoryAuthenticatorSetupComplete()) {
+  if (!isMandatoryLockModeActive()) {
     return false;
   }
 
@@ -142,7 +148,7 @@ export async function resolveMandatoryAuthenticatorAccess(
 ): Promise<boolean | UrlTree> {
   await ensureMandatoryAuthenticatorStatus(twoFactorService);
 
-  if (isMandatoryAuthenticatorSetupComplete()) {
+  if (!isMandatoryLockModeActive()) {
     return true;
   }
 

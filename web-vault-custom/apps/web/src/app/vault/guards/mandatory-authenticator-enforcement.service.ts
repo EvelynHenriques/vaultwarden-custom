@@ -1,20 +1,17 @@
 import { inject, Injectable } from "@angular/core";
-import { NavigationEnd, NavigationStart, Router } from "@angular/router";
+import { NavigationEnd, Router } from "@angular/router";
 import { filter, firstValueFrom } from "rxjs";
 
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
 import { getUserId } from "@bitwarden/common/auth/services/account.service";
-import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 
+import { MandatoryAuthenticatorLockService } from "./mandatory-authenticator-lock.service";
 import {
-  ensureMandatoryAuthenticatorStatus,
   isMandatoryAuthenticatorSetupComplete,
-  isMandatorySetupAllowedUrl,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   normalizeMandatorySetupPath,
-  shouldBlockMandatorySetupNavigation,
 } from "./mandatory-authenticator.policy";
 
 /**
@@ -24,12 +21,11 @@ import {
 @Injectable({ providedIn: "root" })
 export class MandatoryAuthenticatorEnforcementService {
   private started = false;
-  private redirectInFlight = false;
 
   private readonly router = inject(Router);
-  private readonly twoFactorService = inject(TwoFactorService);
   private readonly authService = inject(AuthService);
   private readonly accountService = inject(AccountService);
+  private readonly lockService = inject(MandatoryAuthenticatorLockService);
 
   start(): void {
     if (this.started) {
@@ -37,15 +33,13 @@ export class MandatoryAuthenticatorEnforcementService {
     }
     this.started = true;
 
+    this.lockService.start();
+
     void this.bootstrapAuthenticatedSession();
 
     this.router.events
-      .pipe(filter((event) => event instanceof NavigationStart || event instanceof NavigationEnd))
+      .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe((event) => {
-        if (event instanceof NavigationStart) {
-          void this.handleNavigationStart(event.url);
-          return;
-        }
         void this.handleNavigationEnd(event.urlAfterRedirects);
       });
   }
@@ -55,33 +49,13 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
-    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
+    await this.lockService.refreshLockState();
 
     if (isMandatoryAuthenticatorSetupComplete()) {
       return;
     }
 
     await this.redirectIfBlocked(this.router.url, true);
-  }
-
-  private async handleNavigationStart(url: string): Promise<void> {
-    if (!(await this.isAuthenticated())) {
-      return;
-    }
-
-    if (isMandatoryAuthenticatorSetupComplete()) {
-      return;
-    }
-
-    if (!shouldBlockMandatorySetupNavigation(url)) {
-      return;
-    }
-
-    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
-
-    if (isMandatoryAuthenticatorSetupComplete()) {
-      return;
-    }
   }
 
   private async handleNavigationEnd(url: string): Promise<void> {
@@ -97,45 +71,29 @@ export class MandatoryAuthenticatorEnforcementService {
   }
 
   async redirectIfBlocked(url: string, replaceUrl = false): Promise<boolean> {
+    if (!(await this.isAuthenticated())) {
+      return false;
+    }
+
+    await this.lockService.refreshLockState();
+
     if (isMandatoryAuthenticatorSetupComplete()) {
       return false;
     }
 
-    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
-
-    if (isMandatoryAuthenticatorSetupComplete()) {
+    if (this.lockService.shouldAllowUrl(url)) {
       return false;
     }
 
-    if (!shouldBlockMandatorySetupNavigation(url)) {
-      return false;
-    }
-
-    if (this.redirectInFlight) {
-      return true;
-    }
-
-    this.redirectInFlight = true;
-    try {
-      await this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl });
-      return true;
-    } finally {
-      this.redirectInFlight = false;
-    }
+    return this.lockService.enforceRoute(replaceUrl);
   }
 
   isRouteAllowed(url: string): boolean {
-    if (isMandatoryAuthenticatorSetupComplete()) {
-      return true;
-    }
-    return isMandatorySetupAllowedUrl(url);
+    return this.lockService.shouldAllowUrl(url);
   }
 
   shouldHideAuthenticatedContent(url: string): boolean {
-    if (isMandatoryAuthenticatorSetupComplete()) {
-      return false;
-    }
-    return shouldBlockMandatorySetupNavigation(url);
+    return this.lockService.shouldHideAuthenticatedContent(url);
   }
 
   private async isAuthenticated(): Promise<boolean> {

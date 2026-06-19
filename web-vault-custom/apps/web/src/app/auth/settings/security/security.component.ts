@@ -1,6 +1,6 @@
 import { Component, OnInit, inject } from "@angular/core";
-import { ActivatedRoute, Router } from "@angular/router";
-import { firstValueFrom } from "rxjs";
+import { ActivatedRoute, NavigationEnd, Router } from "@angular/router";
+import { filter, firstValueFrom } from "rxjs";
 
 import { UserDecryptionOptionsServiceAbstraction } from "@bitwarden/auth/common";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
@@ -11,10 +11,10 @@ import { HeaderModule } from "../../../layouts/header/header.module";
 import { SharedModule } from "../../../shared";
 import {
   ensureMandatoryAuthenticatorStatus,
-  isMandatoryAuthenticatorSetupComplete,
-  isMandatoryAuthenticatorSetupRequired,
+  isMandatoryLockModeActive,
 } from "../../../vault/guards/mandatory-authenticator.policy";
 import { MandatoryAuthenticatorEnforcementService } from "../../../vault/guards/mandatory-authenticator-enforcement.service";
+import { MandatoryAuthenticatorLockService } from "../../../vault/guards/mandatory-authenticator-lock.service";
 
 // FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
 // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
@@ -31,6 +31,7 @@ export class SecurityComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly twoFactorService = inject(TwoFactorService);
   private readonly enforcementService = inject(MandatoryAuthenticatorEnforcementService);
+  private readonly lockService = inject(MandatoryAuthenticatorLockService);
 
   constructor(
     private userDecryptionOptionsService: UserDecryptionOptionsServiceAbstraction,
@@ -44,11 +45,19 @@ export class SecurityComponent implements OnInit {
       : false;
 
     await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
-    this.mandatoryTwoFactorOnly =
-      !isMandatoryAuthenticatorSetupComplete() && isMandatoryAuthenticatorSetupRequired();
+    this.lockService.syncDomLockClass();
+    this.mandatoryTwoFactorOnly = isMandatoryLockModeActive();
 
     if (this.mandatoryTwoFactorOnly) {
       await this.router.navigate(["two-factor"], { relativeTo: this.route, replaceUrl: true });
+
+      this.router.events
+        .pipe(filter((event) => event instanceof NavigationEnd))
+        .subscribe(() => {
+          if (this.mandatoryTwoFactorOnly && this.lockService.isLockModeActive()) {
+            void this.router.navigate(["two-factor"], { relativeTo: this.route, replaceUrl: true });
+          }
+        });
       return;
     }
 

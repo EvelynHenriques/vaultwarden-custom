@@ -14,7 +14,7 @@ import { LinkModule } from "@bitwarden/components";
   imports: [CommonModule, JslibModule, LinkModule, RouterModule],
   template: `
     @if (!(isUserRegistrationDisabled$ | async)) {
-      <span>{{ "newToBitwarden" | i18n }}</span>
+      <span>Novo?</span>
       <a bitLink linkType="primary" routerLink="/register">{{ "createAccount" | i18n }}</a>
     }
   `,

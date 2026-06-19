@@ -1,7 +1,7 @@
 // FIXME: Update this file to be type safe and remove this and next line
 // @ts-strict-ignore
 import { CommonModule } from "@angular/common";
-import { Component, EventEmitter, Inject, OnDestroy, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, Inject, OnDestroy, OnInit, Output, inject } from "@angular/core";
 import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from "@angular/forms";
 import { firstValueFrom, map } from "rxjs";
 
@@ -38,6 +38,7 @@ import {
 import { I18nPipe } from "@bitwarden/ui-common";
 
 import { TwoFactorSetupMethodBaseComponent } from "./two-factor-setup-method-base.component";
+import { MandatoryAuthenticatorLockService } from "../../../vault/guards/mandatory-authenticator-lock.service";
 
 // NOTE: There are additional options available but these are just the ones we are current using.
 // See: https://github.com/neocotic/qrious#examples
@@ -91,6 +92,9 @@ export class TwoFactorSetupAuthenticatorComponent
   override componentName = "app-two-factor-authenticator";
   qrScriptError = false;
   private qrScript: HTMLScriptElement;
+  mandatoryLockActive = false;
+
+  private readonly lockService = inject(MandatoryAuthenticatorLockService);
 
   formGroup = this.formBuilder.group({
     token: new FormControl(null, [Validators.required, Validators.minLength(6)]),
@@ -125,6 +129,11 @@ export class TwoFactorSetupAuthenticatorComponent
   }
 
   async ngOnInit() {
+    this.mandatoryLockActive = this.lockService.isLockModeActive() && !this.enabled;
+    if (this.mandatoryLockActive) {
+      this.dialogRef.disableClose = true;
+    }
+
     window.document.body.appendChild(this.qrScript);
     await this.auth(this.data);
   }
@@ -165,6 +174,12 @@ export class TwoFactorSetupAuthenticatorComponent
   private async processResponse(response: TwoFactorAuthenticatorResponse) {
     this.formGroup.get("token").setValue(null);
     this.enabled = response.enabled;
+    this.mandatoryLockActive = this.lockService.isLockModeActive() && !this.enabled;
+    if (this.mandatoryLockActive) {
+      this.dialogRef.disableClose = true;
+    } else {
+      this.dialogRef.disableClose = false;
+    }
     this.key = response.key;
     this.userVerificationToken = response.userVerificationToken;
 

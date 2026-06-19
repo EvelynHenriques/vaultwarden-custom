@@ -47,6 +47,7 @@ import { TwoFactorSetupWebAuthnComponent } from "./two-factor-setup-webauthn.com
 import { TwoFactorSetupYubiKeyComponent } from "./two-factor-setup-yubikey.component";
 import { TwoFactorVerifyComponent } from "./two-factor-verify.component";
 import { markMandatoryAuthenticatorSetupComplete } from "../../../vault/guards/mandatory-authenticator.policy";
+import { MandatoryAuthenticatorLockService } from "../../../vault/guards/mandatory-authenticator-lock.service";
 
 // FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
 // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
@@ -69,6 +70,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
   private twoFactorAuthPolicyAppliesToActiveUser: boolean;
   protected twoFactorSetupSubscription: Subscription;
   private readonly syncService = inject(SyncService);
+  private readonly lockService = inject(MandatoryAuthenticatorLockService);
 
   constructor(
     protected dialogService: DialogService,
@@ -124,6 +126,13 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
       .subscribe((policyAppliesToActiveUser) => {
         this.twoFactorAuthPolicyAppliesToActiveUser = policyAppliesToActiveUser;
       });
+
+    this.lockService.reopenAuthenticatorDialog$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        void this.openMandatoryAuthenticatorDialog();
+      });
+
     await this.load();
   }
 
@@ -149,8 +158,23 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
       (provider) => provider.type === TwoFactorProviderType.Authenticator,
     );
     if (authenticatorProvider && !authenticatorProvider.enabled) {
-      void this.manage(TwoFactorProviderType.Authenticator);
+      void this.openMandatoryAuthenticatorDialog();
     }
+  }
+
+  private async openMandatoryAuthenticatorDialog(): Promise<void> {
+    if (!this.lockService.isLockModeActive()) {
+      return;
+    }
+
+    const authenticatorProvider = this.providers.find(
+      (provider) => provider.type === TwoFactorProviderType.Authenticator,
+    );
+    if (authenticatorProvider?.enabled) {
+      return;
+    }
+
+    await this.manage(TwoFactorProviderType.Authenticator);
   }
 
   async callTwoFactorVerifyDialog(type?: TwoFactorProviderType) {
@@ -213,17 +237,31 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
         const result: AuthResponse<TwoFactorAuthenticatorResponse> =
           await this.callTwoFactorVerifyDialog(type);
         if (!result) {
+          if (this.lockService.isLockModeActive()) {
+            void this.openMandatoryAuthenticatorDialog();
+          }
           return;
         }
+        const mandatoryLock = this.lockService.isLockModeActive();
         const authComp: DialogRef<boolean, any> = TwoFactorSetupAuthenticatorComponent.open(
           this.dialogService,
-          { data: result },
+          {
+            data: result,
+            disableClose: mandatoryLock,
+            closeOnNavigation: false,
+          },
         );
+        if (mandatoryLock) {
+          this.lockService.registerAuthenticatorDialog(authComp);
+        }
         this.twoFactorSetupSubscription = authComp.componentInstance.onChangeStatus
           .pipe(first(), takeUntil(this.destroy$))
           .subscribe((enabled: boolean) => {
-            void authComp.close();
             this.updateStatus(enabled, TwoFactorProviderType.Authenticator);
+            if (enabled) {
+              authComp.disableClose = false;
+              void authComp.close();
+            }
           });
         break;
       }
@@ -325,6 +363,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     });
     if (enabled && type === TwoFactorProviderType.Authenticator) {
       markMandatoryAuthenticatorSetupComplete();
+      this.lockService.syncDomLockClass();
       void this.syncService.fullSync(false);
     }
     this.evaluatePolicies();

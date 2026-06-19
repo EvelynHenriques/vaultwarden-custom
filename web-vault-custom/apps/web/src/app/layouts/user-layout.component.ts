@@ -20,6 +20,7 @@ import { SendPolicyService } from "@bitwarden/send-ui";
 
 import { CoachmarkComponent, CoachmarkService } from "../vault/components/coachmark";
 import { MandatoryAuthenticatorEnforcementService } from "../vault/guards/mandatory-authenticator-enforcement.service";
+import { MandatoryAuthenticatorLockService } from "../vault/guards/mandatory-authenticator-lock.service";
 import {
   ensureMandatoryAuthenticatorStatus,
   isMandatoryAuthenticatorSetupComplete,
@@ -68,6 +69,7 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly twoFactorService = inject(TwoFactorService);
   private readonly enforcementService = inject(MandatoryAuthenticatorEnforcementService);
+  private readonly lockService = inject(MandatoryAuthenticatorLockService);
 
   constructor(
     private syncService: SyncService,
@@ -112,6 +114,7 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
     );
 
     await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
+    this.lockService.syncDomLockClass();
 
     if (isMandatoryAuthenticatorSetupComplete()) {
       this.showRouterOutlet = true;
