@@ -22,7 +22,7 @@ use crate::{
         models::{
             Archive, Attachment, AttachmentId, Cipher, CipherId, Collection, CollectionCipher, CollectionGroup,
             CollectionId, CollectionUser, EventType, Favorite, Folder, FolderCipher, FolderId, Group, Membership,
-            MembershipType, OrgPolicy, OrgPolicyType, OrganizationId, RepromptType, Send, TwoFactor, TwoFactorType,
+            MembershipType, OrgPolicy, OrgPolicyType, OrganizationId, RepromptType, Send,
             UserId,
         },
     },

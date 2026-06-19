@@ -25,7 +25,6 @@ use crate::{
             AttachmentId, CipherId, Collection, CollectionId, Device, DeviceId, DeviceType, EmergencyAccessId,
             Membership, MembershipId, MembershipStatus, MembershipType, OrgApiKeyId, OrganizationId, SendFileId,
             SendId, User, UserId, UserStampException,
-            TwoFactor, TwoFactorType,
         },
     },
     error::Error,

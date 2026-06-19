@@ -22,7 +22,7 @@ use crate::{
         models::{
             AuthRequest, AuthRequestId, Cipher, CipherId, Device, DeviceId, DeviceType, DeviceWithAuthRequest,
             EmergencyAccess, EmergencyAccessId, EventType, Folder, FolderId, Invitation, Membership, MembershipId,
-            OrgPolicy, OrgPolicyType, Organization, OrganizationId, Send, SendId, TwoFactor, TwoFactorType, User,
+            OrgPolicy, OrgPolicyType, Organization, OrganizationId, Send, SendId, User,
             UserId, UserKdfType,
         },
     },
