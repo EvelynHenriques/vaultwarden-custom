@@ -242,6 +242,18 @@ auth-input-password > form > bit-form-field:nth-child(4) {
   @extend %vw-hide;
 }
 {{/unless}}
+
+/* Hide login "New to Bitwarden? Create Account" prompt */
+auth-login-secondary-content,
+login-secondary-content,
+app-login-secondary-content {
+  @extend %vw-hide;
+}
+
+/* Hide client version line in auth footer (copyright only) */
+bit-landing-footer div[bitTypography="body2"] + div[bitTypography="body2"] {
+  @extend %vw-hide;
+}
 /**** End Dynamic Vaultwarden Changes ****/
 /**** Include a special user stylesheet for custom changes ****/
 {{#if load_user_scss}}

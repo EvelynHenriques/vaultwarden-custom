@@ -20,6 +20,10 @@ export function clearMandatoryAuthenticatorGuardCache(): void {
   resetMandatoryAuthenticatorSetupState();
 }
 
+export function isMandatoryAuthenticatorSetupComplete(): boolean {
+  return authenticatorSetupCompleteForSession;
+}
+
 /** Normalize router URLs (hash routing, query strings). */
 export function normalizeMandatorySetupPath(url: string): string {
   let path = url.split("?")[0].split("#")[0].trim();

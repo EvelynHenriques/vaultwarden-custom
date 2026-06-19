@@ -1,4 +1,4 @@
-<app-layout>
+<app-layout [class.vw-mandatory-2fa-lock]="!showRouterOutlet">
   <app-side-nav>
     <bit-nav-logo [openIcon]="logo" route="." [label]="'passwordManager' | i18n"></bit-nav-logo>
 
@@ -50,5 +50,7 @@
     </bit-nav-group>
   </app-side-nav>
 
-  <router-outlet></router-outlet>
+  @if (showRouterOutlet) {
+    <router-outlet></router-outlet>
+  }
 </app-layout>

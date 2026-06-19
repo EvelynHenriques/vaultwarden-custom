@@ -394,57 +394,68 @@ bit-side-nav .tw-text-fg-body-subtle {
   color: #{$text-light-muted} !important;
 }
 
-/* Auth / registration / login — olive-green illustrations (no pink/purple) */
-.layout_frontend bit-landing-hero bit-svg svg,
-.layout_frontend bit-landing-hero svg,
-auth-anon-layout bit-landing-hero svg,
+/* Auth / login / registration — olive-green illustrations (no pink/purple/blue) */
+bit-landing-hero bit-svg,
 bit-landing-hero bit-svg svg,
-bit-landing-hero svg {
-  filter: hue-rotate(115deg) saturate(1.25) brightness(1.02) !important;
+bit-landing-hero svg,
+auth-anon-layout bit-landing-hero svg,
+auth-anon-layout-wrapper bit-landing-hero svg,
+app-anon-layout-wrapper bit-landing-hero svg,
+.layout_frontend bit-landing-hero svg {
+  filter: hue-rotate(130deg) saturate(1.45) brightness(1.06) !important;
 }
 
-.layout_frontend bit-landing-hero svg [fill="#175DDC"],
-.layout_frontend bit-landing-hero svg [fill="#175ddc"],
-.layout_frontend bit-landing-hero svg [fill="#0054de"],
-.layout_frontend bit-landing-hero svg [fill="#2F5DD0"],
-.layout_frontend bit-landing-hero svg [fill="#1252A3"],
-.layout_frontend bit-landing-hero svg [stroke="#175DDC"],
-.layout_frontend bit-landing-hero svg [stroke="#175ddc"],
+bit-landing-hero svg stop {
+  stop-color: #{$olive-500} !important;
+}
+
 bit-landing-hero svg [fill="#175DDC"],
-bit-landing-hero svg [fill="#175ddc"] {
+bit-landing-hero svg [fill="#175ddc"],
+bit-landing-hero svg [fill="#0054de"],
+bit-landing-hero svg [fill="#2F5DD0"],
+bit-landing-hero svg [fill="#1252A3"],
+bit-landing-hero svg [fill="#06B6D4"],
+bit-landing-hero svg [fill="#06b6d4"],
+bit-landing-hero svg [fill="#00CFE8"],
+bit-landing-hero svg [fill="#22D3EE"],
+bit-landing-hero svg [fill="#0891B2"],
+bit-landing-hero svg [fill="#E54670"],
+bit-landing-hero svg [fill="#e54670"],
+bit-landing-hero svg [fill="#D926B8"],
+bit-landing-hero svg [fill="#d926b8"],
+bit-landing-hero svg [fill="#A855F7"],
+bit-landing-hero svg [fill="#a855f7"],
+bit-landing-hero svg [fill="#9333EA"],
+bit-landing-hero svg [fill="#9333ea"],
+bit-landing-hero svg [fill="#BF90FF"],
+bit-landing-hero svg [fill="#bf90ff"],
+bit-landing-hero svg [fill="#FF057F"],
+bit-landing-hero svg [fill="#ff057f"],
+bit-landing-hero svg [fill="#E94598"],
+bit-landing-hero svg [fill="#e94598"],
+bit-landing-hero svg [fill="#FFD400"],
+bit-landing-hero svg [fill="#ffd400"],
+bit-landing-hero svg [fill="#F9A825"],
+bit-landing-hero svg [stroke="#175DDC"],
+bit-landing-hero svg [stroke="#175ddc"],
+bit-landing-hero svg [stroke="#06B6D4"],
+bit-landing-hero svg [stroke="#E54670"],
+bit-landing-hero svg [stroke="#D926B8"],
+bit-landing-hero svg [stroke="#A855F7"] {
   fill: #{$olive-600} !important;
   stroke: #{$olive-600} !important;
 }
 
-.layout_frontend bit-landing-hero svg [fill="#FFD400"],
-.layout_frontend bit-landing-hero svg [fill="#ffd400"],
-.layout_frontend bit-landing-hero svg [fill="#F9A825"],
-.layout_frontend bit-landing-hero svg [fill="#FFBF00"] {
+bit-landing-hero svg [fill="#FFD400"],
+bit-landing-hero svg [fill="#ffd400"] {
   fill: #{$olive-400} !important;
 }
 
-.layout_frontend bit-landing-hero svg [fill="#E54670"],
-.layout_frontend bit-landing-hero svg [fill="#e54670"],
-.layout_frontend bit-landing-hero svg [fill="#D926B8"],
-.layout_frontend bit-landing-hero svg [fill="#d926b8"],
-.layout_frontend bit-landing-hero svg [fill="#A855F7"],
-.layout_frontend bit-landing-hero svg [fill="#a855f7"],
-.layout_frontend bit-landing-hero svg [fill="#9333EA"],
-.layout_frontend bit-landing-hero svg [fill="#9333ea"],
-.layout_frontend bit-landing-hero svg [fill="#BF90FF"],
-.layout_frontend bit-landing-hero svg [fill="#bf90ff"],
-.layout_frontend bit-landing-hero svg [fill="#FF057F"],
-.layout_frontend bit-landing-hero svg [fill="#ff057f"],
-.layout_frontend bit-landing-hero svg [fill="#E94598"],
-.layout_frontend bit-landing-hero svg [fill="#e94598"],
-bit-landing-hero svg [fill="#E54670"],
-bit-landing-hero svg [fill="#D926B8"],
-bit-landing-hero svg [fill="#A855F7"] {
-  fill: #{$olive-500} !important;
-  stroke: #{$olive-500} !important;
-}
-
 /* Registration / login — prevent terms text truncation */
+bit-landing-card,
+bit-landing-content,
+bit-base-card,
+bit-landing-card form,
 .layout_frontend bit-landing-card,
 .layout_frontend bit-landing-content,
 .layout_frontend bit-base-card,
@@ -454,12 +465,12 @@ bit-landing-hero svg [fill="#A855F7"] {
   max-height: none !important;
 }
 
-.layout_frontend bit-landing-card form p[bitTypography="helper"],
-.layout_frontend bit-landing-card p[bitTypography="helper"],
-.layout_frontend bit-landing-card p.tw-text-xs,
-.layout_frontend bit-landing-content p,
-.layout_frontend p[bitTypography="helper"] {
-  display: block !important;
+bit-landing-card form p[bitTypography="helper"],
+bit-landing-card p[bitTypography="helper"],
+bit-landing-card p.tw-text-xs,
+bit-landing-content p,
+p[bitTypography="helper"],
+.layout_frontend bit-landing-card form p[bitTypography="helper"] {
   white-space: normal !important;
   overflow: visible !important;
   text-overflow: unset !important;
@@ -545,5 +556,11 @@ body.theme_dark.layout_frontend bit-landing-footer {
   color: #{$text-dark} !important;
   background-color: #{$olive-50} !important;
   border-color: #{$olive-400} !important;
+}
+
+/* Mandatory 2FA lock — no flash of blocked routes */
+.vw-mandatory-2fa-lock router-outlet,
+.vw-mandatory-2fa-lock > router-outlet {
+  display: none !important;
 }
 
