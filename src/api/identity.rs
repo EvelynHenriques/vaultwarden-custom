@@ -556,9 +556,7 @@ async fn authenticated_response(
     });
 
     let mandatory_authenticator_setup =
-        TwoFactor::find_by_user_and_type(&user.uuid, TwoFactorType::Authenticator as i32, conn)
-            .await
-            .is_none();
+        !crate::mandatory_authenticator_2fa::user_has_enabled_authenticator_2fa(&user.uuid, conn).await;
     result["MandatoryAuthenticatorSetup"] = json!(mandatory_authenticator_setup);
 
     if !user.akey.is_empty() {

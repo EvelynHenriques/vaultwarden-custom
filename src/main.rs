@@ -53,6 +53,7 @@ mod api;
 mod auth;
 mod config;
 mod crypto;
+mod mandatory_authenticator_2fa;
 #[macro_use]
 mod db;
 mod http_client;

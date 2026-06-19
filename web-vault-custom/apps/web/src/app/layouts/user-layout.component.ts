@@ -19,12 +19,10 @@ import { PopoverModule, SvgModule } from "@bitwarden/components";
 import { SendPolicyService } from "@bitwarden/send-ui";
 
 import { CoachmarkComponent, CoachmarkService } from "../vault/components/coachmark";
+import { MandatoryAuthenticatorEnforcementService } from "../vault/guards/mandatory-authenticator-enforcement.service";
 import {
   ensureMandatoryAuthenticatorStatus,
   isMandatoryAuthenticatorSetupComplete,
-  isMandatorySetupAllowedUrl,
-  MANDATORY_TWO_FACTOR_SETUP_URL,
-  normalizeMandatorySetupPath,
 } from "../vault/guards/mandatory-authenticator.policy";
 
 import { WebLayoutModule } from "./web-layout.module";
@@ -69,7 +67,7 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly router = inject(Router);
   private readonly twoFactorService = inject(TwoFactorService);
-  private redirectingToMandatorySetup = false;
+  private readonly enforcementService = inject(MandatoryAuthenticatorEnforcementService);
 
   constructor(
     private syncService: SyncService,
@@ -100,20 +98,28 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
       )
       .subscribe((event) => {
-        if (event instanceof NavigationStart) {
-          this.updateRouterOutletVisibility(event.url);
-          return;
-        }
+        const url =
+          event instanceof NavigationStart ? event.url : event.urlAfterRedirects;
+        this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(url);
 
-        void this.enforceMandatoryAuthenticatorAccess(event.urlAfterRedirects);
+        if (event instanceof NavigationEnd) {
+          void this.onNavigationSettled(event.urlAfterRedirects);
+        }
       });
 
+    this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(
+      this.router.url,
+    );
+
     await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
-    await this.enforceMandatoryAuthenticatorAccess(this.router.url);
 
     if (isMandatoryAuthenticatorSetupComplete()) {
+      this.showRouterOutlet = true;
       await this.syncService.fullSync(false);
+      return;
     }
+
+    await this.onNavigationSettled(this.router.url);
   }
 
   ngOnDestroy(): void {
@@ -122,50 +128,16 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  private updateRouterOutletVisibility(url: string): void {
-    this.showRouterOutlet =
-      isMandatoryAuthenticatorSetupComplete() || isMandatorySetupAllowedUrl(url);
-  }
-
-  private async enforceMandatoryAuthenticatorAccess(url: string): Promise<void> {
+  private async onNavigationSettled(url: string): Promise<void> {
     if (isMandatoryAuthenticatorSetupComplete()) {
       this.showRouterOutlet = true;
       return;
     }
 
-    if (isMandatorySetupAllowedUrl(url)) {
-      this.showRouterOutlet = true;
-      return;
-    }
-
-    this.showRouterOutlet = false;
-
-    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
-
-    if (isMandatoryAuthenticatorSetupComplete()) {
-      this.showRouterOutlet = true;
-      await this.syncService.fullSync(false);
-      return;
-    }
-
-    const currentPath = normalizeMandatorySetupPath(url);
-    const setupPath = normalizeMandatorySetupPath(MANDATORY_TWO_FACTOR_SETUP_URL);
-
-    if (currentPath === setupPath) {
-      this.showRouterOutlet = true;
-      return;
-    }
-
-    if (this.redirectingToMandatorySetup) {
-      return;
-    }
-
-    this.redirectingToMandatorySetup = true;
-    try {
-      await this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl: true });
-      this.showRouterOutlet = true;
-    } finally {
-      this.redirectingToMandatorySetup = false;
-    }
+    this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(url);
+    await this.enforcementService.redirectIfBlocked(url, true);
+    this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(
+      this.router.url,
+    );
   }
 }

@@ -414,9 +414,7 @@ async fn post_set_password(data: Json<SetPasswordData>, headers: Headers, conn: 
 async fn profile(headers: Headers, conn: DbConn) -> Json<Value> {
     let mut user_json = headers.user.to_json(&conn).await;
     let has_authenticator =
-        TwoFactor::find_by_user_and_type(&headers.user.uuid, TwoFactorType::Authenticator as i32, &conn)
-            .await
-            .is_some();
+        crate::mandatory_authenticator_2fa::user_has_enabled_authenticator_2fa(&headers.user.uuid, &conn).await;
     user_json["MandatoryAuthenticatorSetup"] = json!(!has_authenticator);
     user_json["AuthenticatorDisableBlocked"] = json!(has_authenticator);
     Json(user_json)

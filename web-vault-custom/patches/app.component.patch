@@ -1,0 +1,27 @@
+diff --git a/apps/web/src/app/app.component.ts b/apps/web/src/app/app.component.ts
+--- a/apps/web/src/app/app.component.ts
++++ b/apps/web/src/app/app.component.ts
+@@ -1,6 +1,6 @@
+ // FIXME: Update this file to be type safe and remove this and next line
+ // @ts-strict-ignore
+-import { Component, DestroyRef, NgZone, OnDestroy, OnInit } from "@angular/core";
++import { Component, DestroyRef, NgZone, OnDestroy, OnInit, inject } from "@angular/core";
+ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+ import { Router } from "@angular/router";
+ import { Subject, filter, firstValueFrom, map, timeout } from "rxjs";
+@@ -28,6 +28,7 @@ import { InternalFolderService } from "@bitwarden/common/vault/abstractions/fol
+ import { SearchService } from "@bitwarden/common/vault/abstractions/search.service";
+ import { DialogService, RouterFocusManagerService, ToastService } from "@bitwarden/components";
+ import { KeyService, BiometricStateService } from "@bitwarden/key-management";
++import { MandatoryAuthenticatorEnforcementService } from "./vault/guards/mandatory-authenticator-enforcement.service";
+ 
+ const BroadcasterSubscriptionId = "AppComponent";
+ const IdleTimeout = 60000 * 10; // 10 minutes
+@@ -89,6 +90,7 @@ export class AppComponent implements OnDestroy, OnInit {
+   }
+ 
+   ngOnInit() {
++    inject(MandatoryAuthenticatorEnforcementService).start();
+     this.ngZone.runOutsideAngular(() => {
+       window.onmousemove = () => this.recordActivity();
+       window.onmousedown = () => this.recordActivity();

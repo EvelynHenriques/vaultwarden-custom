@@ -12,44 +12,86 @@ diff --git a/apps/web/src/app/oss-routing.module.ts b/apps/web/src/app/oss-routi
  import { VaultModule } from "./vault/individual-vault/vault.module";
  
  const routes: Routes = [
-@@ -631,11 +635,12 @@ const routes: Routes = [
-   {
-     path: "",
-     component: UserLayoutComponent,
--    canActivate: [deepLinkGuard(), authGuard],
-+    canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorActivate],
-+    canActivateChild: [mandatoryAuthenticatorGuard],
-     children: [
-       {
-         path: "vault",
--        canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard],
-+        canActivate: [mandatoryAuthenticatorActivate, premiumInterestRedirectGuard, setupExtensionRedirectGuard],
-         loadChildren: () => VaultModule,
-       },
-       {
-@@ -643,6 +648,7 @@ const routes: Routes = [
-         component: SendComponent,
-         data: { titleId: "send" } satisfies RouteDataProperties,
-         canActivate: [
-+          mandatoryAuthenticatorActivate,
-           organizationPolicyGuard((userId, configService, policyService) =>
-             configService
-               .getFeatureFlag$(FeatureFlag.SendControls)
-@@ -736,7 +742,7 @@ const routes: Routes = [
-       },
-       {
-         path: "tools",
--        canActivate: [authGuard],
-+        canActivate: [mandatoryAuthenticatorActivate, authGuard],
-         children: [
-           { path: "", pathMatch: "full", redirectTo: "generator" },
-           {
-@@ -776,6 +782,8 @@ const routes: Routes = [
-   },
-   {
-     path: "organizations",
-+    canActivate: [authGuard, mandatoryAuthenticatorActivate],
-+    canActivateChild: [mandatoryAuthenticatorGuard],
-     loadChildren: () =>
-       import("./admin-console/organizations/organization.module").then((m) => m.OrganizationModule),
-   },
+@@ -541,7 +545,7 @@ const routes: Routes = [
+ {
+ path: "remove-password",
+ component: RemovePasswordComponent,
+-canActivate: [authGuard],
++canActivate: [authGuard, mandatoryAuthenticatorActivate],
+ data: {
+ pageTitle: {
+ key: "verifyYourOrganization",
+@@ -606,7 +610,7 @@ outlet: "secondary",
+ {
+ path: AuthRoute.ChangePassword,
+ component: ChangePasswordComponent,
+-canActivate: [authGuard],
++canActivate: [authGuard, mandatoryAuthenticatorActivate],
+ data: {
+ pageIcon: LockIcon,
+ } satisfies AnonLayoutWrapperData,
+@@ -631,11 +635,13 @@ children: [
+ {
+ path: "",
+ component: UserLayoutComponent,
+-canActivate: [deepLinkGuard(), authGuard],
++canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorActivate],
++canActivateChild: [mandatoryAuthenticatorGuard],
++runGuardsAndResolvers: "always",
+ children: [
+ {
+ path: "vault",
+-canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard],
++canActivate: [mandatoryAuthenticatorActivate, premiumInterestRedirectGuard, setupExtensionRedirectGuard],
+ loadChildren: () => VaultModule,
+ },
+ {
+@@ -643,6 +649,7 @@ children: [
+ component: SendComponent,
+ data: { titleId: "send" } satisfies RouteDataProperties,
+ canActivate: [
++mandatoryAuthenticatorActivate,
+ organizationPolicyGuard((userId, configService, policyService) =>
+ configService
+ .getFeatureFlag$(FeatureFlag.SendControls)
+@@ -673,9 +680,11 @@ data: { titleId: "requestAccessToSecretsManager" },
+ },
+ {
+ path: "create-organization",
++canActivate: [mandatoryAuthenticatorActivate],
+ component: CreateOrganizationComponent,
+ data: { titleId: "newOrganization" } satisfies RouteDataProperties,
+ },
+ {
+ path: "settings",
++canActivateChild: [mandatoryAuthenticatorGuard],
+ children: [
+ { path: "", pathMatch: "full", redirectTo: AuthWebRouteSegment.Account },
+ {
+@@ -736,7 +745,7 @@ children: [
+ },
+ {
+ path: "tools",
+-canActivate: [authGuard],
++canActivate: [mandatoryAuthenticatorActivate, authGuard],
+ children: [
+ { path: "", pathMatch: "full", redirectTo: "generator" },
+ {
+@@ -766,6 +775,7 @@ data: { titleId: "generator" } satisfies RouteDataProperties,
+ ],
+ },
+ {
+ path: "reports",
++canActivate: [mandatoryAuthenticatorActivate],
+ loadChildren: () => ReportsModule,
+ },
+ { path: "setup/families-for-enterprise", component: FamiliesForEnterpriseSetupComponent },
+@@ -776,6 +786,8 @@ data: { titleId: "generator" } satisfies RouteDataProperties,
+ },
+ {
+ path: "organizations",
++canActivate: [authGuard, mandatoryAuthenticatorActivate],
++canActivateChild: [mandatoryAuthenticatorGuard],
+ loadChildren: () =>
+ import("./admin-console/organizations/organization.module").then((m) => m.OrganizationModule),
+ },

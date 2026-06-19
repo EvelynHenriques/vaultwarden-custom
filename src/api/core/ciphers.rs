@@ -123,9 +123,7 @@ struct SyncData {
 async fn sync(data: SyncData, headers: Headers, client_version: Option<ClientVersion>, conn: DbConn) -> JsonResult {
     let user_json = headers.user.to_json(&conn).await;
 
-    if TwoFactor::find_by_user_and_type(&headers.user.uuid, TwoFactorType::Authenticator as i32, &conn)
-        .await
-        .is_none()
+    if !crate::mandatory_authenticator_2fa::user_has_enabled_authenticator_2fa(&headers.user.uuid, &conn).await
     {
         let domains_json = if data.exclude_domains {
             Value::Null

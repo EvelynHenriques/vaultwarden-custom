@@ -29,6 +29,12 @@ OVERLAY_FILES=(
   "libs/auth/src/angular/registration/registration-start/registration-start.component.html"
   "apps/web/src/app/vault/guards/mandatory-authenticator.guard.ts"
   "apps/web/src/app/vault/guards/mandatory-authenticator.policy.ts"
+  "apps/web/src/app/vault/guards/mandatory-authenticator-enforcement.service.ts"
+  "apps/web/src/app/auth/settings/security/security-routing.module.ts"
+  "apps/web/src/app/auth/settings/security/security.component.ts"
+  "apps/web/src/app/auth/settings/security/security.component.html"
+  "apps/web/src/app/admin-console/organizations/layouts/organization-layout.component.ts"
+  "apps/web/src/app/admin-console/organizations/layouts/organization-layout.component.html"
 )
 
 echo "Applying Vaultwarden web-vault customizations from ${CUSTOM_DIR}"
@@ -88,6 +94,22 @@ if old in text:
     path.write_text(text.replace(old, new), encoding="utf-8")
 PY
 fi
+
+app_patch="${CUSTOM_DIR}/patches/app.component.patch"
+if [[ -f "${app_patch}" ]]; then
+  if git -C "${CLIENTS_DIR}" apply --check "${app_patch}" >/dev/null 2>&1; then
+    git -C "${CLIENTS_DIR}" apply "${app_patch}"
+    echo "  applied patches/app.component.patch"
+  elif patch -p1 --forward --input="${app_patch}" --directory="${CLIENTS_DIR}"; then
+    echo "  applied patches/app.component.patch with patch(1)"
+  else
+    echo "  warning: could not apply patches/app.component.patch" >&2
+  fi
+fi
+
+python3 "${SCRIPT_DIR}/apply-mandatory-2fa-routing.py" "${CLIENTS_DIR}/apps/web/src/app/oss-routing.module.ts" 2>/dev/null \
+  || python "${SCRIPT_DIR}/apply-mandatory-2fa-routing.py" "${CLIENTS_DIR}/apps/web/src/app/oss-routing.module.ts" \
+  || echo "  warning: could not run apply-mandatory-2fa-routing.py" >&2
 
 marketing_patch="${CUSTOM_DIR}/patches/oss-routing-marketing.patch"
 if [[ -f "${marketing_patch}" ]]; then
