@@ -31,6 +31,7 @@ import { BannerModule, SvgModule } from "@bitwarden/components";
 import { OrganizationWarningsService } from "@bitwarden/web-vault/app/billing/organizations/warnings/services";
 import { NonIndividualSubscriber } from "@bitwarden/web-vault/app/billing/types";
 import { TaxIdWarningComponent } from "@bitwarden/web-vault/app/billing/warnings/components";
+import { TaxIdWarningType } from "@bitwarden/web-vault/app/billing/warnings/types";
 
 import { FreeFamiliesPolicyService } from "../../../billing/services/free-families-policy.service";
 import { OrgSwitcherComponent } from "../../../layouts/org-switcher/org-switcher.component";
@@ -71,7 +72,7 @@ export class OrganizationLayoutComponent implements OnInit, OnDestroy {
   protected showSponsoredFamiliesDropdown$: Observable<boolean>;
 
   protected subscriber$: Observable<NonIndividualSubscriber>;
-  protected getTaxIdWarning$: () => Observable<unknown>;
+  protected getTaxIdWarning$: () => Observable<TaxIdWarningType>;
 
   protected showRouterOutlet = false;
 
