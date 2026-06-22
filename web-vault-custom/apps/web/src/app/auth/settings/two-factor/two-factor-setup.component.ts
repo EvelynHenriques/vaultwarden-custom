@@ -69,6 +69,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
   protected destroy$ = new Subject<void>();
   private twoFactorAuthPolicyAppliesToActiveUser: boolean;
   protected twoFactorSetupSubscription: Subscription;
+  private mandatoryDialogOpening = false;
   private readonly syncService = inject(SyncService);
   private readonly lockService = inject(MandatoryAuthenticatorLockService);
 
@@ -163,7 +164,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
   }
 
   private async openMandatoryAuthenticatorDialog(): Promise<void> {
-    if (!this.lockService.isLockModeActive()) {
+    if (this.mandatoryDialogOpening || !this.lockService.isLockModeActive()) {
       return;
     }
 
@@ -174,14 +175,30 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
       return;
     }
 
-    await this.manage(TwoFactorProviderType.Authenticator);
+    this.mandatoryDialogOpening = true;
+    try {
+      await this.manage(TwoFactorProviderType.Authenticator);
+    } finally {
+      this.mandatoryDialogOpening = false;
+    }
   }
 
   async callTwoFactorVerifyDialog(type?: TwoFactorProviderType) {
+    const mandatoryLock =
+      this.lockService.isLockModeActive() && type === TwoFactorProviderType.Authenticator;
     const twoFactorVerifyDialogRef = TwoFactorVerifyComponent.open(this.dialogService, {
       data: { type: type, organizationId: this.organizationId },
+      disableClose: mandatoryLock,
+      closeOnNavigation: false,
     });
-    return await lastValueFrom(twoFactorVerifyDialogRef.closed);
+    if (mandatoryLock) {
+      this.lockService.registerMandatoryDialog(twoFactorVerifyDialogRef, "verify");
+    }
+    const result = await lastValueFrom(twoFactorVerifyDialogRef.closed);
+    if (!result && mandatoryLock) {
+      void this.openMandatoryAuthenticatorDialog();
+    }
+    return result;
   }
 
   /**
@@ -252,15 +269,15 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
           },
         );
         if (mandatoryLock) {
-          this.lockService.registerAuthenticatorDialog(authComp);
+          this.lockService.registerMandatoryDialog(authComp, "authenticator");
         }
         this.twoFactorSetupSubscription = authComp.componentInstance.onChangeStatus
           .pipe(first(), takeUntil(this.destroy$))
           .subscribe((enabled: boolean) => {
             this.updateStatus(enabled, TwoFactorProviderType.Authenticator);
             if (enabled) {
-              authComp.disableClose = false;
-              void authComp.close();
+              this.lockService.allowMandatoryDialogClose();
+              this.lockService.forceCloseMandatoryDialog(authComp);
             }
           });
         break;

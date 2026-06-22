@@ -7,11 +7,10 @@ import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
 import { getUserId } from "@bitwarden/common/auth/services/account.service";
 import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
-import { DialogRef } from "@bitwarden/components";
+import { DialogRef, DialogService } from "@bitwarden/components";
 
 import {
   ensureMandatoryAuthenticatorStatus,
-  isMandatoryAuthenticatorSetupComplete,
   isMandatoryLockModeActive,
   isMandatorySetupAllowedUrl,
   MANDATORY_TWO_FACTOR_SETUP_URL,
@@ -19,9 +18,11 @@ import {
   shouldBlockMandatorySetupNavigation,
 } from "./mandatory-authenticator.policy";
 
+type MandatoryDialogKind = "verify" | "authenticator";
+
 /**
  * Global mandatory-2FA lock mode. While active, the authenticated web vault may only
- * remain on the whitelisted 2FA setup route with a non-dismissible setup dialog.
+ * remain on the whitelisted 2FA setup route with non-dismissible setup dialogs.
  */
 @Injectable({ providedIn: "root" })
 export class MandatoryAuthenticatorLockService {
@@ -29,10 +30,16 @@ export class MandatoryAuthenticatorLockService {
   private readonly twoFactorService = inject(TwoFactorService);
   private readonly authService = inject(AuthService);
   private readonly accountService = inject(AccountService);
+  private readonly dialogService = inject(DialogService);
 
   private started = false;
   private redirectInFlight = false;
-  private authenticatorDialogRef: DialogRef | null = null;
+  private dialogServicePatched = false;
+  private allowDialogClose = false;
+  private escapeListenerAttached = false;
+
+  private readonly mandatoryDialogRefs = new Set<DialogRef>();
+  private authenticatorDialogRegistered = false;
 
   /** Emitted when the authenticator setup dialog must be (re)opened. */
   readonly reopenAuthenticatorDialog$ = new Subject<void>();
@@ -42,6 +49,9 @@ export class MandatoryAuthenticatorLockService {
       return;
     }
     this.started = true;
+
+    this.patchDialogService();
+    this.attachEscapeBlocker();
 
     void this.bootstrap();
 
@@ -54,19 +64,20 @@ export class MandatoryAuthenticatorLockService {
     this.accountService.activeAccount$.pipe(getUserId).subscribe((userId) => {
       if (!userId) {
         resetMandatoryAuthenticatorSetupState();
+        this.allowDialogClose = false;
         this.syncDomLockClass();
         return;
       }
       void firstValueFrom(this.authService.authStatusFor$(userId)).then((status) => {
         if (status === AuthenticationStatus.LoggedOut) {
           resetMandatoryAuthenticatorSetupState();
+          this.allowDialogClose = false;
           this.syncDomLockClass();
         }
       });
     });
   }
 
-  /** True while Authenticator 2FA step login is still required for this session. */
   isLockModeActive(): boolean {
     return isMandatoryLockModeActive();
   }
@@ -94,33 +105,70 @@ export class MandatoryAuthenticatorLockService {
   syncDomLockClass(): void {
     if (this.isLockModeActive()) {
       document.body.classList.add("vw-mandatory-2fa-lock-mode");
+      this.allowDialogClose = false;
     } else {
       document.body.classList.remove("vw-mandatory-2fa-lock-mode");
-      this.authenticatorDialogRef = null;
+      this.mandatoryDialogRefs.clear();
+      this.authenticatorDialogRegistered = false;
+      this.allowDialogClose = true;
     }
   }
 
-  registerAuthenticatorDialog(ref: DialogRef): void {
-    this.authenticatorDialogRef = ref;
+  allowMandatoryDialogClose(): void {
+    this.allowDialogClose = true;
+  }
 
-    if (this.isLockModeActive()) {
-      ref.disableClose = true;
-      this.patchNonDismissibleClose(ref);
+  /** Close a mandatory dialog after a successful step without unlocking the app. */
+  forceCloseMandatoryDialog(ref: DialogRef, result?: unknown): void {
+    const wasAllowed = this.allowDialogClose;
+    this.allowDialogClose = true;
+    ref.disableClose = false;
+
+    const cdkRef = (ref as { cdkDialogRefBase?: DialogRef }).cdkDialogRefBase;
+    if (cdkRef) {
+      cdkRef.disableClose = false;
+    }
+
+    ref.close(result);
+
+    if (!wasAllowed && this.isLockModeActive()) {
+      this.allowDialogClose = false;
+    }
+  }
+
+  registerMandatoryDialog(ref: DialogRef, kind: MandatoryDialogKind): void {
+    if (!this.isLockModeActive()) {
+      return;
+    }
+
+    this.mandatoryDialogRefs.add(ref);
+    ref.disableClose = true;
+    this.patchNonDismissibleClose(ref);
+
+    if (kind === "authenticator") {
+      this.authenticatorDialogRegistered = true;
     }
 
     ref.closed.subscribe(() => {
-      if (this.authenticatorDialogRef === ref) {
-        this.authenticatorDialogRef = null;
+      this.mandatoryDialogRefs.delete(ref);
+      if (kind === "authenticator") {
+        this.authenticatorDialogRegistered = false;
       }
-      if (this.isLockModeActive()) {
+
+      if (this.isLockModeActive() && !this.allowDialogClose) {
         this.requestAuthenticatorDialogReopen();
-        void this.enforceRoute();
+        void this.enforceRoute(true);
       }
     });
   }
 
+  /** @deprecated Use registerMandatoryDialog */
+  registerAuthenticatorDialog(ref: DialogRef): void {
+    this.registerMandatoryDialog(ref, "authenticator");
+  }
+
   requestAuthenticatorDialogReopen(): void {
-    if (!this.isLockModeActive()) {
+    if (!this.isLockModeActive() || this.allowDialogClose) {
       return;
     }
     this.reopenAuthenticatorDialog$.next();
@@ -140,6 +188,9 @@ export class MandatoryAuthenticatorLockService {
 
     const url = this.router.url;
     if (!shouldBlockMandatorySetupNavigation(url)) {
+      if (!this.authenticatorDialogRegistered) {
+        this.requestAuthenticatorDialogReopen();
+      }
       return false;
     }
 
@@ -150,10 +201,71 @@ export class MandatoryAuthenticatorLockService {
     this.redirectInFlight = true;
     try {
       await this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl });
+      if (!this.authenticatorDialogRegistered) {
+        this.requestAuthenticatorDialogReopen();
+      }
       return true;
     } finally {
       this.redirectInFlight = false;
     }
+  }
+
+  private patchDialogService(): void {
+    if (this.dialogServicePatched) {
+      return;
+    }
+    this.dialogServicePatched = true;
+
+    const dialogService = this.dialogService as DialogService & {
+      open: DialogService["open"];
+      closeAll: DialogService["closeAll"];
+    };
+
+    const originalOpen = dialogService.open.bind(dialogService);
+    dialogService.open = ((componentOrTemplateRef, config) => {
+      if (this.isLockModeActive()) {
+        config = {
+          ...config,
+          disableClose: true,
+          closeOnNavigation: false,
+        };
+      }
+      const ref = originalOpen(componentOrTemplateRef, config);
+      if (this.isLockModeActive()) {
+        this.patchNonDismissibleClose(ref);
+      }
+      return ref;
+    }) as DialogService["open"];
+
+    const originalCloseAll = dialogService.closeAll.bind(dialogService);
+    dialogService.closeAll = () => {
+      if (this.isLockModeActive() && !this.allowDialogClose) {
+        return;
+      }
+      originalCloseAll();
+    };
+  }
+
+  private attachEscapeBlocker(): void {
+    if (this.escapeListenerAttached || typeof document === "undefined") {
+      return;
+    }
+    this.escapeListenerAttached = true;
+
+    document.addEventListener(
+      "keydown",
+      (event: KeyboardEvent) => {
+        if (event.key !== "Escape") {
+          return;
+        }
+        if (!this.isLockModeActive() || this.allowDialogClose) {
+          return;
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      },
+      true,
+    );
   }
 
   private async bootstrap(): Promise<void> {
@@ -177,6 +289,9 @@ export class MandatoryAuthenticatorLockService {
     }
 
     if (!shouldBlockMandatorySetupNavigation(url)) {
+      if (!this.authenticatorDialogRegistered) {
+        this.requestAuthenticatorDialogReopen();
+      }
       return;
     }
 
@@ -191,13 +306,29 @@ export class MandatoryAuthenticatorLockService {
   }
 
   private patchNonDismissibleClose(ref: DialogRef): void {
+    ref.disableClose = true;
+
     const originalClose = ref.close.bind(ref);
-    ref.close = (result?: unknown) => {
-      if (this.isLockModeActive()) {
+    ref.close = (result?: unknown, options?: unknown) => {
+      if (this.isLockModeActive() && !this.allowDialogClose) {
+        this.requestAuthenticatorDialogReopen();
         return;
       }
-      originalClose(result);
+      originalClose(result, options);
     };
+
+    const cdkRef = (ref as { cdkDialogRefBase?: DialogRef }).cdkDialogRefBase;
+    if (cdkRef) {
+      cdkRef.disableClose = true;
+      const originalCdkClose = cdkRef.close.bind(cdkRef);
+      cdkRef.close = (result?: unknown, options?: unknown) => {
+        if (this.isLockModeActive() && !this.allowDialogClose) {
+          this.requestAuthenticatorDialogReopen();
+          return;
+        }
+        originalCdkClose(result, options);
+      };
+    }
   }
 
   private async isAuthenticated(): Promise<boolean> {

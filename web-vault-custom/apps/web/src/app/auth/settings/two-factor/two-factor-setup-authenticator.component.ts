@@ -157,6 +157,10 @@ export class TwoFactorSetupAuthenticatorComponent
     }
 
     await this.enable();
+    if (this.enabled) {
+      this.lockService.allowMandatoryDialogClose();
+      this.mandatoryLockActive = false;
+    }
     this.onChangeStatus.emit(this.enabled);
   };
 

@@ -17,6 +17,8 @@ OVERLAY_FILES=(
   "apps/web/src/app/auth/settings/two-factor/two-factor-setup.component.html"
   "apps/web/src/app/auth/settings/two-factor/two-factor-setup-authenticator.component.ts"
   "apps/web/src/app/auth/settings/two-factor/two-factor-setup-authenticator.component.html"
+  "apps/web/src/app/auth/settings/two-factor/two-factor-verify.component.ts"
+  "apps/web/src/app/auth/settings/two-factor/two-factor-verify.component.html"
   "apps/web/src/app/layouts/frontend-layout.component.ts"
   "apps/web/src/app/layouts/frontend-layout.component.html"
   "libs/auth/src/angular/login/login-secondary-content.component.ts"

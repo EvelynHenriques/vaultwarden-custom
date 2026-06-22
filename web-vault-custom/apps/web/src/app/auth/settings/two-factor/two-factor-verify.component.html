@@ -1,0 +1,18 @@
+<form [formGroup]="formGroup" [bitSubmit]="submit" bit-dialog [title]="dialogTitle">
+  <ng-container bitDialogContent>
+    <auth-user-verification-form-input
+      formControlName="secret"
+      [invalidSecret]="invalidSecret"
+    ></auth-user-verification-form-input>
+  </ng-container>
+  <ng-container bitDialogFooter>
+    <button bitButton bitFormButton type="submit" buttonType="primary">
+      {{ "continue" | i18n }}
+    </button>
+    @if (!mandatoryLockActive) {
+      <button bitButton bitFormButton type="button" buttonType="secondary" bitDialogClose>
+        {{ "close" | i18n }}
+      </button>
+    }
+  </ng-container>
+</form>
