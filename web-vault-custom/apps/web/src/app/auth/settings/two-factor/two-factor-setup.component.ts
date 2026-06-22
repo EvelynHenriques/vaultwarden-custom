@@ -29,6 +29,7 @@ import { TwoFactorYubiKeyResponse } from "@bitwarden/common/auth/models/response
 import { getUserId } from "@bitwarden/common/auth/services/account.service";
 import { TwoFactorService, TwoFactorProviders } from "@bitwarden/common/auth/two-factor";
 import { AuthResponse } from "@bitwarden/common/auth/types/auth-response";
+import { TwoFactorResponse } from "@bitwarden/common/auth/types/two-factor-response";
 import { BillingAccountProfileStateService } from "@bitwarden/common/billing/abstractions/account/billing-account-profile-state.service";
 import { ProductTierType } from "@bitwarden/common/billing/enums";
 import { ConfigService } from "@bitwarden/common/platform/abstractions/config/config.service";
