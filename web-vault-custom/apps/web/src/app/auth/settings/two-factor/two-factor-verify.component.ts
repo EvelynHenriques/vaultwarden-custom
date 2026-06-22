@@ -60,7 +60,7 @@ export class TwoFactorVerifyComponent implements OnInit {
 
   constructor(
     @Inject(DIALOG_DATA) protected data: TwoFactorVerifyDialogData,
-    private dialogRef: DialogRef,
+    private dialogRef: DialogRef<AuthResponse<TwoFactorResponse>>,
     private twoFactorService: TwoFactorService,
     private i18nService: I18nService,
     private userVerificationService: UserVerificationService,
@@ -155,12 +155,12 @@ export class TwoFactorVerifyComponent implements OnInit {
   }
 
   static open(dialogService: DialogService, config: DialogConfig) {
-    return dialogService.open<AuthResponse, TwoFactorVerifyDialogData>(
+    return dialogService.open<AuthResponse<TwoFactorResponse>, TwoFactorVerifyDialogData>(
       TwoFactorVerifyComponent,
       {
         ...config,
         closeOnNavigation: config?.closeOnNavigation ?? false,
-      } as DialogConfig<TwoFactorVerifyDialogData, DialogRef<AuthResponse>>,
+      } as DialogConfig<TwoFactorVerifyDialogData, DialogRef<AuthResponse<TwoFactorResponse>>>,
     );
   }
 }
