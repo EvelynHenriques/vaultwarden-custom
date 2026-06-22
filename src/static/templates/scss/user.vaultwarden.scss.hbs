@@ -578,12 +578,10 @@ body.theme_dark.layout_frontend bit-landing-footer {
   display: none !important;
 }
 
-/* Global mandatory 2FA lock mode — block chrome navigation; guards enforce routes */
+/* Global mandatory 2FA lock mode — block sidebar chrome; guards enforce routes */
 body.vw-mandatory-2fa-lock-mode app-side-nav,
 body.vw-mandatory-2fa-lock-mode bit-nav-item,
 body.vw-mandatory-2fa-lock-mode bit-nav-group,
-body.vw-mandatory-2fa-lock-mode app-navigation-switcher,
-body.vw-mandatory-2fa-lock-mode app-product-switcher,
 body.vw-mandatory-2fa-lock-mode app-header bit-tab-link:not([href*="two-factor"]) {
   pointer-events: none !important;
   opacity: 0.45;

@@ -5,6 +5,7 @@ import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 
 import {
   createMandatorySetupUrlTree,
+  isMandatoryLockExemptNavigation,
   isMandatoryLockModeActive,
   isMandatorySetupAllowedUrl,
   MANDATORY_TWO_FACTOR_SETUP_URL,
@@ -24,7 +25,11 @@ async function evaluateMandatoryAuthenticatorAccess(
   const twoFactorService = inject(TwoFactorService) as TwoFactorService;
 
   // Synchronous default-deny: block before async 2FA status refresh completes.
-  if (isMandatoryLockModeActive() && !isMandatorySetupAllowedUrl(url)) {
+  if (
+    isMandatoryLockModeActive() &&
+    !isMandatorySetupAllowedUrl(url) &&
+    !isMandatoryLockExemptNavigation(url)
+  ) {
     return createMandatorySetupUrlTree(router);
   }
 

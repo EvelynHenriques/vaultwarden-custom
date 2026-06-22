@@ -7,15 +7,20 @@ import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
 import { getUserId } from "@bitwarden/common/auth/services/account.service";
 import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
+import { BroadcasterService } from "@bitwarden/common/platform/abstractions/broadcaster.service";
 import { DialogRef, DialogService } from "@bitwarden/components";
 
 import {
   ensureMandatoryAuthenticatorStatus,
+  isMandatoryLockExemptNavigation,
   isMandatoryLockModeActive,
   isMandatorySetupAllowedUrl,
+  isLogoutNavigationTarget,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   resetMandatoryAuthenticatorSetupState,
+  resumeMandatoryLock,
   shouldBlockMandatorySetupNavigation,
+  suspendMandatoryLock,
 } from "./mandatory-authenticator.policy";
 
 type MandatoryDialogKind = "verify" | "authenticator";
@@ -31,6 +36,9 @@ export class MandatoryAuthenticatorLockService {
   private readonly authService = inject(AuthService);
   private readonly accountService = inject(AccountService);
   private readonly dialogService = inject(DialogService);
+  private readonly broadcasterService = inject(BroadcasterService);
+
+  private static readonly BROADCASTER_ID = "MandatoryAuthenticatorLockService";
 
   private started = false;
   private redirectInFlight = false;
@@ -52,6 +60,7 @@ export class MandatoryAuthenticatorLockService {
 
     this.patchDialogService();
     this.attachEscapeBlocker();
+    this.attachLogoutListener();
 
     void this.bootstrap();
 
@@ -63,19 +72,33 @@ export class MandatoryAuthenticatorLockService {
 
     this.accountService.activeAccount$.pipe(getUserId).subscribe((userId) => {
       if (!userId) {
-        resetMandatoryAuthenticatorSetupState();
-        this.allowDialogClose = false;
-        this.syncDomLockClass();
+        this.prepareForLogout();
         return;
       }
       void firstValueFrom(this.authService.authStatusFor$(userId)).then((status) => {
         if (status === AuthenticationStatus.LoggedOut) {
-          resetMandatoryAuthenticatorSetupState();
-          this.allowDialogClose = false;
-          this.syncDomLockClass();
+          this.prepareForLogout();
+          return;
+        }
+        if (
+          status === AuthenticationStatus.Unlocked ||
+          status === AuthenticationStatus.Locked
+        ) {
+          resumeMandatoryLock();
         }
       });
     });
+  }
+
+  /** Suspend lock, close dialogs, and clear session lock state so logout can complete. */
+  prepareForLogout(): void {
+    suspendMandatoryLock();
+    resetMandatoryAuthenticatorSetupState();
+    this.allowDialogClose = true;
+    this.authenticatorDialogRegistered = false;
+    this.mandatoryDialogRefs.clear();
+    document.body.classList.remove("vw-mandatory-2fa-lock-mode");
+    this.dialogService.closeAll();
   }
 
   isLockModeActive(): boolean {
@@ -86,7 +109,7 @@ export class MandatoryAuthenticatorLockService {
     if (!this.isLockModeActive()) {
       return true;
     }
-    return isMandatorySetupAllowedUrl(url);
+    return isMandatorySetupAllowedUrl(url) || isMandatoryLockExemptNavigation(url);
   }
 
   shouldHideAuthenticatedContent(url: string): boolean {
@@ -246,6 +269,17 @@ export class MandatoryAuthenticatorLockService {
     };
   }
 
+  private attachLogoutListener(): void {
+    this.broadcasterService.subscribe(
+      MandatoryAuthenticatorLockService.BROADCASTER_ID,
+      (message: { command?: string }) => {
+        if (message?.command === "logout" || message?.command === "loggedOut") {
+          this.prepareForLogout();
+        }
+      },
+    );
+  }
+
   private attachEscapeBlocker(): void {
     if (this.escapeListenerAttached || typeof document === "undefined") {
       return;
@@ -270,9 +304,11 @@ export class MandatoryAuthenticatorLockService {
 
   private async bootstrap(): Promise<void> {
     if (!(await this.isAuthenticated())) {
+      this.prepareForLogout();
       return;
     }
 
+    resumeMandatoryLock();
     await this.refreshLockState();
     if (this.isLockModeActive()) {
       await this.enforceRoute(true);
@@ -280,6 +316,15 @@ export class MandatoryAuthenticatorLockService {
   }
 
   private async handleNavigationStart(url: string): Promise<void> {
+    if (isLogoutNavigationTarget(url)) {
+      if (await this.isAuthenticated()) {
+        this.prepareForLogout();
+      } else if (this.isLockModeActive()) {
+        this.prepareForLogout();
+      }
+      return;
+    }
+
     if (!(await this.isAuthenticated())) {
       return;
     }

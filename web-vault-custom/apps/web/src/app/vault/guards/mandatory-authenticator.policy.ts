@@ -10,6 +10,20 @@ let authenticatorSetupCompleteForSession = false;
 let mandatoryAuthenticatorRequired = false;
 let providerStatusKnown = false;
 let statusCheckPromise: Promise<void> | null = null;
+/** When true, mandatory lock is suspended (logout / unauthenticated transitions). */
+let mandatoryLockSuspended = false;
+
+export function suspendMandatoryLock(): void {
+  mandatoryLockSuspended = true;
+}
+
+export function resumeMandatoryLock(): void {
+  mandatoryLockSuspended = false;
+}
+
+export function isMandatoryLockSuspended(): boolean {
+  return mandatoryLockSuspended;
+}
 
 export function markMandatoryAuthenticatorSetupComplete(): void {
   authenticatorSetupCompleteForSession = true;
@@ -39,6 +53,9 @@ export function isMandatoryAuthenticatorSetupRequired(): boolean {
 
 /** Global lock mode: default-deny until Authenticator 2FA is confirmed enabled. */
 export function isMandatoryLockModeActive(): boolean {
+  if (mandatoryLockSuspended) {
+    return false;
+  }
   if (isMandatoryAuthenticatorSetupComplete()) {
     return false;
   }
@@ -85,9 +102,70 @@ export function isMandatorySetupAllowedUrl(url: string): boolean {
   );
 }
 
+/**
+ * Routes that must never be blocked by mandatory 2FA lock (login/logout/auth flows).
+ * Distinct from the authenticated 2FA setup whitelist.
+ */
+export function isMandatoryLockExemptNavigation(url: string): boolean {
+  const path = normalizeMandatorySetupPath(url);
+
+  if (isMandatorySetupAllowedUrl(url)) {
+    return true;
+  }
+
+  // Login-time two-factor (not Settings → Security → two-factor)
+  if (path === "/two-factor" || (path.startsWith("/two-factor/") && !path.includes("/settings/"))) {
+    return true;
+  }
+
+  const exemptPaths = [
+    "/",
+    "/login",
+    "/signup",
+    "/sign-up",
+    "/finish-signup",
+    "/login-initiated",
+    "/login-with-device",
+    "/login-with-passkey",
+    "/password-hint",
+    "/set-initial-password",
+    "/sso",
+    "/lock",
+    "/authentication-timeout",
+    "/new-device-verification",
+    "/admin-approval-requested",
+    "/register",
+  ];
+
+  return exemptPaths.some((exempt) => path === exempt || path.startsWith(`${exempt}/`));
+}
+
+/** Auth/login routes that indicate logout is in progress — suspend the mandatory lock. */
+export function isLogoutNavigationTarget(url: string): boolean {
+  const path = normalizeMandatorySetupPath(url);
+
+  const logoutTargets = [
+    "/",
+    "/login",
+    "/signup",
+    "/sign-up",
+    "/finish-signup",
+    "/login-initiated",
+    "/login-with-device",
+    "/login-with-passkey",
+    "/register",
+  ];
+
+  return logoutTargets.some((target) => path === target || path.startsWith(`${target}/`));
+}
+
 /** Default-deny: block unless 2FA is complete or URL is explicitly whitelisted. */
 export function shouldBlockMandatorySetupNavigation(url: string): boolean {
   if (!isMandatoryLockModeActive()) {
+    return false;
+  }
+
+  if (isMandatoryLockExemptNavigation(url)) {
     return false;
   }
 
@@ -152,7 +230,7 @@ export async function resolveMandatoryAuthenticatorAccess(
     return true;
   }
 
-  if (url && isMandatorySetupAllowedUrl(url)) {
+  if (url && (isMandatorySetupAllowedUrl(url) || isMandatoryLockExemptNavigation(url))) {
     return true;
   }
 
