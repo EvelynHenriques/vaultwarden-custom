@@ -29,6 +29,7 @@ OVERLAY_FILES=(
   "apps/web/src/app/layouts/product-switcher/product-switcher.component.html"
   "libs/components/src/anon-layout/anon-layout.component.html"
   "libs/auth/src/angular/registration/registration-start/registration-start.component.html"
+  "apps/web/src/app/admin-console/organizations/settings/two-factor-setup.component.ts"
   "apps/web/src/app/vault/guards/mandatory-authenticator.guard.ts"
   "apps/web/src/app/vault/guards/mandatory-authenticator.policy.ts"
   "apps/web/src/app/vault/guards/mandatory-authenticator-lock.service.ts"

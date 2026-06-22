@@ -154,13 +154,16 @@ export class TwoFactorVerifyComponent implements OnInit {
     }
   }
 
-  static open(dialogService: DialogService, config: DialogConfig) {
-    return dialogService.open<AuthResponse<TwoFactorResponse>, TwoFactorVerifyDialogData>(
+  static open<T extends TwoFactorResponse = TwoFactorResponse>(
+    dialogService: DialogService,
+    config: DialogConfig,
+  ): DialogRef<AuthResponse<T>> {
+    return dialogService.open<AuthResponse<T>, TwoFactorVerifyDialogData>(
       TwoFactorVerifyComponent,
       {
         ...config,
         closeOnNavigation: config?.closeOnNavigation ?? false,
-      } as DialogConfig<TwoFactorVerifyDialogData, DialogRef<AuthResponse<TwoFactorResponse>>>,
+      } as DialogConfig<TwoFactorVerifyDialogData, DialogRef<AuthResponse<T>>>,
     );
   }
 }

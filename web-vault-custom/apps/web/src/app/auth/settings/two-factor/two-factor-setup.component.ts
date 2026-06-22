@@ -183,10 +183,12 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     }
   }
 
-  async callTwoFactorVerifyDialog(type?: TwoFactorProviderType) {
+  async callTwoFactorVerifyDialog<T extends TwoFactorResponse = TwoFactorResponse>(
+    type?: TwoFactorProviderType,
+  ): Promise<AuthResponse<T> | undefined> {
     const mandatoryLock =
       this.lockService.isLockModeActive() && type === TwoFactorProviderType.Authenticator;
-    const twoFactorVerifyDialogRef = TwoFactorVerifyComponent.open(this.dialogService, {
+    const twoFactorVerifyDialogRef = TwoFactorVerifyComponent.open<T>(this.dialogService, {
       data: { type: type, organizationId: this.organizationId },
       disableClose: mandatoryLock,
       closeOnNavigation: false,
@@ -251,8 +253,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
 
     switch (type) {
       case TwoFactorProviderType.Authenticator: {
-        const result: AuthResponse<TwoFactorAuthenticatorResponse> =
-          await this.callTwoFactorVerifyDialog(type);
+        const result = await this.callTwoFactorVerifyDialog<TwoFactorAuthenticatorResponse>(type);
         if (!result) {
           if (this.lockService.isLockModeActive()) {
             void this.openMandatoryAuthenticatorDialog();
@@ -283,8 +284,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
         break;
       }
       case TwoFactorProviderType.Yubikey: {
-        const result: AuthResponse<TwoFactorYubiKeyResponse> =
-          await this.callTwoFactorVerifyDialog(type);
+        const result = await this.callTwoFactorVerifyDialog<TwoFactorYubiKeyResponse>(type);
         if (!result) {
           return;
         }
@@ -300,8 +300,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
         break;
       }
       case TwoFactorProviderType.Duo: {
-        const result: AuthResponse<TwoFactorDuoResponse> =
-          await this.callTwoFactorVerifyDialog(type);
+        const result = await this.callTwoFactorVerifyDialog<TwoFactorDuoResponse>(type);
         if (!result) {
           return;
         }
@@ -322,8 +321,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
         break;
       }
       case TwoFactorProviderType.Email: {
-        const result: AuthResponse<TwoFactorEmailResponse> =
-          await this.callTwoFactorVerifyDialog(type);
+        const result = await this.callTwoFactorVerifyDialog<TwoFactorEmailResponse>(type);
         if (!result) {
           return;
         }
@@ -342,8 +340,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
         break;
       }
       case TwoFactorProviderType.WebAuthn: {
-        const result: AuthResponse<TwoFactorWebAuthnResponse> =
-          await this.callTwoFactorVerifyDialog(type);
+        const result = await this.callTwoFactorVerifyDialog<TwoFactorWebAuthnResponse>(type);
         if (!result) {
           return;
         }
