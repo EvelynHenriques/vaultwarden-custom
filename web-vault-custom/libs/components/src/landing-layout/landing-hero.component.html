@@ -1,0 +1,28 @@
+@if (icon() || title() || subtitle()) {
+  <div class="tw-text-center tw-mb-4 sm:tw-mb-6 tw-mx-auto">
+    <div
+      class="tw-size-20 sm:tw-size-24 tw-mx-auto tw-content-center tw-flex tw-items-center tw-justify-center"
+    >
+      <img
+        src="images/icons/logo-shield.svg"
+        alt=""
+        class="tw-w-full tw-h-full tw-object-contain tw-rounded-md"
+      />
+    </div>
+
+    @if (title()) {
+      <!-- Small screens -->
+      <h1 bitTypography="h2" class="tw-mt-2 sm:tw-hidden">
+        {{ title() }}
+      </h1>
+      <!-- Medium to Larger screens -->
+      <h1 bitTypography="h1" class="tw-mt-2 tw-hidden sm:tw-block">
+        {{ title() }}
+      </h1>
+    }
+
+    @if (subtitle()) {
+      <div class="tw-text-sm sm:tw-text-base">{{ subtitle() }}</div>
+    }
+  </div>
+}

@@ -29,6 +29,9 @@ OVERLAY_FILES=(
   "apps/web/src/app/layouts/product-switcher/navigation-switcher/navigation-switcher.component.html"
   "apps/web/src/app/layouts/product-switcher/product-switcher.component.html"
   "libs/components/src/anon-layout/anon-layout.component.html"
+  "libs/components/src/landing-layout/landing-header.component.html"
+  "libs/components/src/landing-layout/landing-hero.component.html"
+  "libs/components/src/navigation/nav-logo.component.html"
   "libs/auth/src/angular/registration/registration-start/registration-start.component.html"
   "apps/web/src/app/admin-console/organizations/settings/two-factor-setup.component.ts"
   "apps/web/src/app/vault/guards/mandatory-authenticator.guard.ts"
@@ -56,14 +59,24 @@ for relative in "${OVERLAY_FILES[@]}"; do
   echo "  updated ${relative}"
 done
 
-favicon_source="${CUSTOM_DIR}/apps/web/src/images/icons/logo-shield.jpeg"
-favicon_destination="${CLIENTS_DIR}/apps/web/src/images/icons/logo-shield.jpeg"
-if [[ -f "${favicon_source}" ]]; then
-  mkdir -p "$(dirname "${favicon_destination}")"
-  cp "${favicon_source}" "${favicon_destination}"
-  echo "  updated apps/web/src/images/icons/logo-shield.jpeg"
+shield_logo_source="${CUSTOM_DIR}/apps/web/src/images/icons/logo-shield.svg"
+shield_logo_destination="${CLIENTS_DIR}/apps/web/src/images/icons/logo-shield.svg"
+if [[ -f "${shield_logo_source}" ]]; then
+  mkdir -p "$(dirname "${shield_logo_destination}")"
+  cp "${shield_logo_source}" "${shield_logo_destination}"
+  echo "  updated apps/web/src/images/icons/logo-shield.svg"
 else
-  echo "  warning: missing favicon image: apps/web/src/images/icons/logo-shield.jpeg" >&2
+  echo "  warning: missing logo image: apps/web/src/images/icons/logo-shield.svg" >&2
+fi
+
+ebvault_logo_source="${CUSTOM_DIR}/apps/web/src/images/icons/logo-ebvault.svg"
+ebvault_logo_destination="${CLIENTS_DIR}/apps/web/src/images/icons/logo-ebvault.svg"
+if [[ -f "${ebvault_logo_source}" ]]; then
+  mkdir -p "$(dirname "${ebvault_logo_destination}")"
+  cp "${ebvault_logo_source}" "${ebvault_logo_destination}"
+  echo "  updated apps/web/src/images/icons/logo-ebvault.svg"
+else
+  echo "  warning: missing logo image: apps/web/src/images/icons/logo-ebvault.svg" >&2
 fi
 
 index_favicon_patch="${CUSTOM_DIR}/patches/index-favicon.patch"

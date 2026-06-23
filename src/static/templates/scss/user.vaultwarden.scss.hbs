@@ -1,4 +1,4 @@
-/* EBVault olive-green theme (loaded via /css/vaultwarden.css). */
+/* EBvault olive-green theme (loaded via /css/vaultwarden.css). */
 
 $olive-50: #f4f6ef;
 $olive-100: #e9eedc;
@@ -341,7 +341,7 @@ bit-avatar,
   color: #{$text-light} !important;
 }
 
-/* Sidebar logo area — reserved for future EB Vault assets */
+/* Sidebar logo — EBvault JPEG assets */
 bit-nav-logo bit-svg svg,
 auth-password-manager-logo svg,
 app-password-manager-logo svg,
@@ -350,6 +350,13 @@ img.new-logo-themed,
 bit-nav-logo bit-nav-item a:before,
 bit-nav-logo bit-nav-item .bwi-shield {
   display: none !important;
+}
+
+bit-nav-logo img,
+bit-landing-header img {
+  display: block !important;
+  object-fit: contain;
+  background-color: transparent;
 }
 
 bit-nav-logo,
@@ -398,6 +405,84 @@ bit-side-nav .tw-text-fg-body-subtle {
 }
 
 /* Auth / login / registration — olive-green base, gold accents (no pink/blue) */
+@mixin ebvault-svg-palette-overrides {
+  [fill="#175DDC"],
+  [fill="#175ddc"],
+  [fill="#0054de"],
+  [fill="#2F5DD0"],
+  [fill="#1252A3"],
+  [fill="#06B6D4"],
+  [fill="#06b6d4"],
+  [fill="#00CFE8"],
+  [fill="#22D3EE"],
+  [fill="#0891B2"],
+  [stroke="#175DDC"],
+  [stroke="#175ddc"],
+  [stroke="#06B6D4"],
+  [stroke="#06b6d4"] {
+    fill: #{$gold-500} !important;
+    stroke: #{$gold-600} !important;
+  }
+
+  [fill="#E54670"],
+  [fill="#e54670"],
+  [fill="#D926B8"],
+  [fill="#d926b8"],
+  [fill="#A855F7"],
+  [fill="#a855f7"],
+  [fill="#9333EA"],
+  [fill="#9333ea"],
+  [fill="#BF90FF"],
+  [fill="#bf90ff"],
+  [fill="#FF057F"],
+  [fill="#ff057f"],
+  [fill="#E94598"],
+  [fill="#e94598"],
+  [fill="#F472B6"],
+  [fill="#f472b6"],
+  [fill="#EC4899"],
+  [fill="#ec4899"],
+  [fill="#DB2777"],
+  [fill="#db2777"],
+  [stroke="#E54670"],
+  [stroke="#D926B8"],
+  [stroke="#A855F7"],
+  [stroke="#FF057F"],
+  [stroke="#E94598"] {
+    fill: #{$gold-400} !important;
+    stroke: #{$gold-600} !important;
+  }
+
+  [fill="#FFD400"],
+  [fill="#ffd400"],
+  [fill="#F9A825"],
+  [fill="#FFBF00"] {
+    fill: #{$gold-500} !important;
+    stroke: #{$gold-600} !important;
+  }
+
+  stop:nth-child(odd) {
+    stop-color: #{$olive-600} !important;
+  }
+
+  stop:nth-child(even) {
+    stop-color: #{$gold-500} !important;
+  }
+}
+
+@mixin ebvault-auth-svg-recolor {
+  filter: hue-rotate(125deg) saturate(1.35) brightness(1.04) !important;
+
+  @include ebvault-svg-palette-overrides;
+}
+
+.layout_frontend bit-landing-layout svg,
+.layout_frontend bit-landing-hero svg,
+.layout_frontend bit-landing-header svg,
+auth-anon-layout svg,
+auth-anon-layout-wrapper svg,
+app-anon-layout-wrapper svg,
+bit-landing-layout svg,
 bit-landing-hero bit-svg,
 bit-landing-hero bit-svg svg,
 bit-landing-hero svg,
@@ -406,63 +491,10 @@ auth-anon-layout-wrapper bit-landing-hero svg,
 app-anon-layout-wrapper bit-landing-hero svg,
 .layout_frontend bit-landing-hero svg,
 .theme_dark bit-landing-hero svg,
-.theme_light bit-landing-hero svg {
-  filter: hue-rotate(125deg) saturate(1.35) brightness(1.04) !important;
-}
-
-bit-landing-hero svg stop:nth-child(odd) {
-  stop-color: #{$olive-600} !important;
-}
-
-bit-landing-hero svg stop:nth-child(even) {
-  stop-color: #{$gold-500} !important;
-}
-
-bit-landing-hero svg [fill="#175DDC"],
-bit-landing-hero svg [fill="#175ddc"],
-bit-landing-hero svg [fill="#0054de"],
-bit-landing-hero svg [fill="#2F5DD0"],
-bit-landing-hero svg [fill="#1252A3"],
-bit-landing-hero svg [fill="#06B6D4"],
-bit-landing-hero svg [fill="#06b6d4"],
-bit-landing-hero svg [fill="#00CFE8"],
-bit-landing-hero svg [fill="#22D3EE"],
-bit-landing-hero svg [fill="#0891B2"],
-bit-landing-hero svg [stroke="#175DDC"],
-bit-landing-hero svg [stroke="#175ddc"],
-bit-landing-hero svg [stroke="#06B6D4"],
-bit-landing-hero svg [stroke="#06b6d4"] {
-  fill: #{$gold-500} !important;
-  stroke: #{$gold-600} !important;
-}
-
-bit-landing-hero svg [fill="#E54670"],
-bit-landing-hero svg [fill="#e54670"],
-bit-landing-hero svg [fill="#D926B8"],
-bit-landing-hero svg [fill="#d926b8"],
-bit-landing-hero svg [fill="#A855F7"],
-bit-landing-hero svg [fill="#a855f7"],
-bit-landing-hero svg [fill="#9333EA"],
-bit-landing-hero svg [fill="#9333ea"],
-bit-landing-hero svg [fill="#BF90FF"],
-bit-landing-hero svg [fill="#bf90ff"],
-bit-landing-hero svg [fill="#FF057F"],
-bit-landing-hero svg [fill="#ff057f"],
-bit-landing-hero svg [fill="#E94598"],
-bit-landing-hero svg [fill="#e94598"],
-bit-landing-hero svg [stroke="#E54670"],
-bit-landing-hero svg [stroke="#D926B8"],
-bit-landing-hero svg [stroke="#A855F7"] {
-  fill: #{$gold-400} !important;
-  stroke: #{$gold-600} !important;
-}
-
-bit-landing-hero svg [fill="#FFD400"],
-bit-landing-hero svg [fill="#ffd400"],
-bit-landing-hero svg [fill="#F9A825"],
-bit-landing-hero svg [fill="#FFBF00"] {
-  fill: #{$gold-500} !important;
-  stroke: #{$gold-600} !important;
+.theme_light bit-landing-hero svg,
+.layout_frontend two-factor-icon svg,
+.layout_frontend app-two-factor-icon svg {
+  @include ebvault-auth-svg-recolor;
 }
 
 /* Registration / login — prevent terms text truncation */

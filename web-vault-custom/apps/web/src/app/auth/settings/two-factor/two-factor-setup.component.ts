@@ -159,7 +159,10 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     const authenticatorProvider = this.providers.find(
       (provider) => provider.type === TwoFactorProviderType.Authenticator,
     );
-    if (authenticatorProvider && !authenticatorProvider.enabled) {
+    if (authenticatorProvider?.enabled) {
+      markMandatoryAuthenticatorSetupComplete();
+      this.lockService.syncDomLockClass();
+    } else if (authenticatorProvider && !authenticatorProvider.enabled) {
       void this.openMandatoryAuthenticatorDialog();
     }
   }

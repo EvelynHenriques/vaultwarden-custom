@@ -1,0 +1,17 @@
+<header class="tw-flex tw-w-full tw-bg-background-alt tw-px-5">
+  @if (!hideLogo()) {
+    <a
+      [routerLink]="['/']"
+      class="tw-w-32 tw-py-5 sm:tw-w-[200px] tw-self-center sm:tw-self-start tw-block [&>*]:tw-align-top"
+    >
+      <img
+        src="images/icons/logo-ebvault.svg"
+        alt="{{ 'appLogoLabel' | i18n }}"
+        class="tw-w-full tw-h-auto tw-max-h-12 tw-object-contain"
+      />
+    </a>
+  }
+  <div class="[&:has(*)]:tw-ms-auto [&:has(*)]:tw-py-5">
+    <ng-content></ng-content>
+  </div>
+</header>

@@ -1,4 +1,4 @@
-<bit-landing-layout [hideBackgroundIllustration]="hideBackgroundIllustration()">
+<bit-landing-layout [hideBackgroundIllustration]="true">
   <bit-landing-header [hideLogo]="hideLogo()">
     <ng-content select="[slot=header-actions]"></ng-content>
   </bit-landing-header>
@@ -28,9 +28,8 @@
       }
 
       @if (!hideYearAndVersion) {
-        <div bitTypography="body2">&copy; {{ year }} EBVault</div>
+        <div bitTypography="body2">&copy; {{ year }} EBvault</div>
       }
-      <div bitTypography="body2" class="tw-mt-2 tw-font-bold">TESTE-2FA-EVELYN-999</div>
     </bit-landing-footer>
   }
 </bit-landing-layout>

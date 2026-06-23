@@ -57,15 +57,26 @@ foreach ($relative in $OverlayFiles) {
     Write-Host "  updated $relative"
 }
 
-$faviconSource = Join-Path $CustomDir "apps\web\src\images\icons\logo-shield.jpeg"
-$faviconDestination = Join-Path $ClientsDir "apps\web\src\images\icons\logo-shield.jpeg"
-if (Test-Path $faviconSource) {
-    $faviconDestinationDir = Split-Path $faviconDestination -Parent
-    New-Item -ItemType Directory -Force -Path $faviconDestinationDir | Out-Null
-    Copy-Item $faviconSource $faviconDestination -Force
-    Write-Host "  updated apps/web/src/images/icons/logo-shield.jpeg"
+$shieldLogoSource = Join-Path $CustomDir "apps\web\src\images\icons\logo-shield.svg"
+$shieldLogoDestination = Join-Path $ClientsDir "apps\web\src\images\icons\logo-shield.svg"
+if (Test-Path $shieldLogoSource) {
+    $shieldLogoDestinationDir = Split-Path $shieldLogoDestination -Parent
+    New-Item -ItemType Directory -Force -Path $shieldLogoDestinationDir | Out-Null
+    Copy-Item $shieldLogoSource $shieldLogoDestination -Force
+    Write-Host "  updated apps/web/src/images/icons/logo-shield.svg"
 } else {
-    Write-Warning "Missing favicon image: apps/web/src/images/icons/logo-shield.jpeg"
+    Write-Warning "Missing logo image: apps/web/src/images/icons/logo-shield.svg"
+}
+
+$ebvaultLogoSource = Join-Path $CustomDir "apps\web\src\images\icons\logo-ebvault.svg"
+$ebvaultLogoDestination = Join-Path $ClientsDir "apps\web\src\images\icons\logo-ebvault.svg"
+if (Test-Path $ebvaultLogoSource) {
+    $ebvaultLogoDestinationDir = Split-Path $ebvaultLogoDestination -Parent
+    New-Item -ItemType Directory -Force -Path $ebvaultLogoDestinationDir | Out-Null
+    Copy-Item $ebvaultLogoSource $ebvaultLogoDestination -Force
+    Write-Host "  updated apps/web/src/images/icons/logo-ebvault.svg"
+} else {
+    Write-Warning "Missing logo image: apps/web/src/images/icons/logo-ebvault.svg"
 }
 
 $indexFaviconPatch = Join-Path $CustomDir "patches\index-favicon.patch"

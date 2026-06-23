@@ -51,7 +51,7 @@ export function isMandatoryAuthenticatorSetupRequired(): boolean {
   return mandatoryAuthenticatorRequired && !authenticatorSetupCompleteForSession;
 }
 
-/** Global lock mode: default-deny until Authenticator 2FA is confirmed enabled. */
+/** Global lock mode: active only after we confirm Authenticator 2FA is missing. */
 export function isMandatoryLockModeActive(): boolean {
   if (mandatoryLockSuspended) {
     return false;
@@ -60,7 +60,7 @@ export function isMandatoryLockModeActive(): boolean {
     return false;
   }
   if (!providerStatusKnown) {
-    return true;
+    return false;
   }
   return mandatoryAuthenticatorRequired;
 }
