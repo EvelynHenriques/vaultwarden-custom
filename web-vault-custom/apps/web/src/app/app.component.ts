@@ -283,7 +283,11 @@ export class AppComponent implements OnDestroy, OnInit {
       await this.accountService.clean(userId);
       await this.accountService.switchAccount(null);
 
-      await logoutPromise.catch(() => undefined);
+      try {
+        await logoutPromise;
+      } catch {
+        // The account/session is already cleared; continue to the login screen.
+      }
 
       if (redirect) {
         await this.router.navigate(["/login"], {
