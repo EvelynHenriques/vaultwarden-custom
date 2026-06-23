@@ -246,7 +246,8 @@ export class MandatoryAuthenticatorLockService {
 
     const originalOpen = dialogService.open.bind(dialogService);
     dialogService.open = ((componentOrTemplateRef, config) => {
-      if (this.isLockModeActive()) {
+      const isLogoutDialog = this.isLogoutDialogConfig(config);
+      if (this.isLockModeActive() && !isLogoutDialog) {
         config = {
           ...config,
           disableClose: true,
@@ -254,7 +255,7 @@ export class MandatoryAuthenticatorLockService {
         };
       }
       const ref = originalOpen(componentOrTemplateRef, config);
-      if (this.isLockModeActive()) {
+      if (this.isLockModeActive() && !isLogoutDialog) {
         this.patchNonDismissibleClose(ref);
       }
       return ref;
@@ -267,6 +268,17 @@ export class MandatoryAuthenticatorLockService {
       }
       originalCloseAll();
     };
+  }
+
+  private isLogoutDialogConfig(config: unknown): boolean {
+    const data = (config as { data?: unknown } | undefined)?.data as
+      | {
+          title?: { key?: string };
+          acceptButtonText?: { key?: string };
+        }
+      | undefined;
+
+    return data?.title?.key === "logOut" || data?.acceptButtonText?.key === "logOut";
   }
 
   private attachLogoutListener(): void {

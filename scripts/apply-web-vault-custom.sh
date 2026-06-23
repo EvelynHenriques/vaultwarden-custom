@@ -11,6 +11,7 @@ if [[ ! -d "${CLIENTS_DIR}" ]]; then
 fi
 
 OVERLAY_FILES=(
+  "apps/web/src/app/app.component.ts"
   "apps/web/src/app/auth/settings/account/account.component.ts"
   "apps/web/src/app/auth/settings/account/account.component.html"
   "apps/web/src/app/auth/settings/two-factor/two-factor-setup.component.ts"
@@ -55,6 +56,28 @@ for relative in "${OVERLAY_FILES[@]}"; do
   echo "  updated ${relative}"
 done
 
+favicon_source="${CUSTOM_DIR}/apps/web/src/images/icons/logo-shield.jpeg"
+favicon_destination="${CLIENTS_DIR}/apps/web/src/images/icons/logo-shield.jpeg"
+if [[ -f "${favicon_source}" ]]; then
+  mkdir -p "$(dirname "${favicon_destination}")"
+  cp "${favicon_source}" "${favicon_destination}"
+  echo "  updated apps/web/src/images/icons/logo-shield.jpeg"
+else
+  echo "  warning: missing favicon image: apps/web/src/images/icons/logo-shield.jpeg" >&2
+fi
+
+index_favicon_patch="${CUSTOM_DIR}/patches/index-favicon.patch"
+if [[ -f "${index_favicon_patch}" ]]; then
+  if git -C "${CLIENTS_DIR}" apply --ignore-space-change --check "${index_favicon_patch}" >/dev/null 2>&1; then
+    git -C "${CLIENTS_DIR}" apply --ignore-space-change "${index_favicon_patch}"
+    echo "  applied patches/index-favicon.patch"
+  elif patch -p1 --forward --input="${index_favicon_patch}" --directory="${CLIENTS_DIR}"; then
+    echo "  applied patches/index-favicon.patch with patch(1)"
+  else
+    echo "  warning: could not apply patches/index-favicon.patch" >&2
+  fi
+fi
+
 patch_file="${CUSTOM_DIR}/patches/oss-routing.module.patch"
 if [[ -f "${patch_file}" ]]; then
   if git -C "${CLIENTS_DIR}" apply --check "${patch_file}" >/dev/null 2>&1; then
@@ -97,18 +120,6 @@ new = """import {
 if old in text:
     path.write_text(text.replace(old, new), encoding="utf-8")
 PY
-fi
-
-app_patch="${CUSTOM_DIR}/patches/app.component.patch"
-if [[ -f "${app_patch}" ]]; then
-  if git -C "${CLIENTS_DIR}" apply --check "${app_patch}" >/dev/null 2>&1; then
-    git -C "${CLIENTS_DIR}" apply "${app_patch}"
-    echo "  applied patches/app.component.patch"
-  elif patch -p1 --forward --input="${app_patch}" --directory="${CLIENTS_DIR}"; then
-    echo "  applied patches/app.component.patch with patch(1)"
-  else
-    echo "  warning: could not apply patches/app.component.patch" >&2
-  fi
 fi
 
 python3 "${SCRIPT_DIR}/apply-mandatory-2fa-routing.py" "${CLIENTS_DIR}/apps/web/src/app/oss-routing.module.ts" 2>/dev/null \

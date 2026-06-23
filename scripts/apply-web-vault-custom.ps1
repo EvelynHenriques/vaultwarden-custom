@@ -12,16 +12,35 @@ if (-not (Test-Path $ClientsDir)) {
 }
 
 $OverlayFiles = @(
+    "apps/web/src/app/app.component.ts",
     "apps/web/src/app/auth/settings/account/account.component.ts",
     "apps/web/src/app/auth/settings/account/account.component.html",
     "apps/web/src/app/auth/settings/two-factor/two-factor-setup.component.ts",
     "apps/web/src/app/auth/settings/two-factor/two-factor-setup.component.html",
     "apps/web/src/app/auth/settings/two-factor/two-factor-setup-authenticator.component.ts",
     "apps/web/src/app/auth/settings/two-factor/two-factor-setup-authenticator.component.html",
+    "apps/web/src/app/auth/settings/two-factor/two-factor-verify.component.ts",
+    "apps/web/src/app/auth/settings/two-factor/two-factor-verify.component.html",
     "apps/web/src/app/layouts/frontend-layout.component.ts",
     "apps/web/src/app/layouts/frontend-layout.component.html",
+    "libs/auth/src/angular/login/login-secondary-content.component.ts",
+    "apps/web/src/app/layouts/user-layout.component.ts",
+    "apps/web/src/app/layouts/user-layout.component.html",
+    "apps/web/src/app/layouts/web-side-nav.component.html",
+    "apps/web/src/app/layouts/product-switcher/navigation-switcher/navigation-switcher.component.html",
+    "apps/web/src/app/layouts/product-switcher/product-switcher.component.html",
+    "libs/components/src/anon-layout/anon-layout.component.html",
+    "libs/auth/src/angular/registration/registration-start/registration-start.component.html",
+    "apps/web/src/app/admin-console/organizations/settings/two-factor-setup.component.ts",
     "apps/web/src/app/vault/guards/mandatory-authenticator.guard.ts",
-    "apps/web/src/app/vault/guards/mandatory-authenticator.policy.ts"
+    "apps/web/src/app/vault/guards/mandatory-authenticator.policy.ts",
+    "apps/web/src/app/vault/guards/mandatory-authenticator-lock.service.ts",
+    "apps/web/src/app/vault/guards/mandatory-authenticator-enforcement.service.ts",
+    "apps/web/src/app/auth/settings/security/security-routing.module.ts",
+    "apps/web/src/app/auth/settings/security/security.component.ts",
+    "apps/web/src/app/auth/settings/security/security.component.html",
+    "apps/web/src/app/admin-console/organizations/layouts/organization-layout.component.ts",
+    "apps/web/src/app/admin-console/organizations/layouts/organization-layout.component.html"
 )
 
 Write-Host "Applying Vaultwarden web-vault customizations from $CustomDir"
@@ -36,6 +55,33 @@ foreach ($relative in $OverlayFiles) {
     New-Item -ItemType Directory -Force -Path $destinationDir | Out-Null
     Copy-Item $source $destination -Force
     Write-Host "  updated $relative"
+}
+
+$faviconSource = Join-Path $CustomDir "apps\web\src\images\icons\logo-shield.jpeg"
+$faviconDestination = Join-Path $ClientsDir "apps\web\src\images\icons\logo-shield.jpeg"
+if (Test-Path $faviconSource) {
+    $faviconDestinationDir = Split-Path $faviconDestination -Parent
+    New-Item -ItemType Directory -Force -Path $faviconDestinationDir | Out-Null
+    Copy-Item $faviconSource $faviconDestination -Force
+    Write-Host "  updated apps/web/src/images/icons/logo-shield.jpeg"
+} else {
+    Write-Warning "Missing favicon image: apps/web/src/images/icons/logo-shield.jpeg"
+}
+
+$indexFaviconPatch = Join-Path $CustomDir "patches\index-favicon.patch"
+if (Test-Path $indexFaviconPatch) {
+    Push-Location $ClientsDir
+    try {
+        git apply --ignore-space-change --check $indexFaviconPatch 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            git apply --ignore-space-change $indexFaviconPatch
+            Write-Host "  applied patches/index-favicon.patch"
+        } else {
+            Write-Warning "Could not apply index-favicon.patch; update apps/web/src/index.html manually."
+        }
+    } finally {
+        Pop-Location
+    }
 }
 
 $patchFile = Join-Path $CustomDir "patches\oss-routing.module.patch"
