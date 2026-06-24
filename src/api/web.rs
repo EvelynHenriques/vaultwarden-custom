@@ -119,47 +119,7 @@ fn vaultwarden_css() -> Cached<Css<String>> {
 /// Inject dynamic branding and CSS into OSS web-vault index.html.
 fn inject_web_vault_index(html: &str) -> String {
     let html = inject_vaultwarden_css_link(html);
-    let html = inject_page_title(&html, &CONFIG.product_name());
-    inject_favicon_link(&html)
-}
-
-fn inject_favicon_link(html: &str) -> String {
-    const FAVICON_TAG: &str =
-        r#"<link rel="icon" type="image/svg+xml" href="images/icons/logo-shield.svg" />"#;
-
-    let mut output = String::new();
-    let mut cursor = 0usize;
-
-    while let Some(rel_pos) = html[cursor..].find("rel=\"icon\"") {
-        let abs_rel = cursor + rel_pos;
-        let Some(tag_start) = html[..abs_rel].rfind('<') else {
-            break;
-        };
-        let Some(tag_end_rel) = html[tag_start..].find('>') else {
-            break;
-        };
-        let tag_end = tag_start + tag_end_rel + 1;
-
-        output.push_str(&html[cursor..tag_start]);
-        cursor = tag_end;
-    }
-
-    output.push_str(&html[cursor..]);
-
-    if output.contains("logo-shield.svg") {
-        return output;
-    }
-
-    if let Some(pos) = output.find("</head>") {
-        let mut with_favicon = String::with_capacity(output.len() + FAVICON_TAG.len() + 2);
-        with_favicon.push_str(&output[..pos]);
-        with_favicon.push_str(FAVICON_TAG);
-        with_favicon.push('\n');
-        with_favicon.push_str(&output[pos..]);
-        return with_favicon;
-    }
-
-    output
+    inject_page_title(&html, &CONFIG.product_name())
 }
 
 fn inject_page_title(html: &str, title: &str) -> String {

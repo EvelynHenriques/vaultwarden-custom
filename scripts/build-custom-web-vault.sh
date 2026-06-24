@@ -61,7 +61,9 @@ if [[ -f "${OUTPUT_DIR}/index.html" ]]; then
   INDEX="${OUTPUT_DIR}/index.html"
   sed -i 's/<title[^>]*>[^<]*<\/title>/<title>EBvault<\/title>/' "${INDEX}" 2>/dev/null || \
     sed -i '' 's/<title[^>]*>[^<]*<\/title>/<title>EBvault<\/title>/' "${INDEX}" 2>/dev/null || true
-  sed -i '/rel="icon"/d' "${INDEX}" 2>/dev/null || sed -i '' '/rel="icon"/d' "${INDEX}" 2>/dev/null || true
+  # Remove only <link rel="icon" ...> tags — never delete whole lines (minified index.html is often one line).
+  sed -i 's/<link[^>]*rel="icon"[^>]*>//g' "${INDEX}" 2>/dev/null || \
+    sed -i '' 's/<link[^>]*rel="icon"[^>]*>//g' "${INDEX}" 2>/dev/null || true
   if ! grep -q 'logo-shield.svg' "${INDEX}"; then
     sed -i 's|</head>|    <link rel="icon" type="image/svg+xml" href="images/icons/logo-shield.svg" />\n</head>|' "${INDEX}" 2>/dev/null || \
       sed -i '' 's|</head>|    <link rel="icon" type="image/svg+xml" href="images/icons/logo-shield.svg" />\n</head>|' "${INDEX}" 2>/dev/null || true
@@ -69,6 +71,10 @@ if [[ -f "${OUTPUT_DIR}/index.html" ]]; then
   if ! grep -q 'vaultwarden.css' "${INDEX}"; then
     sed -i 's|</head>|<link rel="stylesheet" href="css/vaultwarden.css" />\n</head>|' "${INDEX}" 2>/dev/null || \
       sed -i '' 's|</head>|<link rel="stylesheet" href="css/vaultwarden.css" />\n</head>|' "${INDEX}" 2>/dev/null || true
+  fi
+  if ! grep -qi '<!doctype html>' "${INDEX}"; then
+    echo "ERROR: index.html is missing <!DOCTYPE html> after branding patches — aborting." >&2
+    exit 1
   fi
 fi
 
