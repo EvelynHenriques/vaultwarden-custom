@@ -232,6 +232,10 @@ export async function resolveMandatoryAuthenticatorAccess(
   twoFactorService: TwoFactorService,
   url?: string,
 ): Promise<boolean | UrlTree> {
+  if (isMandatoryLockSuspended() || (url != null && isLogoutNavigationTarget(url))) {
+    return true;
+  }
+
   await ensureMandatoryAuthenticatorStatus(twoFactorService);
 
   if (!isMandatoryLockModeActive()) {

@@ -14,13 +14,13 @@ import {
   ensureMandatoryAuthenticatorStatus,
   isMandatoryLockExemptNavigation,
   isMandatoryLockModeActive,
+  isMandatoryLockSuspended,
   isMandatorySetupAllowedUrl,
   isLogoutNavigationTarget,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   resetMandatoryAuthenticatorSetupState,
-  resumeMandatoryLock,
-  shouldBlockMandatorySetupNavigation,
   suspendMandatoryLock,
+  shouldBlockMandatorySetupNavigation,
 } from "./mandatory-authenticator.policy";
 
 type MandatoryDialogKind = "verify" | "authenticator";
@@ -78,13 +78,6 @@ export class MandatoryAuthenticatorLockService {
       void firstValueFrom(this.authService.authStatusFor$(userId)).then((status) => {
         if (status === AuthenticationStatus.LoggedOut) {
           this.prepareForLogout();
-          return;
-        }
-        if (
-          status === AuthenticationStatus.Unlocked ||
-          status === AuthenticationStatus.Locked
-        ) {
-          resumeMandatoryLock();
         }
       });
     });
@@ -198,7 +191,7 @@ export class MandatoryAuthenticatorLockService {
   }
 
   async enforceRoute(replaceUrl = true): Promise<boolean> {
-    if (!this.isLockModeActive()) {
+    if (isMandatoryLockSuspended() || !this.isLockModeActive()) {
       return false;
     }
 
@@ -247,7 +240,9 @@ export class MandatoryAuthenticatorLockService {
     const originalOpen = dialogService.open.bind(dialogService);
     dialogService.open = ((componentOrTemplateRef, config) => {
       const isLogoutDialog = this.isLogoutDialogConfig(config);
-      if (this.isLockModeActive() && !isLogoutDialog) {
+      if (isLogoutDialog) {
+        this.prepareForLogout();
+      } else if (this.isLockModeActive()) {
         config = {
           ...config,
           disableClose: true,
@@ -275,10 +270,15 @@ export class MandatoryAuthenticatorLockService {
       | {
           title?: { key?: string };
           acceptButtonText?: { key?: string };
+          cancelButtonText?: { key?: string };
+          content?: { key?: string };
         }
       | undefined;
 
-    return data?.title?.key === "logOut" || data?.acceptButtonText?.key === "logOut";
+    const logoutKeys = new Set(["logOut", "logout", "logOutDesc", "logOutConfirmation"]);
+    const fields = [data?.title?.key, data?.acceptButtonText?.key, data?.cancelButtonText?.key, data?.content?.key];
+
+    return fields.some((key) => key != null && logoutKeys.has(key));
   }
 
   private attachLogoutListener(): void {
@@ -315,12 +315,13 @@ export class MandatoryAuthenticatorLockService {
   }
 
   private async bootstrap(): Promise<void> {
-    if (!(await this.isAuthenticated())) {
-      this.prepareForLogout();
+    if (!(await this.isUnlockedAuthenticated())) {
+      if (!(await this.hasActiveAccount())) {
+        this.prepareForLogout();
+      }
       return;
     }
 
-    resumeMandatoryLock();
     await this.refreshLockState();
     if (this.isLockModeActive()) {
       await this.enforceRoute(true);
@@ -328,16 +329,14 @@ export class MandatoryAuthenticatorLockService {
   }
 
   private async handleNavigationStart(url: string): Promise<void> {
-    if (isLogoutNavigationTarget(url)) {
-      if (await this.isAuthenticated()) {
-        this.prepareForLogout();
-      } else if (this.isLockModeActive()) {
+    if (isLogoutNavigationTarget(url) || isMandatoryLockSuspended()) {
+      if (isLogoutNavigationTarget(url)) {
         this.prepareForLogout();
       }
       return;
     }
 
-    if (!(await this.isAuthenticated())) {
+    if (!(await this.isUnlockedAuthenticated())) {
       return;
     }
 
@@ -388,13 +387,18 @@ export class MandatoryAuthenticatorLockService {
     }
   }
 
-  private async isAuthenticated(): Promise<boolean> {
+  private async hasActiveAccount(): Promise<boolean> {
+    const userId = await firstValueFrom(getUserId(this.accountService.activeAccount$));
+    return userId != null;
+  }
+
+  private async isUnlockedAuthenticated(): Promise<boolean> {
     const userId = await firstValueFrom(getUserId(this.accountService.activeAccount$));
     if (!userId) {
       return false;
     }
 
     const status = await firstValueFrom(this.authService.authStatusFor$(userId));
-    return status === AuthenticationStatus.Unlocked || status === AuthenticationStatus.Locked;
+    return status === AuthenticationStatus.Unlocked;
   }
 }

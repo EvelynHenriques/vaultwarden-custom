@@ -56,15 +56,40 @@ mv "${CLIENTS_DIR}/apps/web/build" "${OUTPUT_DIR}"
 
 "${SCRIPT_DIR}/patch-web-vault-branding.sh" "${OUTPUT_DIR}"
 
-# Rebrand page metadata and inject Vaultwarden dynamic CSS link (official web-vault builds include this; OSS builds do not).
+# Favicon, manifest, and document title in the built web-vault output.
 if [[ -f "${OUTPUT_DIR}/index.html" ]]; then
   INDEX="${OUTPUT_DIR}/index.html"
   sed -i 's/<title[^>]*>[^<]*<\/title>/<title>EBvault<\/title>/' "${INDEX}" 2>/dev/null || \
     sed -i '' 's/<title[^>]*>[^<]*<\/title>/<title>EBvault<\/title>/' "${INDEX}" 2>/dev/null || true
+  sed -i '/rel="icon"/d' "${INDEX}" 2>/dev/null || sed -i '' '/rel="icon"/d' "${INDEX}" 2>/dev/null || true
+  if ! grep -q 'logo-shield.svg' "${INDEX}"; then
+    sed -i 's|</head>|    <link rel="icon" type="image/svg+xml" href="images/icons/logo-shield.svg" />\n</head>|' "${INDEX}" 2>/dev/null || \
+      sed -i '' 's|</head>|    <link rel="icon" type="image/svg+xml" href="images/icons/logo-shield.svg" />\n</head>|' "${INDEX}" 2>/dev/null || true
+  fi
   if ! grep -q 'vaultwarden.css' "${INDEX}"; then
     sed -i 's|</head>|<link rel="stylesheet" href="css/vaultwarden.css" />\n</head>|' "${INDEX}" 2>/dev/null || \
       sed -i '' 's|</head>|<link rel="stylesheet" href="css/vaultwarden.css" />\n</head>|' "${INDEX}" 2>/dev/null || true
   fi
+fi
+
+MANIFEST="${OUTPUT_DIR}/manifest.json"
+if [[ -f "${MANIFEST}" ]]; then
+  cat > "${MANIFEST}" <<'EOF'
+{
+  "name": "EBvault",
+  "short_name": "EBvault",
+  "icons": [
+    {
+      "src": "images/icons/logo-shield.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "theme_color": "#556b2f",
+  "background_color": "#556b2f"
+}
+EOF
 fi
 
 echo "Custom web-vault build available at ${OUTPUT_DIR}"

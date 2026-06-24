@@ -9,7 +9,10 @@ import { getUserId } from "@bitwarden/common/auth/services/account.service";
 
 import { MandatoryAuthenticatorLockService } from "./mandatory-authenticator-lock.service";
 import {
+  ensureMandatoryAuthenticatorStatus,
   isMandatoryAuthenticatorSetupComplete,
+  isMandatoryLockExemptNavigation,
+  isMandatoryLockSuspended,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   normalizeMandatorySetupPath,
 } from "./mandatory-authenticator.policy";
@@ -45,7 +48,11 @@ export class MandatoryAuthenticatorEnforcementService {
   }
 
   private async bootstrapAuthenticatedSession(): Promise<void> {
-    if (!(await this.isAuthenticated())) {
+    if (isMandatoryLockSuspended()) {
+      return;
+    }
+
+    if (!(await this.isUnlocked())) {
       return;
     }
 
@@ -59,7 +66,11 @@ export class MandatoryAuthenticatorEnforcementService {
   }
 
   private async handleNavigationEnd(url: string): Promise<void> {
-    if (!(await this.isAuthenticated())) {
+    if (isMandatoryLockSuspended() || isMandatoryLockExemptNavigation(url)) {
+      return;
+    }
+
+    if (!(await this.isUnlocked())) {
       return;
     }
 
@@ -71,7 +82,11 @@ export class MandatoryAuthenticatorEnforcementService {
   }
 
   async redirectIfBlocked(url: string, replaceUrl = false): Promise<boolean> {
-    if (!(await this.isAuthenticated())) {
+    if (isMandatoryLockSuspended() || isMandatoryLockExemptNavigation(url)) {
+      return false;
+    }
+
+    if (!(await this.isUnlocked())) {
       return false;
     }
 
@@ -96,14 +111,14 @@ export class MandatoryAuthenticatorEnforcementService {
     return this.lockService.shouldHideAuthenticatedContent(url);
   }
 
-  private async isAuthenticated(): Promise<boolean> {
+  private async isUnlocked(): Promise<boolean> {
     const userId = await firstValueFrom(getUserId(this.accountService.activeAccount$));
     if (!userId) {
       return false;
     }
 
     const status = await firstValueFrom(this.authService.authStatusFor$(userId));
-    return status === AuthenticationStatus.Unlocked || status === AuthenticationStatus.Locked;
+    return status === AuthenticationStatus.Unlocked;
   }
 }
 

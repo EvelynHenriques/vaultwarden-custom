@@ -40,6 +40,8 @@ patch_file() {
     -e 's/Log in to Bitwarden/Log in to EBvault/g' \
     -e 's/Bitwarden/EBvault/g' \
     -e 's/Vaultwarden/EBvault/g' \
+    -e 's/EBvault web do EBvault/EBvault/g' \
+    -e 's/web do EBvault/EBvault/g' \
     -e 's/EBVault/EBvault/g' \
     -e 's/EB Vault/EBvault/g' \
     -e 's/\x01BWDOMAIN\x01/bitwarden.com/g' \

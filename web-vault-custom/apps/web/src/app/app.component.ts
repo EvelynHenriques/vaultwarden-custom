@@ -94,13 +94,7 @@ export class AppComponent implements OnDestroy, OnInit {
     this.mandatoryAuthenticatorEnforcementService.start();
 
     const titleService = inject(Title);
-    titleService.setTitle(EBVAULT_DOCUMENT_TITLE);
-    this.router.events
-      .pipe(
-        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
-        takeUntilDestroyed(this.destroy),
-      )
-      .subscribe(() => titleService.setTitle(EBVAULT_DOCUMENT_TITLE));
+    this.pinDocumentTitle(titleService);
 
     this.ngZone.runOutsideAngular(() => {
       window.onmousemove = () => this.recordActivity();
@@ -238,6 +232,35 @@ export class AppComponent implements OnDestroy, OnInit {
     this.broadcasterService.unsubscribe(BroadcasterSubscriptionId);
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private pinDocumentTitle(titleService: Title): void {
+    const apply = () => {
+      if (document.title !== EBVAULT_DOCUMENT_TITLE) {
+        titleService.setTitle(EBVAULT_DOCUMENT_TITLE);
+      }
+    };
+
+    apply();
+
+    const originalSetTitle = titleService.setTitle.bind(titleService);
+    titleService.setTitle = () => originalSetTitle(EBVAULT_DOCUMENT_TITLE);
+
+    this.router.events
+      .pipe(
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroy),
+      )
+      .subscribe(() => apply());
+
+    const titleElement = document.querySelector("title");
+    if (titleElement) {
+      new MutationObserver(() => apply()).observe(titleElement, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    }
   }
 
   private async logOut(redirect = true) {
