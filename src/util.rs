@@ -103,14 +103,14 @@ impl Fairing for AppHeaders {
                 // app.simplelogin.io, app.addy.io, api.fastmail.com, api.forwardemail.net
                 format!(
                     "default-src 'none'; \
-                    font-src 'self'; \
+                    font-src 'self' https://fonts.gstatic.com; \
                     manifest-src 'self'; \
                     base-uri 'self'; \
                     form-action 'self'; \
                     media-src 'self'; \
                     object-src 'self' blob:; \
                     script-src 'self' 'wasm-unsafe-eval'; \
-                    style-src 'self' 'unsafe-inline'; \
+                    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
                     child-src 'self' https://*.duosecurity.com https://*.duofederal.com; \
                     frame-src 'self' https://*.duosecurity.com https://*.duofederal.com; \
                     frame-ancestors 'self' \

@@ -1,6 +1,6 @@
 // FIXME: Update this file to be type safe and remove this and next line
 // @ts-strict-ignore
-import { Component, DestroyRef, NgZone, OnDestroy, OnInit, inject } from "@angular/core";
+import { Component, DestroyRef, NgZone, OnDestroy, OnInit } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { Title } from "@angular/platform-browser";
 import { NavigationEnd, Router } from "@angular/router";
@@ -78,6 +78,7 @@ export class AppComponent implements OnDestroy, OnInit {
     private readonly routerFocusManager: RouterFocusManagerService,
     private readonly mandatoryAuthenticatorEnforcementService: MandatoryAuthenticatorEnforcementService,
     private readonly mandatoryAuthenticatorLockService: MandatoryAuthenticatorLockService,
+    private readonly titleService: Title,
   ) {
     this.deviceTrustToastService.setupListeners$.pipe(takeUntilDestroyed()).subscribe();
 
@@ -92,9 +93,7 @@ export class AppComponent implements OnDestroy, OnInit {
 
   ngOnInit() {
     this.mandatoryAuthenticatorEnforcementService.start();
-
-    const titleService = inject(Title);
-    this.pinDocumentTitle(titleService);
+    this.pinDocumentTitle();
 
     this.ngZone.runOutsideAngular(() => {
       window.onmousemove = () => this.recordActivity();
@@ -234,17 +233,14 @@ export class AppComponent implements OnDestroy, OnInit {
     this.destroy$.complete();
   }
 
-  private pinDocumentTitle(titleService: Title): void {
+  private pinDocumentTitle(): void {
     const apply = () => {
       if (document.title !== EBVAULT_DOCUMENT_TITLE) {
-        titleService.setTitle(EBVAULT_DOCUMENT_TITLE);
+        this.titleService.setTitle(EBVAULT_DOCUMENT_TITLE);
       }
     };
 
     apply();
-
-    const originalSetTitle = titleService.setTitle.bind(titleService);
-    titleService.setTitle = () => originalSetTitle(EBVAULT_DOCUMENT_TITLE);
 
     this.router.events
       .pipe(
