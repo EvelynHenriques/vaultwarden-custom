@@ -11,10 +11,19 @@ declare module "@angular/core" {
   export function inject<T>(token: abstract new (...args: never[]) => T): T;
   export function Component(metadata: unknown): ClassDecorator;
   export function NgModule(metadata: unknown): ClassDecorator;
+  export function Injectable(metadata?: unknown): ClassDecorator;
   export function Inject(token: unknown): ParameterDecorator;
   export function Output(): PropertyDecorator;
+  export function computed<T>(computation: () => T): Signal<T>;
   export class EventEmitter<T> {
     emit(value: T): void;
+  }
+  export class DestroyRef {
+    onDestroy(callback: () => void): () => void;
+  }
+  export class NgZone {
+    run(fn: () => void): void;
+    runOutsideAngular(fn: () => void): void;
   }
   export interface OnInit {
     ngOnInit(): unknown;
@@ -22,19 +31,54 @@ declare module "@angular/core" {
   export interface OnDestroy {
     ngOnDestroy(): unknown;
   }
+  export interface Signal<T> {
+    (): T;
+  }
+}
+
+declare module "@angular/core/rxjs-interop" {
+  import { DestroyRef } from "@angular/core";
+  import { Observable } from "rxjs";
+
+  export function takeUntilDestroyed<T>(
+    destroyRef?: DestroyRef,
+  ): import("rxjs").OperatorFunction<T, T>;
+  export function toSignal<T>(
+    source: Observable<T>,
+    options?: unknown,
+  ): import("@angular/core").Signal<T | undefined>;
+}
+
+declare module "@angular/platform-browser" {
+  export class Title {
+    setTitle(title: string): void;
+  }
 }
 
 declare module "@angular/router" {
   export interface RouterStateSnapshot {
     url: string;
   }
+  export class NavigationEnd {
+    urlAfterRedirects: string;
+  }
+  export class NavigationStart {
+    url: string;
+  }
   export type CanActivateFn = (
     route: unknown,
     state: RouterStateSnapshot,
   ) => boolean | Promise<boolean | UrlTree> | UrlTree;
+  export type CanActivateChildFn = CanActivateFn;
   export class Router {
+    url: string;
+    events: import("rxjs").Observable<unknown>;
     createUrlTree(commands: string[]): UrlTree;
+    navigate(commands: string[], extras?: { replaceUrl?: boolean }): Promise<boolean>;
+    navigateByUrl(url: string, extras?: { replaceUrl?: boolean }): Promise<boolean>;
   }
+  export class RouterModule {}
+  export class ActivatedRoute {}
   export interface UrlTree {}
 }
 
@@ -50,6 +94,16 @@ declare module "rxjs" {
     pipe<R>(op: OperatorFunction<T, R>): Observable<R>;
     pipe<A, B>(op1: OperatorFunction<T, A>, op2: OperatorFunction<A, B>): Observable<B>;
     pipe(...operations: OperatorFunction<unknown, unknown>[]): Observable<unknown>;
+    subscribe(
+      next?: (value: T) => void,
+      error?: (err: unknown) => void,
+      complete?: () => void,
+    ): Subscription;
+    subscribe(observer: {
+      next?: (value: T) => void;
+      error?: (err: unknown) => void;
+      complete?: () => void;
+    }): Subscription;
   }
 
   export class Subject<T> extends Observable<T> {
@@ -64,9 +118,22 @@ declare module "rxjs" {
   export function firstValueFrom<T>(source: Observable<T>): Promise<T>;
   export function lastValueFrom<T>(source: Observable<T>): Promise<T>;
   export function first<T>(): OperatorFunction<T, T>;
+  export function filter<T>(predicate: (value: T) => boolean): OperatorFunction<T, T>;
   export function map<T, R>(project: (value: T, index?: number) => R): OperatorFunction<T, R>;
   export function takeUntil<T>(notifier: Observable<unknown>): OperatorFunction<T, T>;
   export function switchMap<T, R>(project: (value: T) => Observable<R>): OperatorFunction<T, R>;
+  export function distinctUntilChanged<T>(): OperatorFunction<T, T>;
+  export function combineLatest<T extends readonly unknown[]>(
+    sources: [...{ [K in keyof T]: Observable<T[K]> }],
+  ): Observable<T>;
+  export function withLatestFrom<T, R>(
+    ...sources: Array<Observable<R>>
+  ): OperatorFunction<T, [T, ...R[]]>;
+  export function timeout<T>(config: {
+    first: number;
+    with: () => Error;
+  }): OperatorFunction<T, T>;
+  export const EMPTY: Observable<never>;
 }
 
 declare module "rxjs/operators";
@@ -101,6 +168,30 @@ declare module "@bitwarden/common/auth/two-factor" {
 declare module "@bitwarden/common/auth/abstractions/account.service" {
   export class AccountService {
     activeAccount$: import("rxjs").Observable<{ id: string; email?: string } | null>;
+    switchAccount(account: null): Promise<void>;
+    clean(userId: string): Promise<void>;
+    setAccountActivity(userId: string, date: Date): Promise<void>;
+  }
+}
+
+declare module "@bitwarden/common/auth/abstractions/auth.service" {
+  export class AuthService {
+    authStatusFor$(userId: string): import("rxjs").Observable<number>;
+    logOut(callback: () => Promise<void>, userId: string): void;
+  }
+}
+
+declare module "@bitwarden/common/auth/abstractions/token.service" {
+  export class TokenService {
+    clearTokens(userId: string): Promise<void>;
+  }
+}
+
+declare module "@bitwarden/common/auth/enums/authentication-status" {
+  export const enum AuthenticationStatus {
+    LoggedOut = 0,
+    Locked = 1,
+    Unlocked = 2,
   }
 }
 
@@ -191,7 +282,10 @@ declare module "@bitwarden/common/billing/enums" {
 }
 
 declare module "@bitwarden/common/platform/abstractions/config/config.service" {
-  export class ConfigService {}
+  export class ConfigService {
+    ensureConfigFetched(): Promise<void>;
+    getFeatureFlag$(flag: unknown): import("rxjs").Observable<boolean>;
+  }
 }
 
 declare module "@bitwarden/common/platform/abstractions/i18n.service" {
@@ -238,6 +332,9 @@ declare module "@bitwarden/auth/common" {
   export class UserDecryptionOptionsServiceAbstraction {
     hasMasterPasswordById$(userId: string): import("rxjs").Observable<boolean>;
   }
+  export class LockService {
+    lock(userId: string): Promise<void>;
+  }
 }
 
 declare module "@bitwarden/auth/angular" {
@@ -253,28 +350,55 @@ declare module "@bitwarden/common/admin-console/abstractions/organization/organi
   import { Observable } from "rxjs";
 
   export interface Organization {
+    id: string;
     userIsManagedByOrganization: boolean;
+    enabled?: boolean;
+    limitCollectionCreation?: boolean;
+    limitCollectionDeletion?: boolean;
+    canAccessEventLogs?: boolean;
+    isOwner?: boolean;
+    canAccessReports?: boolean;
   }
 
   export class OrganizationService {
     organizations$(userId: string): Observable<Organization[]>;
   }
+
+  export class InternalOrganizationServiceAbstraction {
+    organizations$(userId: string): Observable<Organization[]>;
+    upsert(organization: Organization, userId: string): Promise<void>;
+  }
+
+  export function canAccessEmergencyAccess(
+    userId: string,
+    configService: unknown,
+    policyService: unknown,
+  ): import("rxjs").Observable<boolean>;
 }
 
 declare module "@bitwarden/components" {
-  export class DialogRef<T, U> {
+  export class DialogRef<T = unknown, U = unknown> {
     componentInstance: U;
-    close(): void;
+    disableClose: boolean;
+    close(result?: unknown, options?: unknown): void;
     closed: import("rxjs").Observable<T>;
+    cdkDialogRefBase?: DialogRef<T, U>;
   }
   export class DialogService {
     openSimpleDialog(config: unknown): Promise<boolean>;
     open<T>(component: unknown, config: unknown): DialogRef<unknown, T>;
+    closeAll(): void;
   }
   export class ItemModule {}
   export class ToastService {
     showToast(config: unknown): void;
+    _showToast(message: unknown): void;
   }
+  export class RouterFocusManagerService {
+    start$: import("rxjs").Observable<unknown>;
+  }
+  export class PopoverModule {}
+  export class BannerModule {}
   export class DialogModule {}
   export class FormFieldModule {}
   export class IconModule {}
@@ -288,6 +412,8 @@ declare module "@bitwarden/components" {
   export const DIALOG_DATA: unknown;
   export class DialogConfig<T> {
     data?: T;
+    disableClose?: boolean;
+    closeOnNavigation?: boolean;
   }
 }
 
@@ -375,4 +501,116 @@ declare module "./two-factor-verify.component" {
       closed: import("rxjs").Observable<unknown>;
     };
   }
+}
+
+declare module "@bitwarden/angular/auth/services/device-trust-toast.service.abstraction" {
+  export class DeviceTrustToastService {
+    setupListeners$: import("rxjs").Observable<unknown>;
+  }
+}
+
+declare module "@bitwarden/angular/platform/i18n" {
+  export class DocumentLangSetter {
+    start(): import("rxjs").Subscription;
+  }
+}
+
+declare module "@bitwarden/common/dirt/event-logs" {
+  export class EventUploadService {
+    uploadEvents(): Promise<void>;
+  }
+}
+
+declare module "@bitwarden/common/key-management/abstractions/process-reload.service" {
+  export class ProcessReloadServiceAbstraction {
+    startProcessReload(): Promise<void>;
+  }
+}
+
+declare module "@bitwarden/common/platform/abstractions/broadcaster.service" {
+  export class BroadcasterService {
+    subscribe(id: string, callback: (message: { command?: string; redirect?: boolean; successfully?: boolean; organizationId?: string; enabled?: boolean; limitCollectionCreation?: boolean; limitCollectionDeletion?: boolean }) => void | Promise<void>): void;
+    unsubscribe(id: string): void;
+  }
+}
+
+declare module "@bitwarden/common/platform/abstractions/state.service" {
+  export class StateService {
+    clean(options: { userId: string }): Promise<void>;
+  }
+}
+
+declare module "@bitwarden/common/platform/server-notifications" {
+  export class ServerNotificationsService {
+    disconnectFromInactivity(): void;
+    reconnectFromActivity(): void;
+  }
+}
+
+declare module "@bitwarden/common/platform/state" {
+  export class StateEventRunnerService {
+    handleEvent(event: string, userId: string): Promise<void>;
+  }
+}
+
+declare module "@bitwarden/common/vault/abstractions/cipher.service" {
+  export class CipherService {
+    clear(userId: string): Promise<void>;
+  }
+}
+
+declare module "@bitwarden/common/vault/abstractions/folder/folder.service.abstraction" {
+  export class InternalFolderService {
+    clear(userId: string): Promise<void>;
+  }
+}
+
+declare module "@bitwarden/key-management" {
+  export class KeyService {
+    clearKeys(userId: string): Promise<void>;
+  }
+  export class BiometricStateService {
+    logout(userId: string): Promise<void>;
+  }
+}
+
+declare module "@bitwarden/common/platform/sync" {
+  export class SyncService {
+    fullSync(force?: boolean): Promise<void>;
+  }
+}
+
+declare module "@bitwarden/assets/svg" {
+  export const PasswordManagerLogo: unknown;
+  export const AdminConsoleLogo: unknown;
+}
+
+declare module "@bitwarden/send-ui" {
+  export class SendPolicyService {
+    disableSend$: import("rxjs").Observable<boolean>;
+  }
+}
+
+declare module "../vault/components/coachmark" {
+  export class CoachmarkComponent {}
+  export class CoachmarkService {
+    activeStepId(): string | null;
+    getStepPosition(stepId: string): unknown;
+  }
+}
+
+declare module "./web-layout.module" {
+  export class WebLayoutModule {}
+}
+
+declare module "../../../layouts/web-layout.module" {
+  export class WebLayoutModule {}
+}
+
+declare module "../../../shared" {
+  export class SharedModule {}
+}
+
+declare module "../../../shared/shared.module" {
+  export class SharedModule {}
 }

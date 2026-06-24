@@ -42,7 +42,7 @@ diff --git a/apps/web/src/app/oss-routing.module.ts b/apps/web/src/app/oss-routi
  {
  path: "vault",
 -canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard],
-+canActivate: [mandatoryAuthenticatorActivate, premiumInterestRedirectGuard, setupExtensionRedirectGuard],
++canActivate: [mandatoryAuthenticatorActivate, setupExtensionRedirectGuard],
  loadChildren: () => VaultModule,
  },
  {

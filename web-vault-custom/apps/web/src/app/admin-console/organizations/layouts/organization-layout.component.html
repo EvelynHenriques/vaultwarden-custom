@@ -61,21 +61,7 @@
         *ngIf="organization.canAccessReports"
       ></bit-nav-item>
     </bit-nav-group>
-    <bit-nav-group
-      icon="bwi-billing"
-      [text]="'billing' | i18n"
-      route="billing"
-      *ngIf="canShowBillingTab(organization)"
-    >
-      <bit-nav-item [text]="'subscription' | i18n" route="billing/subscription"></bit-nav-item>
-      <ng-container *ngIf="(showPaymentAndHistory$ | async) && (organizationIsUnmanaged$ | async)">
-        <bit-nav-item
-          [text]="'paymentDetails' | i18n"
-          route="billing/payment-details"
-        ></bit-nav-item>
-        <bit-nav-item [text]="'billingHistory' | i18n" route="billing/history"></bit-nav-item>
-      </ng-container>
-    </bit-nav-group>
+    <!-- EBvault: subscription/billing nav removed -->
     <bit-nav-item
       icon="bwi-msp"
       [text]="'integrations' | i18n"

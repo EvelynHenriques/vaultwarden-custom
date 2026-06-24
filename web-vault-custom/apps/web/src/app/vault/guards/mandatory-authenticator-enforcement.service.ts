@@ -11,6 +11,7 @@ import { MandatoryAuthenticatorLockService } from "./mandatory-authenticator-loc
 import {
   ensureMandatoryAuthenticatorStatus,
   isMandatoryAuthenticatorSetupComplete,
+  isLogoutNavigationTarget,
   isMandatoryLockExemptNavigation,
   isMandatoryLockSuspended,
   MANDATORY_TWO_FACTOR_SETUP_URL,
@@ -66,7 +67,11 @@ export class MandatoryAuthenticatorEnforcementService {
   }
 
   private async handleNavigationEnd(url: string): Promise<void> {
-    if (isMandatoryLockSuspended() || isMandatoryLockExemptNavigation(url)) {
+    if (isMandatoryLockSuspended() || isLogoutNavigationTarget(url)) {
+      return;
+    }
+
+    if (isMandatoryLockExemptNavigation(url)) {
       return;
     }
 
@@ -82,7 +87,11 @@ export class MandatoryAuthenticatorEnforcementService {
   }
 
   async redirectIfBlocked(url: string, replaceUrl = false): Promise<boolean> {
-    if (isMandatoryLockSuspended() || isMandatoryLockExemptNavigation(url)) {
+    if (isMandatoryLockSuspended() || isLogoutNavigationTarget(url)) {
+      return false;
+    }
+
+    if (isMandatoryLockExemptNavigation(url)) {
       return false;
     }
 

@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NavigationStart, Router } from "@angular/router";
-import { filter, firstValueFrom, Subject } from "rxjs";
+import { filter, firstValueFrom, Subject, switchMap, EMPTY, distinctUntilChanged } from "rxjs";
 
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
@@ -16,9 +16,10 @@ import {
   isMandatoryLockModeActive,
   isMandatoryLockSuspended,
   isMandatorySetupAllowedUrl,
-  isLogoutNavigationTarget,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   resetMandatoryAuthenticatorSetupState,
+  resumeMandatoryLock,
+  shouldHideVaultUntilMandatoryStatusResolved,
   suspendMandatoryLock,
   shouldBlockMandatorySetupNavigation,
 } from "./mandatory-authenticator.policy";
@@ -42,6 +43,7 @@ export class MandatoryAuthenticatorLockService {
 
   private started = false;
   private redirectInFlight = false;
+  private logoutInProgress = false;
   private dialogServicePatched = false;
   private allowDialogClose = false;
   private escapeListenerAttached = false;
@@ -70,21 +72,55 @@ export class MandatoryAuthenticatorLockService {
         void this.handleNavigationStart(event.url);
       });
 
-    this.accountService.activeAccount$.pipe(getUserId).subscribe((userId) => {
-      if (!userId) {
-        this.prepareForLogout();
-        return;
-      }
-      void firstValueFrom(this.authService.authStatusFor$(userId)).then((status) => {
+    this.accountService.activeAccount$
+      .pipe(
+        getUserId,
+        switchMap((userId) => {
+          if (!userId) {
+            // Only clear mandatory lock state after an intentional logout — not transient null
+            // during account switching.
+            if (this.logoutInProgress) {
+              this.prepareForLogout();
+            }
+            this.logoutInProgress = false;
+            return EMPTY;
+          }
+          return this.authService.authStatusFor$(userId).pipe(distinctUntilChanged());
+        }),
+      )
+      .subscribe((status) => {
         if (status === AuthenticationStatus.LoggedOut) {
+          this.logoutInProgress = false;
           this.prepareForLogout();
+          return;
+        }
+        // Fires on every transition to Unlocked (including first login after registration).
+        if (status === AuthenticationStatus.Unlocked) {
+          void this.onSessionUnlocked();
         }
       });
-    });
+  }
+
+  /** Re-evaluate mandatory 2FA when the vault becomes Unlocked (post-login). */
+  private async onSessionUnlocked(): Promise<void> {
+    if (this.logoutInProgress) {
+      return;
+    }
+
+    // Clear suspension left over from a prior logout so the new session can enter setup lock.
+    if (isMandatoryLockSuspended()) {
+      resumeMandatoryLock();
+    }
+
+    await this.refreshLockState();
+    if (this.isLockModeActive()) {
+      await this.enforceRoute(true);
+    }
   }
 
   /** Suspend lock, close dialogs, and clear session lock state so logout can complete. */
   prepareForLogout(): void {
+    this.logoutInProgress = true;
     suspendMandatoryLock();
     resetMandatoryAuthenticatorSetupState();
     this.allowDialogClose = true;
@@ -106,6 +142,14 @@ export class MandatoryAuthenticatorLockService {
   }
 
   shouldHideAuthenticatedContent(url: string): boolean {
+    if (isMandatoryLockSuspended()) {
+      return false;
+    }
+
+    if (shouldHideVaultUntilMandatoryStatusResolved(url)) {
+      return true;
+    }
+
     if (!this.isLockModeActive()) {
       return false;
     }
@@ -216,6 +260,9 @@ export class MandatoryAuthenticatorLockService {
 
     this.redirectInFlight = true;
     try {
+      if (typeof console !== "undefined" && console.debug) {
+        console.debug("[Mandatory2FA] enforcing redirect to setup", { from: url });
+      }
       await this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl });
       if (!this.authenticatorDialogRegistered) {
         this.requestAuthenticatorDialogReopen();
@@ -240,9 +287,14 @@ export class MandatoryAuthenticatorLockService {
     const originalOpen = dialogService.open.bind(dialogService);
     dialogService.open = ((componentOrTemplateRef, config) => {
       const isLogoutDialog = this.isLogoutDialogConfig(config);
-      if (isLogoutDialog) {
-        this.prepareForLogout();
-      } else if (this.isLockModeActive()) {
+      const lockWasActive = this.isLockModeActive();
+      const allowCloseBeforeLogoutDialog = this.allowDialogClose;
+
+      // Do not call prepareForLogout on dialog open — cancelling logout must not bypass mandatory
+      // 2FA lock. Confirmed logout calls prepareForLogout() from AppComponent.logOut().
+      if (isLogoutDialog && lockWasActive) {
+        this.allowDialogClose = true;
+      } else if (lockWasActive) {
         config = {
           ...config,
           disableClose: true,
@@ -250,8 +302,18 @@ export class MandatoryAuthenticatorLockService {
         };
       }
       const ref = originalOpen(componentOrTemplateRef, config);
-      if (this.isLockModeActive() && !isLogoutDialog) {
+      if (lockWasActive && !isLogoutDialog) {
         this.patchNonDismissibleClose(ref);
+      }
+      if (isLogoutDialog && lockWasActive) {
+        ref.closed.subscribe(() => {
+          if (this.logoutInProgress || !this.isLockModeActive()) {
+            return;
+          }
+          this.allowDialogClose = allowCloseBeforeLogoutDialog;
+          this.requestAuthenticatorDialogReopen();
+          void this.enforceRoute(true);
+        });
       }
       return ref;
     }) as DialogService["open"];
@@ -316,9 +378,6 @@ export class MandatoryAuthenticatorLockService {
 
   private async bootstrap(): Promise<void> {
     if (!(await this.isUnlockedAuthenticated())) {
-      if (!(await this.hasActiveAccount())) {
-        this.prepareForLogout();
-      }
       return;
     }
 
@@ -329,16 +388,20 @@ export class MandatoryAuthenticatorLockService {
   }
 
   private async handleNavigationStart(url: string): Promise<void> {
-    if (isLogoutNavigationTarget(url) || isMandatoryLockSuspended()) {
-      if (isLogoutNavigationTarget(url)) {
-        this.prepareForLogout();
-      }
+    if (isMandatoryLockSuspended()) {
       return;
     }
+
+    // Do not call prepareForLogout here — logout is handled by logOut(), broadcaster events,
+    // and the activeAccount$ subscription. Navigation to "/" after login must not clear lock state.
 
     if (!(await this.isUnlockedAuthenticated())) {
       return;
     }
+
+    // Resolve status early so lock mode activates before route activation completes.
+    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
+    this.syncDomLockClass();
 
     if (!this.isLockModeActive()) {
       return;
@@ -348,13 +411,6 @@ export class MandatoryAuthenticatorLockService {
       if (!this.authenticatorDialogRegistered) {
         this.requestAuthenticatorDialogReopen();
       }
-      return;
-    }
-
-    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
-    this.syncDomLockClass();
-
-    if (!this.isLockModeActive()) {
       return;
     }
 
@@ -385,11 +441,6 @@ export class MandatoryAuthenticatorLockService {
         originalCdkClose(result, options);
       };
     }
-  }
-
-  private async hasActiveAccount(): Promise<boolean> {
-    const userId = await firstValueFrom(getUserId(this.accountService.activeAccount$));
-    return userId != null;
   }
 
   private async isUnlockedAuthenticated(): Promise<boolean> {

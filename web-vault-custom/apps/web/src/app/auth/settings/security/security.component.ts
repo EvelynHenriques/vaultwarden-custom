@@ -1,4 +1,5 @@
-import { Component, OnInit, inject } from "@angular/core";
+import { Component, DestroyRef, OnInit, inject } from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, NavigationEnd, Router } from "@angular/router";
 import { filter, firstValueFrom } from "rxjs";
 
@@ -27,6 +28,7 @@ export class SecurityComponent implements OnInit {
   changePasswordRoute = "password";
   mandatoryTwoFactorOnly = false;
 
+  private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly twoFactorService = inject(TwoFactorService);
@@ -46,21 +48,29 @@ export class SecurityComponent implements OnInit {
 
     await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
     this.lockService.syncDomLockClass();
-    this.mandatoryTwoFactorOnly = isMandatoryLockModeActive();
+    this.syncMandatoryTwoFactorOnly();
+
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => {
+        this.syncMandatoryTwoFactorOnly();
+        if (this.mandatoryTwoFactorOnly && this.lockService.isLockModeActive()) {
+          void this.router.navigate(["two-factor"], { relativeTo: this.route, replaceUrl: true });
+        }
+      });
 
     if (this.mandatoryTwoFactorOnly) {
       await this.router.navigate(["two-factor"], { relativeTo: this.route, replaceUrl: true });
-
-      this.router.events
-        .pipe(filter((event) => event instanceof NavigationEnd))
-        .subscribe(() => {
-          if (this.mandatoryTwoFactorOnly && this.lockService.isLockModeActive()) {
-            void this.router.navigate(["two-factor"], { relativeTo: this.route, replaceUrl: true });
-          }
-        });
       return;
     }
 
     await this.enforcementService.redirectIfBlocked(this.router.url, true);
+  }
+
+  private syncMandatoryTwoFactorOnly(): void {
+    this.mandatoryTwoFactorOnly = isMandatoryLockModeActive();
   }
 }

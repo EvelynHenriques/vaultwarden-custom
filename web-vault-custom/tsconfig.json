@@ -10,9 +10,5 @@
     "module": "ES2020",
     "lib": ["ES2020", "DOM"]
   },
-  "include": ["apps/**/*.ts", "apps/**/*.d.ts", "types/**/*.d.ts"],
-  "exclude": [
-    "apps/web/src/app/auth/settings/two-factor/**",
-    "apps/web/src/app/vault/guards/**"
-  ]
+  "include": ["apps/**/*.ts", "apps/**/*.d.ts", "types/**/*.d.ts", "libs/**/*.ts", "libs/**/*.html"]
 }

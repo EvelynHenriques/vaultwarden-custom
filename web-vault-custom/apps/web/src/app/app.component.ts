@@ -30,6 +30,7 @@ import { KeyService, BiometricStateService } from "@bitwarden/key-management";
 
 import { MandatoryAuthenticatorEnforcementService } from "./vault/guards/mandatory-authenticator-enforcement.service";
 import { MandatoryAuthenticatorLockService } from "./vault/guards/mandatory-authenticator-lock.service";
+import { MANDATORY_TWO_FACTOR_SETUP_URL } from "./vault/guards/mandatory-authenticator.policy";
 
 const BroadcasterSubscriptionId = "AppComponent";
 const IdleTimeout = 60000 * 10; // 10 minutes
@@ -116,6 +117,9 @@ export class AppComponent implements OnDestroy, OnInit {
       this.ngZone.run(async () => {
         switch (message.command) {
           case "authBlocked":
+            if (await this.redirectMandatoryTwoFactorSetupIfRequired()) {
+              break;
+            }
             // FIXME: Verify that this floating promise is intentional. If it is, add an explanatory comment and ensure there is proper error handling.
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             this.router.navigate(["/"]);
@@ -130,6 +134,9 @@ export class AppComponent implements OnDestroy, OnInit {
             break;
           }
           case "locked":
+            if (await this.redirectMandatoryTwoFactorSetupIfRequired()) {
+              break;
+            }
             await this.router.navigate(["/"]);
             await this.processReloadService.startProcessReload();
             break;
@@ -150,31 +157,18 @@ export class AppComponent implements OnDestroy, OnInit {
               type: "info",
             });
             if (upgradeConfirmed) {
-              // FIXME: Verify that this floating promise is intentional. If it is, add an explanatory comment and ensure there is proper error handling.
-              // eslint-disable-next-line @typescript-eslint/no-floating-promises
-              this.router.navigate([
-                "organizations",
-                message.organizationId,
-                "billing",
-                "subscription",
-              ]);
+              await this.router.navigate(["vault"], { replaceUrl: true });
             }
             break;
           }
-          case "emailVerificationRequired": {
-            const emailVerificationConfirmed = await this.dialogService.openSimpleDialog({
+          case "emailVerificationRequired":
+            await this.dialogService.openSimpleDialog({
               title: { key: "emailVerificationRequired" },
               content: { key: "emailVerificationRequiredDesc" },
-              acceptButtonText: { key: "learnMore" },
+              acceptButtonText: { key: "ok" },
               type: "info",
             });
-            if (emailVerificationConfirmed) {
-              this.platformUtilsService.launchUri(
-                "https://bitwarden.com/help/create-bitwarden-account/",
-              );
-            }
             break;
-          }
           case "showToast":
             this.toastService._showToast(message);
             break;
@@ -257,6 +251,32 @@ export class AppComponent implements OnDestroy, OnInit {
         subtree: true,
       });
     }
+  }
+
+  /**
+   * When mandatory Authenticator enrollment is pending, keep the session alive and send the user
+   * to the setup page instead of treating API 403 / lock signals as a full logout.
+   *
+   * Only applies to Unlocked sessions missing Authenticator — vault Locked state is separate.
+   */
+  private async redirectMandatoryTwoFactorSetupIfRequired(): Promise<boolean> {
+    const userId = await firstValueFrom(getUserId(this.accountService.activeAccount$));
+    if (userId == null) {
+      return false;
+    }
+
+    const status = await firstValueFrom(this.authService.authStatusFor$(userId));
+    if (status !== AuthenticationStatus.Unlocked) {
+      return false;
+    }
+
+    await this.mandatoryAuthenticatorLockService.refreshLockState();
+    if (!this.mandatoryAuthenticatorLockService.isLockModeActive()) {
+      return false;
+    }
+
+    await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
+    return true;
   }
 
   private async logOut(redirect = true) {

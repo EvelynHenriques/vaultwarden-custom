@@ -102,19 +102,26 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
       .subscribe((event) => {
         const url =
           event instanceof NavigationStart ? event.url : event.urlAfterRedirects;
-        this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(url);
+        this.updateRouterOutletVisibility(url);
 
         if (event instanceof NavigationEnd) {
           void this.onNavigationSettled(event.urlAfterRedirects);
         }
       });
 
-    this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(
-      this.router.url,
-    );
+    await this.initializeMandatoryTwoFactorGate();
+  }
 
+  ngOnDestroy(): void {
+    document.body.classList.remove("vw-authenticated");
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private async initializeMandatoryTwoFactorGate(): Promise<void> {
     await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
     this.lockService.syncDomLockClass();
+    this.updateRouterOutletVisibility(this.router.url);
 
     if (isMandatoryAuthenticatorSetupComplete()) {
       this.showRouterOutlet = true;
@@ -125,10 +132,8 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
     await this.onNavigationSettled(this.router.url);
   }
 
-  ngOnDestroy(): void {
-    document.body.classList.remove("vw-authenticated");
-    this.destroy$.next();
-    this.destroy$.complete();
+  private updateRouterOutletVisibility(url: string): void {
+    this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(url);
   }
 
   private async onNavigationSettled(url: string): Promise<void> {
@@ -137,10 +142,8 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(url);
+    this.updateRouterOutletVisibility(url);
     await this.enforcementService.redirectIfBlocked(url, true);
-    this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(
-      this.router.url,
-    );
+    this.updateRouterOutletVisibility(this.router.url);
   }
 }

@@ -68,6 +68,10 @@ if [[ -f "${OUTPUT_DIR}/index.html" ]]; then
     sed -i 's|</head>|    <link rel="icon" type="image/svg+xml" href="images/icons/logo-shield.svg" />\n</head>|' "${INDEX}" 2>/dev/null || \
       sed -i '' 's|</head>|    <link rel="icon" type="image/svg+xml" href="images/icons/logo-shield.svg" />\n</head>|' "${INDEX}" 2>/dev/null || true
   fi
+  sed -i 's|<link rel="apple-touch-icon"[^>]*>|<link rel="apple-touch-icon" href="images/icons/logo-shield.svg" />|g' "${INDEX}" 2>/dev/null || \
+    sed -i '' 's|<link rel="apple-touch-icon"[^>]*>|<link rel="apple-touch-icon" href="images/icons/logo-shield.svg" />|g' "${INDEX}" 2>/dev/null || true
+  sed -i 's|<link rel="mask-icon"[^>]*>|<link rel="mask-icon" href="images/icons/logo-shield.svg" color="#556b2f" />|g' "${INDEX}" 2>/dev/null || \
+    sed -i '' 's|<link rel="mask-icon"[^>]*>|<link rel="mask-icon" href="images/icons/logo-shield.svg" color="#556b2f" />|g' "${INDEX}" 2>/dev/null || true
   if ! grep -q 'vaultwarden.css' "${INDEX}"; then
     sed -i 's|</head>|<link rel="stylesheet" href="css/vaultwarden.css" />\n</head>|' "${INDEX}" 2>/dev/null || \
       sed -i '' 's|</head>|<link rel="stylesheet" href="css/vaultwarden.css" />\n</head>|' "${INDEX}" 2>/dev/null || true

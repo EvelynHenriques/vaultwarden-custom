@@ -23,6 +23,16 @@ export {
   resetMandatoryAuthenticatorSetupState,
 } from "./mandatory-authenticator.policy";
 
+/**
+ * Mandatory 2FA route guard — evaluated after authGuard on authenticated routes.
+ *
+ * Priority (highest first):
+ * 1. Logout/disconnect routes or suspended lock → allow
+ * 2. No active account / LoggedOut → allow (authGuard owns login redirect)
+ * 3. Vault Locked → allow (unlock flow / login 2FA — distinct from missing setup)
+ * 4. Unlocked without Authenticator → redirect to setup
+ * 5. Unlocked with Authenticator → allow
+ */
 async function evaluateMandatoryAuthenticatorAccess(
   url: string,
 ): Promise<boolean | import("@angular/router").UrlTree> {
@@ -34,14 +44,22 @@ async function evaluateMandatoryAuthenticatorAccess(
   const authService = inject(AuthService) as AuthService;
   const userId = await firstValueFrom(getUserId(accountService.activeAccount$));
 
-  if (userId) {
-    const status = await firstValueFrom(authService.authStatusFor$(userId));
-    if (
-      status === AuthenticationStatus.Locked ||
-      status === AuthenticationStatus.LoggedOut
-    ) {
-      return true;
-    }
+  if (!userId) {
+    return true;
+  }
+
+  const status = await firstValueFrom(authService.authStatusFor$(userId));
+
+  if (status === AuthenticationStatus.LoggedOut) {
+    return true;
+  }
+
+  if (status === AuthenticationStatus.Locked) {
+    return true;
+  }
+
+  if (status !== AuthenticationStatus.Unlocked) {
+    return true;
   }
 
   const router = inject(Router) as Router;
