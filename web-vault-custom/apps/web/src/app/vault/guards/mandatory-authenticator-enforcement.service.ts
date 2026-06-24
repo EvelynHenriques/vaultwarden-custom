@@ -14,9 +14,11 @@ import { MandatoryAuthenticatorLockService } from "./mandatory-authenticator-loc
 import {
   ensureMandatoryAuthenticatorStatus,
   isMandatoryAuthenticatorSetupComplete,
+  isMandatoryPostLoginRouteBlocked,
   isLogoutNavigationTarget,
   isMandatoryLockExemptNavigation,
   isMandatoryLockSuspended,
+  isMandatorySetupAllowedUrl,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   normalizeMandatorySetupPath,
 } from "./mandatory-authenticator.policy";
@@ -108,7 +110,11 @@ export class MandatoryAuthenticatorEnforcementService {
       return false;
     }
 
-    if (this.lockService.shouldAllowUrl(url)) {
+    if (isMandatorySetupAllowedUrl(url)) {
+      return false;
+    }
+
+    if (!isMandatoryPostLoginRouteBlocked(url)) {
       return false;
     }
 

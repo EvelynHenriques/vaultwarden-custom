@@ -109,6 +109,10 @@ def apply_mandatory_routing(path: Path) -> bool:
 
     simple = [
         (
+            'path: "setup-extension",',
+            'path: "setup-extension",\n    canActivate: [mandatoryAuthenticatorActivate],',
+        ),
+        (
             "canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard]",
             "canActivate: [mandatoryAuthenticatorActivate, setupExtensionRedirectGuard]",
         ),
@@ -159,6 +163,7 @@ def verify_mandatory_routing(text: str, path: Path) -> None:
         ("mandatoryAuthenticatorActivate import", "mandatoryAuthenticatorActivate"),
         ("UserLayout canActivateChild", "canActivateChild: [mandatoryAuthenticatorGuard]"),
         ("UserLayout runGuardsAndResolvers", 'runGuardsAndResolvers: "always"'),
+        ("setup-extension guard", 'path: "setup-extension",\n    canActivate: [mandatoryAuthenticatorActivate]'),
         ("vault mandatory guard", "canActivate: [mandatoryAuthenticatorActivate, setupExtensionRedirectGuard]"),
         ("settings child guard", 'path: "settings",\n        canActivateChild: [mandatoryAuthenticatorGuard]'),
         ("organizations child guard", 'path: "organizations",\n    canActivate: [authGuard, mandatoryAuthenticatorActivate],\n    canActivateChild: [mandatoryAuthenticatorGuard]'),

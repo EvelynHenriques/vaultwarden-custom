@@ -186,15 +186,7 @@ export function isLogoutNavigationTarget(url: string): boolean {
 
 /** Default-deny: block unless 2FA is complete or URL is explicitly whitelisted. */
 export function shouldBlockMandatorySetupNavigation(url: string): boolean {
-  if (!isMandatoryLockModeActive()) {
-    return false;
-  }
-
-  if (isMandatoryLockExemptNavigation(url)) {
-    return false;
-  }
-
-  return !isMandatorySetupAllowedUrl(url);
+  return isMandatoryPostLoginRouteBlocked(url);
 }
 
 /**
@@ -270,6 +262,34 @@ export async function ensureMandatoryAuthenticatorStatus(
   return authenticatorSetupCompleteForSession;
 }
 
+/**
+ * True when mandatory Authenticator enrollment must be completed before any post-login
+ * onboarding (extension setup, vault, etc.) is allowed.
+ */
+export async function mustCompleteMandatoryAuthenticatorSetup(
+  twoFactorService: TwoFactorService,
+): Promise<boolean> {
+  if (isMandatoryLockSuspended() || isMandatoryAuthenticatorSetupComplete()) {
+    return false;
+  }
+
+  await ensureMandatoryAuthenticatorStatus(twoFactorService);
+  return !isMandatoryAuthenticatorSetupComplete();
+}
+
+/** Authenticated routes blocked until mandatory Authenticator 2FA is configured. */
+export function isMandatoryPostLoginRouteBlocked(url: string): boolean {
+  if (isMandatoryLockSuspended() || isMandatoryAuthenticatorSetupComplete()) {
+    return false;
+  }
+
+  if (isMandatorySetupAllowedUrl(url) || isMandatoryLockExemptNavigation(url)) {
+    return false;
+  }
+
+  return isMandatoryLockModeActive() || !providerStatusKnown;
+}
+
 export async function resolveMandatoryAuthenticatorAccess(
   router: Router,
   twoFactorService: TwoFactorService,
@@ -294,7 +314,7 @@ export async function resolveMandatoryAuthenticatorAccess(
   // Priority 3: authenticated Unlocked user — resolve mandatory 2FA enrollment.
   await ensureMandatoryAuthenticatorStatus(twoFactorService);
 
-  if (!isMandatoryLockModeActive()) {
+  if (isMandatoryAuthenticatorSetupComplete()) {
     logMandatoryDecision("route guard: allow — 2FA configured or not required", { url });
     return true;
   }
