@@ -5,11 +5,7 @@ import { filter, firstValueFrom } from "rxjs";
 
 import { UserDecryptionOptionsServiceAbstraction } from "@bitwarden/auth/common";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
-import { getUserId } from "@bitwarden/common/auth/services/account.service";
-import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
-
-import { HeaderModule } from "../../../layouts/header/header.module";
-import { SharedModule } from "../../../shared";
+import { getActiveAccountUserIdOrNull } from "../../../vault/guards/mandatory-authenticator-account.util";
 import {
   ensureMandatoryAuthenticatorStatus,
   isMandatoryLockModeActive,
@@ -41,7 +37,7 @@ export class SecurityComponent implements OnInit {
   ) {}
 
   async ngOnInit() {
-    const userId = await firstValueFrom(this.accountService.activeAccount$.pipe(getUserId));
+    const userId = await getActiveAccountUserIdOrNull(this.accountService);
     this.showChangePassword = userId
       ? await firstValueFrom(this.userDecryptionOptionsService.hasMasterPasswordById$(userId))
       : false;

@@ -286,6 +286,11 @@ export async function resolveMandatoryAuthenticatorAccess(
     return true;
   }
 
+  if (url != null && isMandatoryLockExemptNavigation(url)) {
+    logMandatoryDecision("route guard: allow — public/auth exempt route", { url });
+    return true;
+  }
+
   // Priority 3: authenticated Unlocked user — resolve mandatory 2FA enrollment.
   await ensureMandatoryAuthenticatorStatus(twoFactorService);
 

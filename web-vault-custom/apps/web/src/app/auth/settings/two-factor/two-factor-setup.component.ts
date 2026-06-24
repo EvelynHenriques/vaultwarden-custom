@@ -5,6 +5,7 @@ import {
   first,
   lastValueFrom,
   Observable,
+  of,
   Subject,
   Subscription,
   takeUntil,
@@ -26,7 +27,6 @@ import { TwoFactorDuoResponse } from "@bitwarden/common/auth/models/response/two
 import { TwoFactorEmailResponse } from "@bitwarden/common/auth/models/response/two-factor-email.response";
 import { TwoFactorWebAuthnResponse } from "@bitwarden/common/auth/models/response/two-factor-web-authn.response";
 import { TwoFactorYubiKeyResponse } from "@bitwarden/common/auth/models/response/two-factor-yubi-key.response";
-import { getUserId } from "@bitwarden/common/auth/services/account.service";
 import { TwoFactorService, TwoFactorProviders } from "@bitwarden/common/auth/two-factor";
 import { AuthResponse } from "@bitwarden/common/auth/types/auth-response";
 import { TwoFactorResponse } from "@bitwarden/common/auth/types/two-factor-response";
@@ -47,6 +47,7 @@ import { TwoFactorSetupEmailComponent } from "./two-factor-setup-email.component
 import { TwoFactorSetupWebAuthnComponent } from "./two-factor-setup-webauthn.component";
 import { TwoFactorSetupYubiKeyComponent } from "./two-factor-setup-yubikey.component";
 import { TwoFactorVerifyComponent } from "./two-factor-verify.component";
+import { activeAccountUserId$ } from "../../../vault/guards/mandatory-authenticator-account.util";
 import { markMandatoryAuthenticatorSetupComplete } from "../../../vault/guards/mandatory-authenticator.policy";
 import { MandatoryAuthenticatorLockService } from "../../../vault/guards/mandatory-authenticator-lock.service";
 
@@ -88,7 +89,9 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
   ) {
     this.canAccessPremium$ = this.accountService.activeAccount$.pipe(
       switchMap((account) =>
-        billingAccountProfileStateService.hasPremiumFromAnySource$(account.id),
+        account?.id
+          ? billingAccountProfileStateService.hasPremiumFromAnySource$(account.id)
+          : of(false),
       ),
     );
   }
@@ -117,11 +120,12 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
 
     this.providers.sort((a: any, b: any) => a.sort - b.sort);
 
-    this.accountService.activeAccount$
+    activeAccountUserId$(this.accountService)
       .pipe(
-        getUserId,
         switchMap((userId) =>
-          this.policyService.policyAppliesToUser$(PolicyType.TwoFactorAuthentication, userId),
+          userId
+            ? this.policyService.policyAppliesToUser$(PolicyType.TwoFactorAuthentication, userId)
+            : of(false),
         ),
         takeUntil(this.destroy$),
       )

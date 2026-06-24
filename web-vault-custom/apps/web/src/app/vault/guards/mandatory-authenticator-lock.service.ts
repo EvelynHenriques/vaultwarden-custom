@@ -1,15 +1,19 @@
 import { inject, Injectable } from "@angular/core";
 import { NavigationStart, Router } from "@angular/router";
-import { filter, firstValueFrom, Subject, switchMap, EMPTY, distinctUntilChanged } from "rxjs";
+import { filter, Subject, switchMap, EMPTY, distinctUntilChanged } from "rxjs";
 
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
-import { getUserId } from "@bitwarden/common/auth/services/account.service";
 import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 import { BroadcasterService } from "@bitwarden/common/platform/abstractions/broadcaster.service";
 import { DialogRef, DialogService } from "@bitwarden/components";
 
+import {
+  activeAccountUserId$,
+  getActiveAccountUserIdOrNull,
+  getAuthStatusOrNull,
+} from "./mandatory-authenticator-account.util";
 import {
   ensureMandatoryAuthenticatorStatus,
   isMandatoryLockExemptNavigation,
@@ -72,9 +76,8 @@ export class MandatoryAuthenticatorLockService {
         void this.handleNavigationStart(event.url);
       });
 
-    this.accountService.activeAccount$
+    activeAccountUserId$(this.accountService)
       .pipe(
-        getUserId,
         switchMap((userId) => {
           if (!userId) {
             // Only clear mandatory lock state after an intentional logout — not transient null
@@ -157,6 +160,10 @@ export class MandatoryAuthenticatorLockService {
   }
 
   async refreshLockState(): Promise<boolean> {
+    if (!(await this.isUnlockedAuthenticated())) {
+      return false;
+    }
+
     await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
     this.syncDomLockClass();
     return this.isLockModeActive();
@@ -388,7 +395,7 @@ export class MandatoryAuthenticatorLockService {
   }
 
   private async handleNavigationStart(url: string): Promise<void> {
-    if (isMandatoryLockSuspended()) {
+    if (isMandatoryLockSuspended() || isMandatoryLockExemptNavigation(url)) {
       return;
     }
 
@@ -444,12 +451,12 @@ export class MandatoryAuthenticatorLockService {
   }
 
   private async isUnlockedAuthenticated(): Promise<boolean> {
-    const userId = await firstValueFrom(getUserId(this.accountService.activeAccount$));
+    const userId = await getActiveAccountUserIdOrNull(this.accountService);
     if (!userId) {
       return false;
     }
 
-    const status = await firstValueFrom(this.authService.authStatusFor$(userId));
+    const status = await getAuthStatusOrNull(this.authService, userId);
     return status === AuthenticationStatus.Unlocked;
   }
 }

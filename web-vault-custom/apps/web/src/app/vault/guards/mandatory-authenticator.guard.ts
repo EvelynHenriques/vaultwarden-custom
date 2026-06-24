@@ -2,17 +2,17 @@ import { inject } from "@angular/core";
 import { CanActivateChildFn, CanActivateFn, Router } from "@angular/router";
 
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
-import { getUserId } from "@bitwarden/common/auth/services/account.service";
-import { firstValueFrom } from "rxjs";
 
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 
 import {
+  buildMandatoryGuardContext,
+  logMandatoryGuardDecision,
+} from "./mandatory-authenticator-account.util";
+import {
   createMandatorySetupUrlTree,
-  isLogoutNavigationTarget,
-  isMandatoryLockSuspended,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   resolveMandatoryAuthenticatorAccess,
 } from "./mandatory-authenticator.policy";
@@ -27,47 +27,67 @@ export {
  * Mandatory 2FA route guard — evaluated after authGuard on authenticated routes.
  *
  * Priority (highest first):
- * 1. Logout/disconnect routes or suspended lock → allow
- * 2. No active account / LoggedOut → allow (authGuard owns login redirect)
- * 3. Vault Locked → allow (unlock flow / login 2FA — distinct from missing setup)
- * 4. Unlocked without Authenticator → redirect to setup
- * 5. Unlocked with Authenticator → allow
+ * 1. Logout/disconnect or suspended lock → allow
+ * 2. Public/auth routes (login, register, verify, lock, …) → allow (no account required)
+ * 3. No account / LoggedOut → allow (authGuard owns login redirect)
+ * 4. Vault Locked → allow (unlock flow — distinct from missing setup)
+ * 5. Unlocked without Authenticator → redirect to setup
+ * 6. Unlocked with Authenticator → allow
  */
 async function evaluateMandatoryAuthenticatorAccess(
   url: string,
 ): Promise<boolean | import("@angular/router").UrlTree> {
-  if (isMandatoryLockSuspended() || isLogoutNavigationTarget(url)) {
-    return true;
-  }
-
   const accountService = inject(AccountService) as AccountService;
   const authService = inject(AuthService) as AuthService;
-  const userId = await firstValueFrom(getUserId(accountService.activeAccount$));
-
-  if (!userId) {
-    return true;
-  }
-
-  const status = await firstValueFrom(authService.authStatusFor$(userId));
-
-  if (status === AuthenticationStatus.LoggedOut) {
-    return true;
-  }
-
-  if (status === AuthenticationStatus.Locked) {
-    return true;
-  }
-
-  if (status !== AuthenticationStatus.Unlocked) {
-    return true;
-  }
-
   const router = inject(Router) as Router;
   const twoFactorService = inject(TwoFactorService) as TwoFactorService;
 
+  const ctx = await buildMandatoryGuardContext(accountService, authService, url);
+
+  if (ctx.lockSuspended || ctx.isLogoutRoute) {
+    logMandatoryGuardDecision("allow — logout/disconnect or lock suspended", ctx);
+    return true;
+  }
+
+  if (ctx.isPublicRoute) {
+    logMandatoryGuardDecision("allow — public/auth route (no account required)", ctx);
+    return true;
+  }
+
+  if (!ctx.hasAccount || !ctx.userId) {
+    logMandatoryGuardDecision("allow — no account yet (unauthenticated transition)", ctx);
+    return true;
+  }
+
+  if (ctx.authStatus === AuthenticationStatus.LoggedOut) {
+    logMandatoryGuardDecision("allow — logged out", ctx);
+    return true;
+  }
+
+  if (ctx.authStatus === AuthenticationStatus.Locked) {
+    logMandatoryGuardDecision("allow — vault locked (unlock / login 2FA flow)", ctx);
+    return true;
+  }
+
+  if (ctx.authStatus !== AuthenticationStatus.Unlocked) {
+    logMandatoryGuardDecision("allow — auth status not Unlocked yet", ctx, {
+      authStatus: ctx.authStatus,
+    });
+    return true;
+  }
+
   try {
-    return await resolveMandatoryAuthenticatorAccess(router, twoFactorService, url);
-  } catch {
+    const result = await resolveMandatoryAuthenticatorAccess(router, twoFactorService, url);
+    logMandatoryGuardDecision(
+      typeof result === "boolean" && result ? "allow — vault access granted" : "redirect/setup",
+      ctx,
+      { result: typeof result === "boolean" ? result : MANDATORY_TWO_FACTOR_SETUP_URL },
+    );
+    return result;
+  } catch (error) {
+    logMandatoryGuardDecision("redirect — guard error during 2FA check", ctx, {
+      error: String(error),
+    });
     return createMandatorySetupUrlTree(router);
   }
 }

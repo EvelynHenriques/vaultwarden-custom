@@ -4,14 +4,13 @@ import { CommonModule } from "@angular/common";
 import { Component, computed, inject, OnDestroy, OnInit, Signal } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { NavigationEnd, NavigationStart, Router, RouterModule } from "@angular/router";
-import { filter, map, Observable, Subject, switchMap, takeUntil } from "rxjs";
+import { filter, map, Observable, of, Subject, switchMap, takeUntil } from "rxjs";
 
 import { JslibModule } from "@bitwarden/angular/jslib.module";
 import { PasswordManagerLogo } from "@bitwarden/assets/svg";
 import { canAccessEmergencyAccess } from "@bitwarden/common/admin-console/abstractions/organization/organization.service.abstraction";
 import { PolicyService } from "@bitwarden/common/admin-console/abstractions/policy/policy.service.abstraction";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
-import { getUserId } from "@bitwarden/common/auth/services/account.service";
 import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 import { ConfigService } from "@bitwarden/common/platform/abstractions/config/config.service";
 import { SyncService } from "@bitwarden/common/platform/sync";
@@ -19,6 +18,7 @@ import { PopoverModule, SvgModule } from "@bitwarden/components";
 import { SendPolicyService } from "@bitwarden/send-ui";
 
 import { CoachmarkComponent, CoachmarkService } from "../vault/components/coachmark";
+import { activeAccountUserId$ } from "../vault/guards/mandatory-authenticator-account.util";
 import { MandatoryAuthenticatorEnforcementService } from "../vault/guards/mandatory-authenticator-enforcement.service";
 import { MandatoryAuthenticatorLockService } from "../vault/guards/mandatory-authenticator-lock.service";
 import {
@@ -79,10 +79,11 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
     private sendPolicyService: SendPolicyService,
   ) {
     this.showEmergencyAccess = toSignal(
-      this.accountService.activeAccount$.pipe(
-        getUserId,
+      activeAccountUserId$(this.accountService).pipe(
         switchMap((userId) =>
-          canAccessEmergencyAccess(userId, this.configService, this.policyService),
+          userId
+            ? canAccessEmergencyAccess(userId, this.configService, this.policyService)
+            : of(false),
         ),
       ),
     );

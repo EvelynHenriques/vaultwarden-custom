@@ -28,6 +28,7 @@ import { InternalFolderService } from "@bitwarden/common/vault/abstractions/fold
 import { DialogService, RouterFocusManagerService, ToastService } from "@bitwarden/components";
 import { KeyService, BiometricStateService } from "@bitwarden/key-management";
 
+import { getActiveAccountUserIdOrNull, getAuthStatusOrNull } from "./vault/guards/mandatory-authenticator-account.util";
 import { MandatoryAuthenticatorEnforcementService } from "./vault/guards/mandatory-authenticator-enforcement.service";
 import { MandatoryAuthenticatorLockService } from "./vault/guards/mandatory-authenticator-lock.service";
 import { MANDATORY_TWO_FACTOR_SETUP_URL } from "./vault/guards/mandatory-authenticator.policy";
@@ -260,12 +261,12 @@ export class AppComponent implements OnDestroy, OnInit {
    * Only applies to Unlocked sessions missing Authenticator — vault Locked state is separate.
    */
   private async redirectMandatoryTwoFactorSetupIfRequired(): Promise<boolean> {
-    const userId = await firstValueFrom(getUserId(this.accountService.activeAccount$));
+    const userId = await getActiveAccountUserIdOrNull(this.accountService);
     if (userId == null) {
       return false;
     }
 
-    const status = await firstValueFrom(this.authService.authStatusFor$(userId));
+    const status = await getAuthStatusOrNull(this.authService, userId);
     if (status !== AuthenticationStatus.Unlocked) {
       return false;
     }
@@ -293,7 +294,7 @@ export class AppComponent implements OnDestroy, OnInit {
     // will prevent any toasts from being displayed long enough to be read
 
     await this.eventUploadService.uploadEvents();
-    const userId = await firstValueFrom(getUserId(this.accountService.activeAccount$));
+    const userId = await getActiveAccountUserIdOrNull(this.accountService);
 
     if (userId == null) {
       await this.accountService.switchAccount(null);

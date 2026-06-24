@@ -34,6 +34,7 @@ OVERLAY_FILES=(
   "libs/components/src/navigation/nav-logo.component.html"
   "libs/auth/src/angular/registration/registration-start/registration-start.component.html"
   "apps/web/src/app/admin-console/organizations/settings/two-factor-setup.component.ts"
+  "apps/web/src/app/vault/guards/mandatory-authenticator-account.util.ts"
   "apps/web/src/app/vault/guards/mandatory-authenticator.guard.ts"
   "apps/web/src/app/vault/guards/mandatory-authenticator.policy.ts"
   "apps/web/src/app/vault/guards/mandatory-authenticator-lock.service.ts"

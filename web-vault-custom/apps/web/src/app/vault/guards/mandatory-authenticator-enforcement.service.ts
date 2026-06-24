@@ -1,12 +1,15 @@
 import { inject, Injectable } from "@angular/core";
 import { NavigationEnd, Router } from "@angular/router";
-import { filter, firstValueFrom } from "rxjs";
+import { filter } from "rxjs";
 
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
-import { getUserId } from "@bitwarden/common/auth/services/account.service";
 
+import {
+  getActiveAccountUserIdOrNull,
+  getAuthStatusOrNull,
+} from "./mandatory-authenticator-account.util";
 import { MandatoryAuthenticatorLockService } from "./mandatory-authenticator-lock.service";
 import {
   ensureMandatoryAuthenticatorStatus,
@@ -121,12 +124,12 @@ export class MandatoryAuthenticatorEnforcementService {
   }
 
   private async isUnlocked(): Promise<boolean> {
-    const userId = await firstValueFrom(getUserId(this.accountService.activeAccount$));
+    const userId = await getActiveAccountUserIdOrNull(this.accountService);
     if (!userId) {
       return false;
     }
 
-    const status = await firstValueFrom(this.authService.authStatusFor$(userId));
+    const status = await getAuthStatusOrNull(this.authService, userId);
     return status === AuthenticationStatus.Unlocked;
   }
 }
