@@ -79,6 +79,13 @@ else
   echo "  warning: missing logo image: apps/web/src/images/icons/logo-ebvault.svg" >&2
 fi
 
+server_logo="${SCRIPT_DIR}/../src/static/images/logo-ebvault.svg"
+if [[ -f "${ebvault_logo_source}" ]]; then
+  mkdir -p "$(dirname "${server_logo}")"
+  cp "${ebvault_logo_source}" "${server_logo}"
+  echo "  updated src/static/images/logo-ebvault.svg"
+fi
+
 index_favicon_patch="${CUSTOM_DIR}/patches/index-favicon.patch"
 if [[ -f "${index_favicon_patch}" ]]; then
   if git -C "${CLIENTS_DIR}" apply --ignore-space-change --check "${index_favicon_patch}" >/dev/null 2>&1; then

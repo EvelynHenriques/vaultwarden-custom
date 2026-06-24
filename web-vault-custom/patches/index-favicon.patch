@@ -3,11 +3,11 @@ diff --git a/apps/web/src/index.html b/apps/web/src/index.html
 +++ b/apps/web/src/index.html
 @@ -7,8 +7,7 @@
  
-     <title page-title>Bitwarden Web vault</title>
+     <title>EBvault</title>
  
      <link rel="apple-touch-icon" sizes="180x180" href="images/icons/apple-touch-icon.png" />
 -    <link rel="icon" type="image/png" sizes="32x32" href="images/icons/favicon-32x32.png" />
 -    <link rel="icon" type="image/png" sizes="16x16" href="images/icons/favicon-16x16.png" />
 +    <link rel="icon" type="image/svg+xml" href="images/icons/logo-shield.svg" />
-     <link rel="mask-icon" href="images/icons/safari-pinned-tab.svg" color="#175DDC" />
+     <link rel="mask-icon" href="images/icons/safari-pinned-tab.svg" color="#556b2f" />
      <link rel="manifest" href="manifest.json" />

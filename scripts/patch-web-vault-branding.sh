@@ -27,6 +27,10 @@ patch_file() {
     -e 's/Bitwarden Inc/EBvault/g' \
     -e 's/"newToBitwarden": "[^"]*"/"newToBitwarden": "Novo?"/g' \
     -e 's/"logInToBitwarden": "[^"]*"/"logInToBitwarden": "Conecte-se ao EBvault"/g' \
+    -e 's/"bitWebVault": "[^"]*"/"bitWebVault": "EBvault"/g' \
+    -e 's/"webVault": "[^"]*"/"webVault": "EBvault"/g' \
+    -e 's/"appLogoLabel": "[^"]*"/"appLogoLabel": "EBvault"/g' \
+    -e 's/"passwordManager": "[^"]*"/"passwordManager": "EBvault"/g' \
     -e 's/Novo no Bitwarden?/Novo?/g' \
     -e 's/New to Bitwarden?/New?/g' \
     -e 's/Novo no EBvault?/Novo?/g' \
@@ -38,8 +42,6 @@ patch_file() {
     -e 's/Vaultwarden/EBvault/g' \
     -e 's/EBVault/EBvault/g' \
     -e 's/EB Vault/EBvault/g' \
-    -e 's/Cofre/EBvault/g' \
-    -e 's/cofre/EBvault/g' \
     -e 's/\x01BWDOMAIN\x01/bitwarden.com/g' \
     -e 's/\x01VAULTBW\x01/vault.bitwarden.com/g' \
     -e 's/\x01BWPKG\x01/com.8bit.bitwarden/g' \
@@ -56,6 +58,7 @@ while IFS= read -r -d '' file; do
 done < <(find "${TARGET_DIR}" -type f \( \
   -path '*/locales/*/messages.json' -o \
   -name 'index.html' -o \
+  -name 'manifest.json' -o \
   -name 'manifest.webmanifest' -o \
   -name '*.webmanifest' \
   \) -print0 2>/dev/null)

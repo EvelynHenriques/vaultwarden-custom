@@ -75,6 +75,12 @@ if (Test-Path $ebvaultLogoSource) {
     New-Item -ItemType Directory -Force -Path $ebvaultLogoDestinationDir | Out-Null
     Copy-Item $ebvaultLogoSource $ebvaultLogoDestination -Force
     Write-Host "  updated apps/web/src/images/icons/logo-ebvault.svg"
+
+    $serverLogo = Join-Path (Join-Path $ScriptDir "..") "src\static\images\logo-ebvault.svg"
+    $serverLogoDir = Split-Path $serverLogo -Parent
+    New-Item -ItemType Directory -Force -Path $serverLogoDir | Out-Null
+    Copy-Item $ebvaultLogoSource $serverLogo -Force
+    Write-Host "  updated src/static/images/logo-ebvault.svg"
 } else {
     Write-Warning "Missing logo image: apps/web/src/images/icons/logo-ebvault.svg"
 }

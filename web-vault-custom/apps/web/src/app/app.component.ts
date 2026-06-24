@@ -1,8 +1,9 @@
 // FIXME: Update this file to be type safe and remove this and next line
 // @ts-strict-ignore
-import { Component, DestroyRef, NgZone, OnDestroy, OnInit } from "@angular/core";
+import { Component, DestroyRef, NgZone, OnDestroy, OnInit, inject } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { Router } from "@angular/router";
+import { Title } from "@angular/platform-browser";
+import { NavigationEnd, Router } from "@angular/router";
 import { Subject, filter, firstValueFrom, map, timeout } from "rxjs";
 
 import { DeviceTrustToastService } from "@bitwarden/angular/auth/services/device-trust-toast.service.abstraction";
@@ -32,6 +33,7 @@ import { MandatoryAuthenticatorLockService } from "./vault/guards/mandatory-auth
 
 const BroadcasterSubscriptionId = "AppComponent";
 const IdleTimeout = 60000 * 10; // 10 minutes
+const EBVAULT_DOCUMENT_TITLE = "EBvault";
 
 // FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
 // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
@@ -90,6 +92,15 @@ export class AppComponent implements OnDestroy, OnInit {
 
   ngOnInit() {
     this.mandatoryAuthenticatorEnforcementService.start();
+
+    const titleService = inject(Title);
+    titleService.setTitle(EBVAULT_DOCUMENT_TITLE);
+    this.router.events
+      .pipe(
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroy),
+      )
+      .subscribe(() => titleService.setTitle(EBVAULT_DOCUMENT_TITLE));
 
     this.ngZone.runOutsideAngular(() => {
       window.onmousemove = () => this.recordActivity();
