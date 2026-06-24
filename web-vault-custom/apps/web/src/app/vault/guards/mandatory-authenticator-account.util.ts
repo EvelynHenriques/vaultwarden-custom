@@ -1,8 +1,10 @@
-import { firstValueFrom, map, Observable, distinctUntilChanged } from "rxjs";
+import { firstValueFrom, Observable, distinctUntilChanged } from "rxjs";
 
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
+import { getOptionalUserId } from "@bitwarden/common/auth/services/account.service";
+import { UserId } from "@bitwarden/common/types/guid";
 
 import {
   isLogoutNavigationTarget,
@@ -16,26 +18,22 @@ import {
 
 const LOG_PREFIX = "[Mandatory2FA]";
 
-/** Bitwarden getUserId() throws when account is null — use these safe helpers instead. */
+/** Safe alternative to getUserId — returns null instead of throwing when account is absent. */
 export function activeAccountUserId$(
   accountService: AccountService,
-): Observable<string | null> {
-  return accountService.activeAccount$.pipe(
-    map((account) => account?.id ?? null),
-    distinctUntilChanged(),
-  );
+): Observable<UserId | null> {
+  return accountService.activeAccount$.pipe(getOptionalUserId, distinctUntilChanged());
 }
 
 export async function getActiveAccountUserIdOrNull(
   accountService: AccountService,
-): Promise<string | null> {
-  const account = await firstValueFrom(accountService.activeAccount$);
-  return account?.id ?? null;
+): Promise<UserId | null> {
+  return firstValueFrom(accountService.activeAccount$.pipe(getOptionalUserId));
 }
 
 export async function getAuthStatusOrNull(
   authService: AuthService,
-  userId: string | null,
+  userId: UserId | null,
 ): Promise<AuthenticationStatus | null> {
   if (!userId) {
     return null;
@@ -47,7 +45,7 @@ export type MandatoryGuardContext = {
   url: string;
   path: string;
   hasAccount: boolean;
-  userId: string | null;
+  userId: UserId | null;
   authStatus: AuthenticationStatus | null;
   isPublicRoute: boolean;
   isLogoutRoute: boolean;

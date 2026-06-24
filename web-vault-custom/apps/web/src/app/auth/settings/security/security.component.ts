@@ -5,6 +5,10 @@ import { filter, firstValueFrom } from "rxjs";
 
 import { UserDecryptionOptionsServiceAbstraction } from "@bitwarden/auth/common";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
+import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
+
+import { HeaderModule } from "../../../layouts/header/header.module";
+import { SharedModule } from "../../../shared";
 import { getActiveAccountUserIdOrNull } from "../../../vault/guards/mandatory-authenticator-account.util";
 import {
   ensureMandatoryAuthenticatorStatus,

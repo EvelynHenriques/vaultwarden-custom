@@ -166,24 +166,30 @@ declare module "@bitwarden/common/auth/two-factor" {
 }
 
 declare module "@bitwarden/common/auth/abstractions/account.service" {
+  import { UserId } from "@bitwarden/common/types/guid";
+
   export class AccountService {
-    activeAccount$: import("rxjs").Observable<{ id: string; email?: string } | null>;
+    activeAccount$: import("rxjs").Observable<{ id: UserId; email?: string } | null>;
     switchAccount(account: null): Promise<void>;
-    clean(userId: string): Promise<void>;
-    setAccountActivity(userId: string, date: Date): Promise<void>;
+    clean(userId: UserId): Promise<void>;
+    setAccountActivity(userId: UserId, date: Date): Promise<void>;
   }
 }
 
 declare module "@bitwarden/common/auth/abstractions/auth.service" {
+  import { UserId } from "@bitwarden/common/types/guid";
+
   export class AuthService {
-    authStatusFor$(userId: string): import("rxjs").Observable<number>;
-    logOut(callback: () => Promise<void>, userId: string): void;
+    authStatusFor$(userId: UserId): import("rxjs").Observable<number>;
+    logOut(callback: () => Promise<void>, userId: UserId): void;
   }
 }
 
 declare module "@bitwarden/common/auth/abstractions/token.service" {
+  import { UserId } from "@bitwarden/common/types/guid";
+
   export class TokenService {
-    clearTokens(userId: string): Promise<void>;
+    clearTokens(userId: UserId): Promise<void>;
   }
 }
 
@@ -240,9 +246,21 @@ declare module "@bitwarden/common/auth/models/response/two-factor-yubi-key.respo
 }
 
 declare module "@bitwarden/common/auth/services/account.service" {
-  export function getUserId(
-    source: import("rxjs").Observable<unknown>,
-  ): import("rxjs").Observable<string>;
+  import { UserId } from "@bitwarden/common/types/guid";
+
+  export const getUserId: import("rxjs").OperatorFunction<
+    { id: UserId } | null,
+    UserId
+  >;
+
+  export const getOptionalUserId: import("rxjs").OperatorFunction<
+    { id: UserId } | null,
+    UserId | null
+  >;
+}
+
+declare module "@bitwarden/common/types/guid" {
+  export type UserId = string & { readonly __brand: "UserId" };
 }
 
 declare module "@bitwarden/common/auth/types/auth-response" {
@@ -252,8 +270,10 @@ declare module "@bitwarden/common/auth/types/auth-response" {
 }
 
 declare module "@bitwarden/common/admin-console/abstractions/policy/policy.service.abstraction" {
+  import { UserId } from "@bitwarden/common/types/guid";
+
   export class PolicyService {
-    policyAppliesToUser$(policy: unknown, userId: string): import("rxjs").Observable<boolean>;
+    policyAppliesToUser$(policy: unknown, userId: UserId): import("rxjs").Observable<boolean>;
   }
 }
 
