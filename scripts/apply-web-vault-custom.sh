@@ -45,7 +45,7 @@ OVERLAY_FILES=(
   "apps/web/src/app/admin-console/organizations/layouts/organization-layout.component.html"
 )
 
-echo "Applying Vaultwarden web-vault customizations from ${CUSTOM_DIR}"
+echo "Applying EBvault web-vault customizations from ${CUSTOM_DIR}"
 
 for relative in "${OVERLAY_FILES[@]}"; do
   source="${CUSTOM_DIR}/${relative}"
@@ -66,7 +66,8 @@ if [[ -f "${shield_logo_source}" ]]; then
   cp "${shield_logo_source}" "${shield_logo_destination}"
   echo "  updated apps/web/src/images/icons/logo-shield.svg"
 else
-  echo "  warning: missing logo image: apps/web/src/images/icons/logo-shield.svg" >&2
+  echo "  missing overlay file: apps/web/src/images/icons/logo-shield.svg" >&2
+  exit 1
 fi
 
 ebvault_logo_source="${CUSTOM_DIR}/apps/web/src/images/icons/logo-ebvault.svg"
@@ -76,7 +77,8 @@ if [[ -f "${ebvault_logo_source}" ]]; then
   cp "${ebvault_logo_source}" "${ebvault_logo_destination}"
   echo "  updated apps/web/src/images/icons/logo-ebvault.svg"
 else
-  echo "  warning: missing logo image: apps/web/src/images/icons/logo-ebvault.svg" >&2
+  echo "  missing overlay file: apps/web/src/images/icons/logo-ebvault.svg" >&2
+  exit 1
 fi
 
 server_logo="${SCRIPT_DIR}/../src/static/images/logo-ebvault.svg"
@@ -86,88 +88,23 @@ if [[ -f "${ebvault_logo_source}" ]]; then
   echo "  updated src/static/images/logo-ebvault.svg"
 fi
 
-index_favicon_patch="${CUSTOM_DIR}/patches/index-favicon.patch"
-if [[ -f "${index_favicon_patch}" ]]; then
-  if git -C "${CLIENTS_DIR}" apply --ignore-space-change --check "${index_favicon_patch}" >/dev/null 2>&1; then
-    git -C "${CLIENTS_DIR}" apply --ignore-space-change "${index_favicon_patch}"
-    echo "  applied patches/index-favicon.patch"
-  elif patch -p1 --forward --input="${index_favicon_patch}" --directory="${CLIENTS_DIR}"; then
-    echo "  applied patches/index-favicon.patch with patch(1)"
-  else
-    echo "  warning: could not apply patches/index-favicon.patch" >&2
-  fi
+# Idempotent source patches (routing, favicon, org guards). Fail the build if any step fails.
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON=python3
+elif command -v python >/dev/null 2>&1; then
+  PYTHON=python
+else
+  echo "ERROR: python3 or python is required to apply EBvault routing/favicon patches" >&2
+  exit 1
 fi
 
-patch_file="${CUSTOM_DIR}/patches/oss-routing.module.patch"
-if [[ -f "${patch_file}" ]]; then
-  if git -C "${CLIENTS_DIR}" apply --check "${patch_file}" >/dev/null 2>&1; then
-    git -C "${CLIENTS_DIR}" apply "${patch_file}"
-    echo "  applied patches/oss-routing.module.patch"
-  elif patch -p1 --forward --input="${patch_file}" --directory="${CLIENTS_DIR}"; then
-    echo "  applied patches/oss-routing.module.patch with patch(1)"
-  else
-    echo "  warning: could not apply patches/oss-routing.module.patch" >&2
-    echo "  add mandatoryAuthenticatorGuard to oss-routing.module.ts manually" >&2
-  fi
-fi
+"${PYTHON}" "${SCRIPT_DIR}/apply-web-vault-source-patches.py" "${CLIENTS_DIR}"
 
-import_patch="${CUSTOM_DIR}/patches/oss-routing-mandatory-import.patch"
-if [[ -f "${import_patch}" ]]; then
-  if git -C "${CLIENTS_DIR}" apply --check "${import_patch}" >/dev/null 2>&1; then
-    git -C "${CLIENTS_DIR}" apply "${import_patch}"
-    echo "  applied patches/oss-routing-mandatory-import.patch"
-  elif patch -p1 --forward --input="${import_patch}" --directory="${CLIENTS_DIR}"; then
-    echo "  applied patches/oss-routing-mandatory-import.patch with patch(1)"
-  fi
-fi
-
-ROUTING_FILE="${CLIENTS_DIR}/apps/web/src/app/oss-routing.module.ts"
-if [[ -f "${ROUTING_FILE}" ]] \
-  && grep -q 'mandatoryAuthenticatorActivate' "${ROUTING_FILE}" \
-  && ! grep -q 'mandatoryAuthenticatorActivate,' "${ROUTING_FILE}"; then
-  echo "  fixing mandatoryAuthenticatorActivate import in oss-routing.module.ts"
-  python3 - "${ROUTING_FILE}" <<'PY'
-import sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-text = path.read_text(encoding="utf-8")
-old = 'import { mandatoryAuthenticatorGuard } from "./vault/guards/mandatory-authenticator.guard";'
-new = """import {
-  mandatoryAuthenticatorActivate,
-  mandatoryAuthenticatorGuard,
-} from "./vault/guards/mandatory-authenticator.guard";"""
-if old in text:
-    path.write_text(text.replace(old, new), encoding="utf-8")
-PY
-fi
-
-python3 "${SCRIPT_DIR}/apply-mandatory-2fa-routing.py" "${CLIENTS_DIR}/apps/web/src/app/oss-routing.module.ts" 2>/dev/null \
-  || python "${SCRIPT_DIR}/apply-mandatory-2fa-routing.py" "${CLIENTS_DIR}/apps/web/src/app/oss-routing.module.ts" \
-  || echo "  warning: could not run apply-mandatory-2fa-routing.py" >&2
-
-marketing_patch="${CUSTOM_DIR}/patches/oss-routing-marketing.patch"
-if [[ -f "${marketing_patch}" ]]; then
-  if git -C "${CLIENTS_DIR}" apply --check "${marketing_patch}" >/dev/null 2>&1; then
-    git -C "${CLIENTS_DIR}" apply "${marketing_patch}"
-    echo "  applied patches/oss-routing-marketing.patch"
-  elif patch -p1 --forward --input="${marketing_patch}" --directory="${CLIENTS_DIR}"; then
-    echo "  applied patches/oss-routing-marketing.patch with patch(1)"
-  else
-    echo "  warning: could not apply patches/oss-routing-marketing.patch" >&2
-  fi
-fi
-
-org_routing_patch="${CUSTOM_DIR}/patches/organization-routing.module.patch"
-if [[ -f "${org_routing_patch}" ]]; then
-  if git -C "${CLIENTS_DIR}" apply --check "${org_routing_patch}" >/dev/null 2>&1; then
-    git -C "${CLIENTS_DIR}" apply "${org_routing_patch}"
-    echo "  applied patches/organization-routing.module.patch"
-  elif patch -p1 --forward --input="${org_routing_patch}" --directory="${CLIENTS_DIR}"; then
-    echo "  applied patches/organization-routing.module.patch with patch(1)"
-  else
-    echo "  warning: could not apply patches/organization-routing.module.patch" >&2
-  fi
+# Verify no patch reject files remain.
+if find "${CLIENTS_DIR}" -name '*.rej' -print -quit 2>/dev/null | grep -q .; then
+  echo "ERROR: patch reject (.rej) files remain under ${CLIENTS_DIR}" >&2
+  find "${CLIENTS_DIR}" -name '*.rej' >&2
+  exit 1
 fi
 
 echo "Done."

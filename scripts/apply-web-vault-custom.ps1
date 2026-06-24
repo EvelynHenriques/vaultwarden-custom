@@ -30,6 +30,9 @@ $OverlayFiles = @(
     "apps/web/src/app/layouts/product-switcher/navigation-switcher/navigation-switcher.component.html",
     "apps/web/src/app/layouts/product-switcher/product-switcher.component.html",
     "libs/components/src/anon-layout/anon-layout.component.html",
+    "libs/components/src/landing-layout/landing-header.component.html",
+    "libs/components/src/landing-layout/landing-hero.component.html",
+    "libs/components/src/navigation/nav-logo.component.html",
     "libs/auth/src/angular/registration/registration-start/registration-start.component.html",
     "apps/web/src/app/admin-console/organizations/settings/two-factor-setup.component.ts",
     "apps/web/src/app/vault/guards/mandatory-authenticator.guard.ts",
@@ -43,7 +46,7 @@ $OverlayFiles = @(
     "apps/web/src/app/admin-console/organizations/layouts/organization-layout.component.html"
 )
 
-Write-Host "Applying Vaultwarden web-vault customizations from $CustomDir"
+Write-Host "Applying EBvault web-vault customizations from $CustomDir"
 
 foreach ($relative in $OverlayFiles) {
     $source = Join-Path $CustomDir $relative
@@ -59,62 +62,48 @@ foreach ($relative in $OverlayFiles) {
 
 $shieldLogoSource = Join-Path $CustomDir "apps\web\src\images\icons\logo-shield.svg"
 $shieldLogoDestination = Join-Path $ClientsDir "apps\web\src\images\icons\logo-shield.svg"
-if (Test-Path $shieldLogoSource) {
-    $shieldLogoDestinationDir = Split-Path $shieldLogoDestination -Parent
-    New-Item -ItemType Directory -Force -Path $shieldLogoDestinationDir | Out-Null
-    Copy-Item $shieldLogoSource $shieldLogoDestination -Force
-    Write-Host "  updated apps/web/src/images/icons/logo-shield.svg"
-} else {
-    Write-Warning "Missing logo image: apps/web/src/images/icons/logo-shield.svg"
+if (-not (Test-Path $shieldLogoSource)) {
+    throw "Missing overlay file: apps/web/src/images/icons/logo-shield.svg"
 }
+New-Item -ItemType Directory -Force -Path (Split-Path $shieldLogoDestination -Parent) | Out-Null
+Copy-Item $shieldLogoSource $shieldLogoDestination -Force
+Write-Host "  updated apps/web/src/images/icons/logo-shield.svg"
 
 $ebvaultLogoSource = Join-Path $CustomDir "apps\web\src\images\icons\logo-ebvault.svg"
 $ebvaultLogoDestination = Join-Path $ClientsDir "apps\web\src\images\icons\logo-ebvault.svg"
-if (Test-Path $ebvaultLogoSource) {
-    $ebvaultLogoDestinationDir = Split-Path $ebvaultLogoDestination -Parent
-    New-Item -ItemType Directory -Force -Path $ebvaultLogoDestinationDir | Out-Null
-    Copy-Item $ebvaultLogoSource $ebvaultLogoDestination -Force
-    Write-Host "  updated apps/web/src/images/icons/logo-ebvault.svg"
-
-    $serverLogo = Join-Path (Join-Path $ScriptDir "..") "src\static\images\logo-ebvault.svg"
-    $serverLogoDir = Split-Path $serverLogo -Parent
-    New-Item -ItemType Directory -Force -Path $serverLogoDir | Out-Null
-    Copy-Item $ebvaultLogoSource $serverLogo -Force
-    Write-Host "  updated src/static/images/logo-ebvault.svg"
-} else {
-    Write-Warning "Missing logo image: apps/web/src/images/icons/logo-ebvault.svg"
+if (-not (Test-Path $ebvaultLogoSource)) {
+    throw "Missing overlay file: apps/web/src/images/icons/logo-ebvault.svg"
 }
+New-Item -ItemType Directory -Force -Path (Split-Path $ebvaultLogoDestination -Parent) | Out-Null
+Copy-Item $ebvaultLogoSource $ebvaultLogoDestination -Force
+Write-Host "  updated apps/web/src/images/icons/logo-ebvault.svg"
 
-$indexFaviconPatch = Join-Path $CustomDir "patches\index-favicon.patch"
-if (Test-Path $indexFaviconPatch) {
-    Push-Location $ClientsDir
-    try {
-        git apply --ignore-space-change --check $indexFaviconPatch 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            git apply --ignore-space-change $indexFaviconPatch
-            Write-Host "  applied patches/index-favicon.patch"
-        } else {
-            Write-Warning "Could not apply index-favicon.patch; update apps/web/src/index.html manually."
-        }
-    } finally {
-        Pop-Location
+$serverLogo = Join-Path (Join-Path $ScriptDir "..") "src\static\images\logo-ebvault.svg"
+New-Item -ItemType Directory -Force -Path (Split-Path $serverLogo -Parent) | Out-Null
+Copy-Item $ebvaultLogoSource $serverLogo -Force
+Write-Host "  updated src/static/images/logo-ebvault.svg"
+
+$python = $null
+foreach ($candidate in @("python3", "python", "py")) {
+    if (Get-Command $candidate -ErrorAction SilentlyContinue) {
+        $python = $candidate
+        break
     }
 }
+if (-not $python) {
+    throw "python3 or python is required to apply EBvault routing/favicon patches"
+}
 
-$patchFile = Join-Path $CustomDir "patches\oss-routing.module.patch"
-if (Test-Path $patchFile) {
-    Push-Location $ClientsDir
-    try {
-        git apply --check $patchFile 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            git apply $patchFile
-            Write-Host "  applied patches/oss-routing.module.patch"
-        } else {
-            Write-Warning "Could not apply oss-routing.module.patch; add mandatoryAuthenticatorGuard manually."
-        }
-    } finally {
-        Pop-Location
-    }
+$patcher = Join-Path $ScriptDir "apply-web-vault-source-patches.py"
+& $python $patcher $ClientsDir
+if ($LASTEXITCODE -ne 0) {
+    throw "apply-web-vault-source-patches.py failed with exit code $LASTEXITCODE"
+}
+
+$rejFiles = Get-ChildItem -Path $ClientsDir -Filter "*.rej" -Recurse -ErrorAction SilentlyContinue
+if ($rejFiles) {
+    $rejFiles | ForEach-Object { Write-Error "Stale reject file: $($_.FullName)" }
+    throw "Patch reject (.rej) files remain under $ClientsDir"
 }
 
 Write-Host "Done."
