@@ -11,7 +11,6 @@ import { PasswordManagerLogo } from "@bitwarden/assets/svg";
 import { canAccessEmergencyAccess } from "@bitwarden/common/admin-console/abstractions/organization/organization.service.abstraction";
 import { PolicyService } from "@bitwarden/common/admin-console/abstractions/policy/policy.service.abstraction";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
-import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 import { ConfigService } from "@bitwarden/common/platform/abstractions/config/config.service";
 import { SyncService } from "@bitwarden/common/platform/sync";
 import { PopoverModule, SvgModule } from "@bitwarden/components";
@@ -21,6 +20,7 @@ import { CoachmarkComponent, CoachmarkService } from "../vault/components/coachm
 import { activeAccountUserId$ } from "../vault/guards/mandatory-authenticator-account.util";
 import { MandatoryAuthenticatorEnforcementService } from "../vault/guards/mandatory-authenticator-enforcement.service";
 import { MandatoryAuthenticatorLockService } from "../vault/guards/mandatory-authenticator-lock.service";
+import { isMandatorySetupAllowedUrl, mandatory2faLog } from "../vault/guards/mandatory-authenticator.policy";
 
 import { WebLayoutModule } from "./web-layout.module";
 
@@ -109,18 +109,23 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
   private async initializeMandatoryTwoFactorGate(): Promise<void> {
     const setupComplete = await this.enforcementService.waitForMandatoryGate();
     this.lockService.syncDomLockClass();
+
+    // Router-outlet must be visible so the mandatory 2FA setup route/component can mount.
+    this.showRouterOutlet = true;
     this.updateRouterOutletVisibility(this.router.url);
 
     if (setupComplete) {
-      this.showRouterOutlet = true;
+      mandatory2faLog("navigating to vault");
       await this.syncService.fullSync(false);
       return;
     }
 
-    this.lockService.requestAuthenticatorDialogReopen();
+    await this.enforcementService.openMandatorySetupAfterGate();
   }
 
   private updateRouterOutletVisibility(url: string): void {
-    this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(url);
+    const onSetupRoute = isMandatorySetupAllowedUrl(url);
+    const hideVaultChrome = this.enforcementService.shouldHideAuthenticatedContent(url);
+    this.showRouterOutlet = onSetupRoute || !hideVaultChrome || !this.enforcementService.isMandatorySetupPending();
   }
 }

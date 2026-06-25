@@ -11,8 +11,8 @@ import { HeaderModule } from "../../../layouts/header/header.module";
 import { SharedModule } from "../../../shared";
 import { getActiveAccountUserIdOrNull } from "../../../vault/guards/mandatory-authenticator-account.util";
 import {
-  ensureMandatoryAuthenticatorStatus,
-  isMandatoryLockModeActive,
+  getMandatoryGatePhase,
+  resolveMandatoryAuthenticatorGate,
 } from "../../../vault/guards/mandatory-authenticator.policy";
 import { MandatoryAuthenticatorLockService } from "../../../vault/guards/mandatory-authenticator-lock.service";
 
@@ -44,7 +44,7 @@ export class SecurityComponent implements OnInit {
       ? await firstValueFrom(this.userDecryptionOptionsService.hasMasterPasswordById$(userId))
       : false;
 
-    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
+    await resolveMandatoryAuthenticatorGate(this.twoFactorService);
     this.lockService.syncDomLockClass();
     this.syncMandatoryTwoFactorOnly();
 
@@ -63,6 +63,6 @@ export class SecurityComponent implements OnInit {
   }
 
   private syncMandatoryTwoFactorOnly(): void {
-    this.mandatoryTwoFactorOnly = isMandatoryLockModeActive();
+    this.mandatoryTwoFactorOnly = getMandatoryGatePhase() === "blocked";
   }
 }

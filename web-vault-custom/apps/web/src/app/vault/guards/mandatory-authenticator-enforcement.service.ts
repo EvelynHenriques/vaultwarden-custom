@@ -1,6 +1,17 @@
 import { inject, Injectable } from "@angular/core";
 import { Router } from "@angular/router";
-import { EMPTY, distinctUntilChanged, switchMap } from "rxjs";
+import {
+  EMPTY,
+  catchError,
+  distinctUntilChanged,
+  filter,
+  firstValueFrom,
+  map,
+  of,
+  switchMap,
+  take,
+  timeout,
+} from "rxjs";
 
 import { ApiService } from "@bitwarden/common/abstractions/api.service";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
@@ -8,9 +19,9 @@ import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
 import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 import type { FetchMiddleware } from "@bitwarden/common/platform/misc/fetch-middleware";
+import { UserId } from "@bitwarden/common/types/guid";
 
 import {
-  activeAccountUserId$,
   getActiveAccountUserIdOrNull,
   getAuthStatusOrNull,
 } from "./mandatory-authenticator-account.util";
@@ -18,34 +29,31 @@ import { registerMandatoryAuthenticatorApiMiddleware } from "./mandatory-authent
 import { MandatoryAuthenticatorLockService } from "./mandatory-authenticator-lock.service";
 import {
   confirmMandatoryAuthenticatorRequiredFromApi,
-  ensureMandatoryAuthenticatorStatus,
   enterPostLoginVerificationState,
+  failSafeUnresolvedGate,
+  getMandatoryGatePhase,
   isMandatoryAuthenticatorSetupApiError,
-  isMandatoryAuthenticatorSetupComplete,
-  isMandatoryAuthenticatorSetupRequired,
   isMandatoryLockExemptNavigation,
-  isMandatoryLockModeActive,
   isMandatoryLockSuspended,
   isMandatorySetupAllowedUrl,
+  isVaultAccessAllowedByGate,
+  mandatory2faLog,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   normalizeMandatorySetupPath,
+  resolveMandatoryAuthenticatorGate,
   resumeMandatoryLock,
   shouldHideAuthenticatedContent,
 } from "./mandatory-authenticator.policy";
+
+/** Safety fallback only — normal flow is event/state-driven. */
+const ACCOUNT_WAIT_MS = 15_000;
+/** Safety fallback only — normal flow awaits gate resolution promise. */
+const GATE_WAIT_MS = 20_000;
 
 type ApiServiceWithMiddleware = ApiService & {
   addMiddleware?: (middleware: FetchMiddleware) => void;
 };
 
-/**
- * Central mandatory-2FA orchestrator.
- *
- * Order after login:
- * 1. Register API middleware (block vault endpoints locally).
- * 2. Enter post-login verification state on unlock.
- * 3. Resolve Authenticator 2FA status via allowed API only.
- * 4. Redirect to setup or release restriction.
- */
 @Injectable({ providedIn: "root" })
 export class MandatoryAuthenticatorEnforcementService {
   private readonly router = inject(Router);
@@ -56,7 +64,7 @@ export class MandatoryAuthenticatorEnforcementService {
   private readonly apiService = inject(ApiService) as ApiServiceWithMiddleware;
 
   private started = false;
-  private sessionResolveInFlight: Promise<void> | null = null;
+  private gateResolvePromise: Promise<void> | null = null;
 
   start(): void {
     if (this.started) {
@@ -68,17 +76,20 @@ export class MandatoryAuthenticatorEnforcementService {
       registerMandatoryAuthenticatorApiMiddleware((middleware) =>
         this.apiService.addMiddleware!(middleware),
       );
+      mandatory2faLog("app startup / middleware registered");
+    } else {
+      mandatory2faLog("app startup / middleware NOT available on ApiService");
     }
 
     this.lockService.initializeUi();
 
-    activeAccountUserId$(this.accountService)
+    this.accountService.activeAccount$
       .pipe(
-        switchMap((userId) => {
-          if (!userId) {
+        switchMap((account) => {
+          if (!account?.id) {
             return EMPTY;
           }
-          return this.authService.authStatusFor$(userId).pipe(distinctUntilChanged());
+          return this.authService.authStatusFor$(account.id).pipe(distinctUntilChanged());
         }),
       )
       .subscribe((status) => {
@@ -88,107 +99,171 @@ export class MandatoryAuthenticatorEnforcementService {
         }
 
         if (status === AuthenticationStatus.Unlocked) {
-          void this.onSessionUnlocked();
+          mandatory2faLog("login or unlock success");
+          this.scheduleGateResolution();
         }
       });
 
-    void this.onSessionUnlocked();
+    void this.bootstrapExistingSession();
   }
 
-  /**
-   * Await mandatory 2FA resolution before vault sync or layout initialization.
-   * Returns true when Authenticator 2FA is configured for this session.
-   */
-  async waitForMandatoryGate(): Promise<boolean> {
-    if (this.sessionResolveInFlight) {
-      await this.sessionResolveInFlight;
-    } else {
-      await this.resolveUnlockedSession();
+  private async bootstrapExistingSession(): Promise<void> {
+    const userId = await getActiveAccountUserIdOrNull(this.accountService);
+    if (!userId) {
+      return;
     }
 
-    return isMandatoryAuthenticatorSetupComplete();
+    const status = await getAuthStatusOrNull(this.authService, userId);
+    if (status === AuthenticationStatus.Unlocked) {
+      mandatory2faLog("login or unlock success (existing session)");
+      this.scheduleGateResolution();
+    }
   }
 
   shouldHideAuthenticatedContent(url: string): boolean {
     return shouldHideAuthenticatedContent(url);
   }
 
+  isMandatorySetupPending(): boolean {
+    const phase = getMandatoryGatePhase();
+    return phase === "pending" || phase === "blocked";
+  }
+
   /**
-   * Keeps the session alive when a vault API returns the mandatory-2FA gate message.
-   * Generic auth failures are not intercepted.
+   * Await gate resolution. Event-driven via gate promise; timeout is fail-safe only.
+   * Returns true only when Authenticator 2FA is confirmed configured.
    */
+  async waitForMandatoryGate(): Promise<boolean> {
+    try {
+      await Promise.race([
+        this.ensureGateResolved(),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error("mandatory gate timeout")), GATE_WAIT_MS),
+        ),
+      ]);
+    } catch (error) {
+      mandatory2faLog("error while resolving state =", String(error));
+      this.applyFailSafeRestrictedState();
+    }
+
+    return isVaultAccessAllowedByGate();
+  }
+
   async handleAuthFailure(signal?: Record<string, unknown>): Promise<boolean> {
     if (isMandatoryLockSuspended() || !isMandatoryAuthenticatorSetupApiError(signal)) {
       return false;
     }
 
-    const userId = await getActiveAccountUserIdOrNull(this.accountService);
+    const userId = await this.waitForActiveUnlockedAccount();
     if (!userId) {
-      return false;
-    }
-
-    const authStatus = await getAuthStatusOrNull(this.authService, userId);
-    if (authStatus !== AuthenticationStatus.Unlocked) {
-      return false;
-    }
-
-    if (isMandatoryAuthenticatorSetupComplete()) {
       return false;
     }
 
     confirmMandatoryAuthenticatorRequiredFromApi();
-    await this.resolveUnlockedSession();
-
-    if (isMandatoryAuthenticatorSetupComplete() || !isMandatoryAuthenticatorSetupRequired()) {
-      return false;
-    }
-
-    await this.navigateToMandatorySetupIfNeeded();
+    await this.ensureGateResolved();
+    await this.openMandatorySetupAfterGate();
     return true;
   }
 
-  private onSessionUnlocked(): void {
+  async openMandatorySetupAfterGate(): Promise<void> {
+    await this.navigateToMandatorySetupIfNeeded();
+    mandatory2faLog("opening mandatory setup dialog");
+    this.lockService.requestAuthenticatorDialogReopen();
+  }
+
+  private scheduleGateResolution(): void {
     enterPostLoginVerificationState();
 
-    if (this.sessionResolveInFlight) {
+    if (this.gateResolvePromise) {
       return;
     }
 
-    this.sessionResolveInFlight = this.resolveUnlockedSession().finally(() => {
-      this.sessionResolveInFlight = null;
+    this.gateResolvePromise = this.runGateResolution().finally(() => {
+      this.gateResolvePromise = null;
     });
   }
 
-  private async resolveUnlockedSession(): Promise<void> {
+  private async ensureGateResolved(): Promise<void> {
+    if (this.gateResolvePromise) {
+      await this.gateResolvePromise;
+      return;
+    }
+
+    await this.runGateResolution();
+  }
+
+  private async runGateResolution(): Promise<void> {
     if (isMandatoryLockSuspended()) {
       resumeMandatoryLock();
     }
 
-    const userId = await getActiveAccountUserIdOrNull(this.accountService);
+    const userId = await this.waitForActiveUnlockedAccount();
     if (!userId) {
+      mandatory2faLog("active account = null (not unlocked yet)");
+      failSafeUnresolvedGate();
       return;
     }
 
-    const authStatus = await getAuthStatusOrNull(this.authService, userId);
-    if (authStatus !== AuthenticationStatus.Unlocked) {
-      return;
-    }
+    mandatory2faLog("active account loaded", { userId });
 
     enterPostLoginVerificationState();
 
-    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
+    const phase = await resolveMandatoryAuthenticatorGate(this.twoFactorService);
     this.lockService.syncDomLockClass();
 
-    if (isMandatoryAuthenticatorSetupComplete()) {
+    if (phase === "released") {
+      mandatory2faLog("navigating to vault");
       return;
     }
 
-    if (!isMandatoryLockModeActive()) {
-      return;
-    }
+    await this.openMandatorySetupAfterGate();
+  }
 
-    await this.navigateToMandatorySetupIfNeeded();
-    this.lockService.requestAuthenticatorDialogReopen();
+  /** Fail-safe: never release vault when 2FA state is unknown or unresolved. */
+  private applyFailSafeRestrictedState(): void {
+    failSafeUnresolvedGate();
+    this.lockService.syncDomLockClass();
+    void this.openMandatorySetupAfterGate();
+  }
+
+  /**
+   * Event-driven: resolves when activeAccount$ emits and auth status is Unlocked.
+   * Timeout is a safety fallback only.
+   */
+  private waitForActiveUnlockedAccount(): Promise<UserId | null> {
+    return firstValueFrom(
+      this.accountService.activeAccount$.pipe(
+        switchMap((account) => {
+          if (!account?.id) {
+            mandatory2faLog("active account loaded / missing / null", { userId: null });
+            return EMPTY;
+          }
+
+          return this.authService.authStatusFor$(account.id).pipe(
+            filter((status) => {
+              if (status !== AuthenticationStatus.Unlocked) {
+                mandatory2faLog("active account loaded / missing / null", {
+                  userId: account.id,
+                  authStatus: status,
+                });
+                return false;
+              }
+              return true;
+            }),
+            take(1),
+            map(() => account.id as UserId),
+          );
+        }),
+        timeout({
+          first: ACCOUNT_WAIT_MS,
+          with: () => {
+            mandatory2faLog("active account = null (timed out waiting)");
+            return of(null);
+          },
+        }),
+        catchError(() => of(null)),
+      ),
+    );
   }
 
   private async navigateToMandatorySetupIfNeeded(): Promise<void> {
@@ -197,6 +272,7 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
+    mandatory2faLog("navigating to mandatory 2FA setup", { from: currentPath });
     await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
   }
 }

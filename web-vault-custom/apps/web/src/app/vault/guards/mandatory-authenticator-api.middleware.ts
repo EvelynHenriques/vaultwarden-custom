@@ -5,9 +5,10 @@ import {
   shouldBlockMandatoryVaultApiRequest,
 } from "./mandatory-authenticator.policy";
 
+const LOG = "[Mandatory2FA]";
+
 let middlewareRegistered = false;
 
-/** Prevents duplicate registration when enforcement start() runs more than once. */
 export function registerMandatoryAuthenticatorApiMiddleware(
   addMiddleware: (middleware: FetchMiddleware) => void,
 ): void {

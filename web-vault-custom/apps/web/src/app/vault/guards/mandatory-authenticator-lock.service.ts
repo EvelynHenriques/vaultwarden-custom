@@ -6,10 +6,10 @@ import { BroadcasterService } from "@bitwarden/common/platform/abstractions/broa
 import { DialogRef, DialogService } from "@bitwarden/components";
 
 import {
-  ensureMandatoryAuthenticatorStatus,
   isMandatoryLockModeActive,
   isMandatoryLockSuspended,
   resetMandatoryAuthenticatorSetupState,
+  resolveMandatoryAuthenticatorGate,
   suspendMandatoryLock,
 } from "./mandatory-authenticator.policy";
 
@@ -65,7 +65,7 @@ export class MandatoryAuthenticatorLockService {
   }
 
   async refreshLockState(): Promise<boolean> {
-    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
+    await resolveMandatoryAuthenticatorGate(this.twoFactorService);
     this.syncDomLockClass();
     return this.isLockModeActive();
   }

@@ -7,12 +7,14 @@ import { getOptionalUserId } from "@bitwarden/common/auth/services/account.servi
 import { UserId } from "@bitwarden/common/types/guid";
 
 import {
+  getMandatoryGatePhase,
   isLogoutNavigationTarget,
-  isMandatoryLockExemptNavigation,
-  isMandatoryLockSuspended,
   isMandatoryAuthenticatorSetupComplete,
   isMandatoryAuthenticatorSetupRequired,
   isMandatoryAuthenticatorStatusKnown,
+  isMandatoryLockExemptNavigation,
+  isMandatoryLockModeActive,
+  isMandatoryLockSuspended,
   normalizeMandatorySetupPath,
 } from "./mandatory-authenticator.policy";
 
@@ -71,8 +73,7 @@ export async function buildMandatoryGuardContext(
   const twoFactorStatusLoading =
     userId != null &&
     authStatus === AuthenticationStatus.Unlocked &&
-    !isMandatoryAuthenticatorStatusKnown() &&
-    !twoFactorConfigured;
+    getMandatoryGatePhase() === "pending";
 
   return {
     url,

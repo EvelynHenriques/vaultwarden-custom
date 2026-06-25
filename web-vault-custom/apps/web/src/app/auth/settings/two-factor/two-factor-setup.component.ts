@@ -48,7 +48,10 @@ import { TwoFactorSetupWebAuthnComponent } from "./two-factor-setup-webauthn.com
 import { TwoFactorSetupYubiKeyComponent } from "./two-factor-setup-yubikey.component";
 import { TwoFactorVerifyComponent } from "./two-factor-verify.component";
 import { activeAccountUserId$ } from "../../../vault/guards/mandatory-authenticator-account.util";
-import { markMandatoryAuthenticatorSetupComplete } from "../../../vault/guards/mandatory-authenticator.policy";
+import {
+  getMandatoryGatePhase,
+  markMandatoryAuthenticatorSetupComplete,
+} from "../../../vault/guards/mandatory-authenticator.policy";
 import { MandatoryAuthenticatorLockService } from "../../../vault/guards/mandatory-authenticator-lock.service";
 
 // FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
@@ -162,26 +165,34 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
 
     await this.lockService.refreshLockState();
 
-    const authenticatorProvider = this.providers.find(
-      (provider) => provider.type === TwoFactorProviderType.Authenticator,
+    const gateBlocked = getMandatoryGatePhase() === "blocked";
+    const authenticatorEnabled = providerList.data.some(
+      (provider) =>
+        provider.type === TwoFactorProviderType.Authenticator && provider.enabled === true,
     );
-    if (authenticatorProvider?.enabled) {
+
+    if (authenticatorEnabled) {
       markMandatoryAuthenticatorSetupComplete();
       this.lockService.syncDomLockClass();
-    } else if (authenticatorProvider && !authenticatorProvider.enabled) {
+    } else if (gateBlocked || this.lockService.isLockModeActive()) {
       void this.openMandatoryAuthenticatorDialog();
     }
   }
 
   private async openMandatoryAuthenticatorDialog(): Promise<void> {
-    if (this.mandatoryDialogOpening || !this.lockService.isLockModeActive()) {
+    if (this.mandatoryDialogOpening) {
       return;
     }
 
-    const authenticatorProvider = this.providers.find(
-      (provider) => provider.type === TwoFactorProviderType.Authenticator,
+    const authenticatorEnabled = (await this.getTwoFactorProviders()).data.some(
+      (provider) =>
+        provider.type === TwoFactorProviderType.Authenticator && provider.enabled === true,
     );
-    if (authenticatorProvider?.enabled) {
+    if (authenticatorEnabled) {
+      return;
+    }
+
+    if (getMandatoryGatePhase() !== "blocked" && !this.lockService.isLockModeActive()) {
       return;
     }
 
