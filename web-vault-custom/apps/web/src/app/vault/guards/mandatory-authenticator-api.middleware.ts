@@ -2,6 +2,7 @@ import type { FetchMiddleware } from "@bitwarden/common/platform/misc/fetch-midd
 
 import {
   MANDATORY_AUTHENTICATOR_SETUP_MESSAGE,
+  isIdentityServerRequest,
   shouldBlockMandatoryVaultApiRequest,
 } from "./mandatory-authenticator.policy";
 
@@ -25,6 +26,11 @@ export function resetMandatoryAuthenticatorApiMiddlewareRegistration(): void {
 
 export function createMandatoryAuthenticatorApiMiddleware(): FetchMiddleware {
   return async (request, next) => {
+    // Never intercept, wrap, or block Identity Server traffic (login, token exchange, SSO).
+    if (isIdentityServerRequest(request)) {
+      return next(request);
+    }
+
     if (!shouldBlockMandatoryVaultApiRequest(request)) {
       return next(request);
     }

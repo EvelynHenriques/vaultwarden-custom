@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""Fix login-time 2FA submit: clear loading state and surface identity 400 errors."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+MARKER = "EBvault login 2FA submit error handling"
+IMPORT_MARKER = "EBvault login 2FA ErrorResponse import"
+
+ERROR_RESPONSE_IMPORT = (
+    'import { ErrorResponse } from "@bitwarden/common/models/response/error.response";\n'
+)
+
+ORIGINAL_CATCH = """    } catch {
+      this.logService.error("Error submitting two factor token");
+      this.toastService.showToast({
+        variant: "error",
+        title: this.i18nService.t("errorOccurred"),
+        message: this.i18nService.t("invalidVerificationCode"),
+      });
+    }
+  };"""
+
+PATCHED_CATCH = f"""    }} catch (error: unknown) {{
+      this.logService.error("Error submitting two factor token", error as any);
+      let message = this.i18nService.t("invalidVerificationCode");
+      if (error instanceof ErrorResponse) {{
+        message = error.message || message;
+      }}
+      this.toastService.showToast({{
+        variant: "error",
+        title: this.i18nService.t("errorOccurred"),
+        message,
+      }});
+    }} finally {{
+      // {MARKER}: release bitAction loading state after identity /connect/token completes.
+      this.formPromise = undefined;
+    }}
+  }};"""
+
+
+def apply_login_two_factor_patch(path: Path) -> bool:
+    text = path.read_text(encoding="utf-8")
+    original = text
+    changed = False
+
+    if IMPORT_MARKER not in text:
+        anchor = 'import { LogService } from "@bitwarden/common/platform/abstractions/log.service";'
+        if anchor not in text:
+            raise RuntimeError(
+                f"{path}: could not find LogService import anchor — Bitwarden clients version may have changed"
+            )
+        text = text.replace(
+            anchor,
+            anchor + "\n" + ERROR_RESPONSE_IMPORT.rstrip() + f" // {IMPORT_MARKER}",
+            1,
+        )
+        changed = True
+
+    if MARKER in text:
+        if not changed:
+            print(f"  login 2FA submit patch already applied in {path.name}")
+        return changed
+
+    if ORIGINAL_CATCH not in text:
+        raise RuntimeError(
+            f"{path}: could not find two-factor-auth submit catch block — "
+            "Bitwarden clients version may have changed"
+        )
+
+    text = text.replace(ORIGINAL_CATCH, PATCHED_CATCH, 1)
+    path.write_text(text, encoding="utf-8")
+    print(f"  updated login 2FA submit error handling in {path.name}")
+    return True
+
+
+def main() -> int:
+    clients_dir = Path(sys.argv[1])
+    component_path = (
+        clients_dir / "libs/auth/src/angular/two-factor-auth/two-factor-auth.component.ts"
+    )
+    if not component_path.is_file():
+        raise SystemExit(f"ERROR: missing {component_path}")
+    apply_login_two_factor_patch(component_path)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

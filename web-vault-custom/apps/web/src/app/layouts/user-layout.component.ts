@@ -20,7 +20,7 @@ import { CoachmarkComponent, CoachmarkService } from "../vault/components/coachm
 import { activeAccountUserId$ } from "../vault/guards/mandatory-authenticator-account.util";
 import { MandatoryAuthenticatorEnforcementService } from "../vault/guards/mandatory-authenticator-enforcement.service";
 import { MandatoryAuthenticatorLockService } from "../vault/guards/mandatory-authenticator-lock.service";
-import { isMandatorySetupAllowedUrl, mandatory2faLog } from "../vault/guards/mandatory-authenticator.policy";
+import { isMandatorySetupAllowedUrl, mandatory2faLog, mandatory2faWarn } from "../vault/guards/mandatory-authenticator.policy";
 
 import { WebLayoutModule } from "./web-layout.module";
 
@@ -116,7 +116,12 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
 
     if (setupComplete) {
       mandatory2faLog("navigating to vault");
-      await this.syncService.fullSync(false);
+      try {
+        await this.syncService.fullSync(false);
+        mandatory2faLog("fullSync completed after gate released");
+      } catch (error) {
+        mandatory2faWarn("fullSync failed after gate released — vault may be incomplete until sync succeeds", error);
+      }
       return;
     }
 

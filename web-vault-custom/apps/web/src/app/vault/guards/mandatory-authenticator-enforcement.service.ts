@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { Router } from "@angular/router";
+import { NavigationStart, Router } from "@angular/router";
 import {
   EMPTY,
   catchError,
@@ -38,10 +38,12 @@ import {
   isMandatoryLockExemptNavigation,
   isMandatoryLockSuspended,
   isMandatorySetupAllowedUrl,
+  isPreLoginAuthenticationRoute,
   isVaultAccessAllowedByGate,
   mandatory2faLog,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   normalizeMandatorySetupPath,
+  resetMandatoryAuthenticatorSetupState,
   resolveMandatoryAuthenticatorGate,
   resumeMandatoryLock,
   shouldHideAuthenticatedContent,
@@ -84,6 +86,7 @@ export class MandatoryAuthenticatorEnforcementService {
     }
 
     this.lockService.initializeUi();
+    this.attachPreLoginRouteListener();
 
     this.accountService.activeAccount$
       .pipe(
@@ -107,6 +110,25 @@ export class MandatoryAuthenticatorEnforcementService {
       });
 
     void this.bootstrapExistingSession();
+  }
+
+  /** Clear stale mandatory gate state when returning to pre-unlock login routes. */
+  private attachPreLoginRouteListener(): void {
+    this.router.events
+      .pipe(filter((event): event is NavigationStart => event instanceof NavigationStart))
+      .subscribe((event) => {
+        if (!isPreLoginAuthenticationRoute(event.url)) {
+          return;
+        }
+
+        const phase = getMandatoryGatePhase();
+        if (phase === "pending" || phase === "blocked") {
+          mandatory2faLog("reset gate for pre-login route", {
+            path: normalizeMandatorySetupPath(event.url),
+          });
+          resetMandatoryAuthenticatorSetupState();
+        }
+      });
   }
 
   private async bootstrapExistingSession(): Promise<void> {

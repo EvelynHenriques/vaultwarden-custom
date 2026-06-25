@@ -24,8 +24,8 @@ pub async fn user_has_enabled_authenticator_2fa(user_id: &UserId, conn: &DbConn)
 pub fn is_mandatory_2fa_setup_allowed_route_name(route_name: &str) -> bool {
     matches!(
         route_name,
-        // Minimal bootstrap while the vault is locked behind mandatory 2FA.
-        "sync" | "revision_date" | "profile"
+        // Minimal session bootstrap (no vault sync).
+        "revision_date" | "profile"
             // Account initialization after invite/registration.
             | "post_set_password"
             | "post_keys"
@@ -46,8 +46,7 @@ pub fn is_mandatory_2fa_setup_allowed_route_name(route_name: &str) -> bool {
 pub fn is_mandatory_2fa_setup_allowed_path(path: &str) -> bool {
     let path = path.trim_end_matches('/');
 
-    if path == "/sync"
-        || path == "/accounts/profile"
+    if path == "/accounts/profile"
         || path == "/accounts/revision-date"
         || path == "/two-factor"
         || path == "/accounts/request-otp"
@@ -98,4 +97,41 @@ pub fn is_blocked_alternative_twofactor_route(route_name: &str) -> bool {
             | "activate_yubikey"
             | "activate_yubikey_put"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sync_is_not_whitelisted_by_route_name() {
+        assert!(!is_mandatory_2fa_setup_allowed_route_name("sync"));
+    }
+
+    #[test]
+    fn sync_is_not_whitelisted_by_path() {
+        assert!(!is_mandatory_2fa_setup_allowed_path("/sync"));
+    }
+
+    #[test]
+    fn minimal_bootstrap_endpoints_remain_allowed() {
+        assert!(is_mandatory_2fa_setup_allowed_route_name("profile"));
+        assert!(is_mandatory_2fa_setup_allowed_route_name("revision_date"));
+        assert!(is_mandatory_2fa_setup_allowed_path("/accounts/profile"));
+        assert!(is_mandatory_2fa_setup_allowed_path("/accounts/revision-date"));
+    }
+
+    #[test]
+    fn authenticator_enrollment_endpoints_remain_allowed() {
+        assert!(is_mandatory_2fa_setup_allowed_route_name("get_twofactor"));
+        assert!(is_mandatory_2fa_setup_allowed_route_name("generate_authenticator"));
+        assert!(is_mandatory_2fa_setup_allowed_route_name("activate_authenticator"));
+        assert!(is_mandatory_2fa_setup_allowed_path("/two-factor"));
+        assert!(is_mandatory_2fa_setup_allowed_path("/two-factor/authenticator"));
+        assert!(is_mandatory_2fa_setup_allowed_path("/accounts/verify-password"));
+        assert!(is_mandatory_2fa_setup_allowed_path("/accounts/request-otp"));
+        assert!(is_mandatory_2fa_setup_allowed_path("/accounts/verify-otp"));
+        assert!(is_mandatory_2fa_setup_allowed_path("/accounts/set-password"));
+        assert!(is_mandatory_2fa_setup_allowed_path("/accounts/keys"));
+    }
 }

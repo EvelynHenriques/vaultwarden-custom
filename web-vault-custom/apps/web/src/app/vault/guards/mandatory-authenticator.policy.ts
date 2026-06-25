@@ -22,6 +22,14 @@ export function mandatory2faLog(message: string, detail?: unknown): void {
   console.debug(`${LOG} ${message}`, detail ?? "");
 }
 
+/** Operational warnings (sync failures, etc.) — visible without DevTools Verbose. */
+export function mandatory2faWarn(message: string, detail?: unknown): void {
+  if (typeof console === "undefined" || !console.warn) {
+    return;
+  }
+  console.warn(`${LOG} ${message}`, detail ?? "");
+}
+
 /** Gate phases — single source of truth for mandatory 2FA session state. */
 export type MandatoryGatePhase = "idle" | "pending" | "blocked" | "released";
 
@@ -198,6 +206,9 @@ export function isMandatoryLockExemptNavigation(url: string): boolean {
   if (isMandatorySetupAllowedUrl(url)) {
     return true;
   }
+  if (path === "/2fa" || path.startsWith("/2fa/")) {
+    return true;
+  }
   if (path === "/two-factor" || (path.startsWith("/two-factor/") && !path.includes("/settings/"))) {
     return true;
   }
@@ -283,8 +294,38 @@ export function isMandatoryVaultApiAllowedPath(path: string): boolean {
   );
 }
 
+/** True for login-time routes reached before AuthenticationStatus.Unlocked. */
+export function isPreLoginAuthenticationRoute(url: string): boolean {
+  const path = normalizeMandatorySetupPath(url);
+  return (
+    path === "/2fa" ||
+    path.startsWith("/2fa/") ||
+    path === "/login" ||
+    path.startsWith("/login/") ||
+    path === "/lock" ||
+    path.startsWith("/lock/")
+  );
+}
+
+/** Identity Server requests must never be touched by mandatory vault API middleware. */
+export function isIdentityServerRequest(request: Request): boolean {
+  try {
+    const pathname = new URL(request.url, "https://localhost").pathname;
+    return pathname.includes("/identity/");
+  } catch {
+    return false;
+  }
+}
+
 export function shouldBlockMandatoryVaultApiRequest(request: Request): boolean {
-  if (isMandatoryLockSuspended() || gatePhase === "released" || gatePhase === "idle") {
+  if (isIdentityServerRequest(request)) {
+    return false;
+  }
+
+  // Only block after the gate confirms Authenticator is missing (`blocked`).
+  // While `pending`, loginSuccessHandler may still run fullSync — blocking here breaks
+  // post-login navigation for accounts that already have 2FA configured.
+  if (isMandatoryLockSuspended() || gatePhase !== "blocked") {
     return false;
   }
 
