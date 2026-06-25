@@ -24,7 +24,6 @@ import { PolicyType, ProviderStatusType } from "@bitwarden/common/admin-console/
 import { Organization } from "@bitwarden/common/admin-console/models/domain/organization";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { getUserId } from "@bitwarden/common/auth/services/account.service";
-import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 import { PlatformUtilsService } from "@bitwarden/common/platform/abstractions/platform-utils.service";
 import { getById } from "@bitwarden/common/platform/misc";
 import { BannerModule, SvgModule } from "@bitwarden/components";
@@ -37,7 +36,6 @@ import { FreeFamiliesPolicyService } from "../../../billing/services/free-famili
 import { OrgSwitcherComponent } from "../../../layouts/org-switcher/org-switcher.component";
 import { WebLayoutModule } from "../../../layouts/web-layout.module";
 import { MandatoryAuthenticatorEnforcementService } from "../../../vault/guards/mandatory-authenticator-enforcement.service";
-import { ensureMandatoryAuthenticatorStatus } from "../../../vault/guards/mandatory-authenticator.policy";
 
 // FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
 // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
@@ -79,7 +77,6 @@ export class OrganizationLayoutComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  private readonly twoFactorService = inject(TwoFactorService);
   private readonly enforcementService = inject(MandatoryAuthenticatorEnforcementService);
 
   constructor(
@@ -165,7 +162,7 @@ export class OrganizationLayoutComponent implements OnInit, OnDestroy {
         this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(event.url);
       });
 
-    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
+    await this.enforcementService.waitForMandatoryGate();
     this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(this.router.url);
   }
 

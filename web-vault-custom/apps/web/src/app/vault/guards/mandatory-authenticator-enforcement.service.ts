@@ -2,23 +2,28 @@ import { inject, Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { EMPTY, distinctUntilChanged, switchMap } from "rxjs";
 
+import { ApiService } from "@bitwarden/common/abstractions/api.service";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
 import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
+import type { FetchMiddleware } from "@bitwarden/common/platform/misc/fetch-middleware";
 
 import {
   activeAccountUserId$,
   getActiveAccountUserIdOrNull,
   getAuthStatusOrNull,
 } from "./mandatory-authenticator-account.util";
+import { registerMandatoryAuthenticatorApiMiddleware } from "./mandatory-authenticator-api.middleware";
 import { MandatoryAuthenticatorLockService } from "./mandatory-authenticator-lock.service";
 import {
   confirmMandatoryAuthenticatorRequiredFromApi,
   ensureMandatoryAuthenticatorStatus,
+  enterPostLoginVerificationState,
   isMandatoryAuthenticatorSetupApiError,
   isMandatoryAuthenticatorSetupComplete,
   isMandatoryAuthenticatorSetupRequired,
+  isMandatoryLockExemptNavigation,
   isMandatoryLockModeActive,
   isMandatoryLockSuspended,
   isMandatorySetupAllowedUrl,
@@ -28,12 +33,18 @@ import {
   shouldHideAuthenticatedContent,
 } from "./mandatory-authenticator.policy";
 
+type ApiServiceWithMiddleware = ApiService & {
+  addMiddleware?: (middleware: FetchMiddleware) => void;
+};
+
 /**
  * Central mandatory-2FA orchestrator.
  *
- * - Resolves 2FA status once per unlock (before sync / post-login navigation).
- * - Route guards own all navigation redirects.
- * - Delegates UI lock behaviour to MandatoryAuthenticatorLockService.
+ * Order after login:
+ * 1. Register API middleware (block vault endpoints locally).
+ * 2. Enter post-login verification state on unlock.
+ * 3. Resolve Authenticator 2FA status via allowed API only.
+ * 4. Redirect to setup or release restriction.
  */
 @Injectable({ providedIn: "root" })
 export class MandatoryAuthenticatorEnforcementService {
@@ -42,6 +53,7 @@ export class MandatoryAuthenticatorEnforcementService {
   private readonly accountService = inject(AccountService);
   private readonly twoFactorService = inject(TwoFactorService);
   private readonly lockService = inject(MandatoryAuthenticatorLockService);
+  private readonly apiService = inject(ApiService) as ApiServiceWithMiddleware;
 
   private started = false;
   private sessionResolveInFlight: Promise<void> | null = null;
@@ -51,6 +63,12 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
     this.started = true;
+
+    if (typeof this.apiService.addMiddleware === "function") {
+      registerMandatoryAuthenticatorApiMiddleware((middleware) =>
+        this.apiService.addMiddleware!(middleware),
+      );
+    }
 
     this.lockService.initializeUi();
 
@@ -77,12 +95,26 @@ export class MandatoryAuthenticatorEnforcementService {
     void this.onSessionUnlocked();
   }
 
+  /**
+   * Await mandatory 2FA resolution before vault sync or layout initialization.
+   * Returns true when Authenticator 2FA is configured for this session.
+   */
+  async waitForMandatoryGate(): Promise<boolean> {
+    if (this.sessionResolveInFlight) {
+      await this.sessionResolveInFlight;
+    } else {
+      await this.resolveUnlockedSession();
+    }
+
+    return isMandatoryAuthenticatorSetupComplete();
+  }
+
   shouldHideAuthenticatedContent(url: string): boolean {
     return shouldHideAuthenticatedContent(url);
   }
 
   /**
-   * Keeps the session alive when the server blocks a vault API for missing Authenticator 2FA.
+   * Keeps the session alive when a vault API returns the mandatory-2FA gate message.
    * Generic auth failures are not intercepted.
    */
   async handleAuthFailure(signal?: Record<string, unknown>): Promise<boolean> {
@@ -111,15 +143,13 @@ export class MandatoryAuthenticatorEnforcementService {
       return false;
     }
 
-    const currentPath = normalizeMandatorySetupPath(this.router.url);
-    if (!isMandatorySetupAllowedUrl(currentPath)) {
-      await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
-    }
-
+    await this.navigateToMandatorySetupIfNeeded();
     return true;
   }
 
   private onSessionUnlocked(): void {
+    enterPostLoginVerificationState();
+
     if (this.sessionResolveInFlight) {
       return;
     }
@@ -144,11 +174,29 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
+    enterPostLoginVerificationState();
+
     await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
     this.lockService.syncDomLockClass();
 
-    if (isMandatoryLockModeActive()) {
-      this.lockService.requestAuthenticatorDialogReopen();
+    if (isMandatoryAuthenticatorSetupComplete()) {
+      return;
     }
+
+    if (!isMandatoryLockModeActive()) {
+      return;
+    }
+
+    await this.navigateToMandatorySetupIfNeeded();
+    this.lockService.requestAuthenticatorDialogReopen();
+  }
+
+  private async navigateToMandatorySetupIfNeeded(): Promise<void> {
+    const currentPath = normalizeMandatorySetupPath(this.router.url);
+    if (isMandatorySetupAllowedUrl(currentPath) || isMandatoryLockExemptNavigation(currentPath)) {
+      return;
+    }
+
+    await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
   }
 }

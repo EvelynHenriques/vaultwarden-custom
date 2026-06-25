@@ -35,7 +35,7 @@ PATCHED = f"""  private async handleApiRequestError(
       const errorMessage = String(
         responseJson?.Message ?? responseJson?.message ?? "",
       );
-      if (errorMessage.includes("Authenticator app setup is required")) {{
+      if (errorMessage.includes("Authenticator app setup is required") || errorMessage.includes("User must configure Authenticator 2FA")) {{
         return new ErrorResponse(responseJson, response.status);
       }}
     }}
@@ -57,6 +57,16 @@ def apply_api_patch(path: Path) -> bool:
     original = text
 
     if MARKER in text:
+        old_check = 'if (errorMessage.includes("Authenticator app setup is required")) {'
+        new_check = (
+            'if (errorMessage.includes("Authenticator app setup is required") '
+            '|| errorMessage.includes("User must configure Authenticator 2FA")) {'
+        )
+        if old_check in text and new_check not in text:
+            text = text.replace(old_check, new_check, 1)
+            path.write_text(text, encoding="utf-8")
+            print(f"  updated mandatory 2FA error message matching in {path.name}")
+            return True
         print(f"  mandatory 2FA API patch already applied in {path.name}")
         return False
 

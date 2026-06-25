@@ -15,9 +15,12 @@ let mandatoryLockSuspended = false;
 
 const MANDATORY_2FA_LOG_PREFIX = "[Mandatory2FA]";
 
-/** Must match `MANDATORY_AUTHENTICATOR_SETUP_MESSAGE` in vaultwarden `mandatory_authenticator_2fa.rs`. */
+/** Must match vaultwarden `mandatory_authenticator_2fa.rs` and auth guard log messages. */
 export const MANDATORY_AUTHENTICATOR_SETUP_MESSAGE =
   "Authenticator app setup is required before continuing";
+
+export const MANDATORY_AUTHENTICATOR_SETUP_LOG_MESSAGE =
+  "User must configure Authenticator 2FA before using this endpoint";
 
 export function extractApiErrorMessage(error: unknown): string | null {
   if (error == null) {
@@ -49,7 +52,7 @@ export function extractApiErrorMessage(error: unknown): string | null {
   );
 }
 
-/** True only for the vaultwarden mandatory-2FA gate message — not generic 403 responses. */
+/** True only for the vaultwarden mandatory-2FA gate — not generic 403 responses. */
 export function isMandatoryAuthenticatorSetupApiError(error: unknown): boolean {
   const message = extractApiErrorMessage(error);
   if (!message) {
@@ -58,7 +61,9 @@ export function isMandatoryAuthenticatorSetupApiError(error: unknown): boolean {
 
   return (
     message.includes(MANDATORY_AUTHENTICATOR_SETUP_MESSAGE) ||
-    message.includes("Authenticator app setup is required")
+    message.includes(MANDATORY_AUTHENTICATOR_SETUP_LOG_MESSAGE) ||
+    message.includes("Authenticator app setup is required") ||
+    message.includes("User must configure Authenticator 2FA")
   );
 }
 
@@ -92,6 +97,20 @@ export function resetMandatoryAuthenticatorSetupState(): void {
   mandatoryAuthenticatorRequired = false;
   providerStatusKnown = false;
   statusCheckPromise = null;
+}
+
+/**
+ * Enter restricted post-login state immediately on unlock, before any vault API calls.
+ * Cleared when Authenticator 2FA is confirmed configured or the user logs out.
+ */
+export function enterPostLoginVerificationState(): void {
+  if (mandatoryLockSuspended || isMandatoryAuthenticatorSetupComplete()) {
+    return;
+  }
+
+  mandatoryAuthenticatorRequired = true;
+  providerStatusKnown = false;
+  logMandatoryDecision("post-login verification started — vault APIs blocked until 2FA status known");
 }
 
 /** Called when the server returns the mandatory-2FA gate message. */
@@ -380,4 +399,64 @@ export function shouldHideAuthenticatedContent(url: string): boolean {
   }
 
   return isMandatoryPostLoginRouteBlocked(url);
+}
+
+/** API paths allowed while mandatory Authenticator 2FA setup is pending (2FA enrollment only). */
+export function isMandatoryVaultApiAllowedPath(path: string): boolean {
+  let normalized = path.trim();
+  if (!normalized.startsWith("/")) {
+    normalized = `/${normalized}`;
+  }
+
+  const allowedExact = ["/identity/connect/token", "/config", "/configs"];
+  if (allowedExact.includes(normalized)) {
+    return true;
+  }
+
+  if (normalized.startsWith("/identity/connect/")) {
+    return true;
+  }
+
+  const allowedPrefixes = [
+    "/two-factor",
+    "/accounts/verify-password",
+    "/accounts/request-otp",
+    "/accounts/verify-otp",
+    "/accounts/set-password",
+    "/accounts/keys",
+  ];
+
+  return allowedPrefixes.some(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`),
+  );
+}
+
+/** Block authenticated vault API calls while mandatory 2FA is not yet configured. */
+export function shouldBlockMandatoryVaultApiRequest(request: Request): boolean {
+  if (isMandatoryLockSuspended() || isMandatoryAuthenticatorSetupComplete()) {
+    return false;
+  }
+
+  if (!isMandatoryLockModeActive()) {
+    return false;
+  }
+
+  if (!request.headers.get("Authorization")) {
+    return false;
+  }
+
+  try {
+    const pathname = new URL(request.url, "https://localhost").pathname;
+    const apiPath = pathname.startsWith("/api/") ? pathname.substring(4) : pathname;
+    if (isMandatoryVaultApiAllowedPath(apiPath)) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  logMandatoryDecision("blocked vault API until Authenticator 2FA configured", {
+    url: request.url,
+  });
+  return true;
 }

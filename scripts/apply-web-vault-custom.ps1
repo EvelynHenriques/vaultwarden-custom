@@ -40,6 +40,7 @@ $OverlayFiles = @(
     "apps/web/src/app/vault/guards/mandatory-authenticator.policy.ts",
     "apps/web/src/app/vault/guards/mandatory-authenticator-lock.service.ts",
     "apps/web/src/app/vault/guards/mandatory-authenticator-enforcement.service.ts",
+    "apps/web/src/app/vault/guards/mandatory-authenticator-api.middleware.ts",
     "apps/web/src/app/vault/guards/setup-extension-redirect.guard.ts",
     "apps/web/src/app/auth/settings/security/security-routing.module.ts",
     "apps/web/src/app/auth/settings/security/security.component.ts",

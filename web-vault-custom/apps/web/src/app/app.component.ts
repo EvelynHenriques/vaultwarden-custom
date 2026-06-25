@@ -90,10 +90,11 @@ export class AppComponent implements OnDestroy, OnInit {
     this.destroy.onDestroy(() => {
       langSubscription.unsubscribe();
     });
+
+    this.mandatoryAuthenticatorEnforcementService.start();
   }
 
   ngOnInit() {
-    this.mandatoryAuthenticatorEnforcementService.start();
     this.pinDocumentTitle();
 
     this.ngZone.runOutsideAngular(() => {

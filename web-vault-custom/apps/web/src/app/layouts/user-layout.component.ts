@@ -21,10 +21,6 @@ import { CoachmarkComponent, CoachmarkService } from "../vault/components/coachm
 import { activeAccountUserId$ } from "../vault/guards/mandatory-authenticator-account.util";
 import { MandatoryAuthenticatorEnforcementService } from "../vault/guards/mandatory-authenticator-enforcement.service";
 import { MandatoryAuthenticatorLockService } from "../vault/guards/mandatory-authenticator-lock.service";
-import {
-  ensureMandatoryAuthenticatorStatus,
-  isMandatoryAuthenticatorSetupComplete,
-} from "../vault/guards/mandatory-authenticator.policy";
 
 import { WebLayoutModule } from "./web-layout.module";
 
@@ -67,7 +63,6 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
 
   private readonly destroy$ = new Subject<void>();
   private readonly router = inject(Router);
-  private readonly twoFactorService = inject(TwoFactorService);
   private readonly enforcementService = inject(MandatoryAuthenticatorEnforcementService);
   private readonly lockService = inject(MandatoryAuthenticatorLockService);
 
@@ -112,11 +107,11 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
   }
 
   private async initializeMandatoryTwoFactorGate(): Promise<void> {
-    await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
+    const setupComplete = await this.enforcementService.waitForMandatoryGate();
     this.lockService.syncDomLockClass();
     this.updateRouterOutletVisibility(this.router.url);
 
-    if (isMandatoryAuthenticatorSetupComplete()) {
+    if (setupComplete) {
       this.showRouterOutlet = true;
       await this.syncService.fullSync(false);
       return;
