@@ -107,7 +107,10 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
   }
 
   private async initializeMandatoryTwoFactorGate(): Promise<void> {
+    mandatory2faLog("UserLayout waiting for mandatory gate");
     const setupComplete = await this.enforcementService.waitForMandatoryGate();
+    const phase = setupComplete ? "released" : "blocked";
+    mandatory2faLog(`UserLayout gate resolved — setupComplete=${setupComplete}`, { phase });
     this.lockService.syncDomLockClass();
 
     // Router-outlet must be visible so the mandatory 2FA setup route/component can mount.
@@ -125,6 +128,7 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
       return;
     }
 
+    mandatory2faLog("opening mandatory setup after gate blocked");
     await this.enforcementService.openMandatorySetupAfterGate();
   }
 

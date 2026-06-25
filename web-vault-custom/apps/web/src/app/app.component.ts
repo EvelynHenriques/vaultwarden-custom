@@ -31,6 +31,7 @@ import { KeyService, BiometricStateService } from "@bitwarden/key-management";
 import { getActiveAccountUserIdOrNull } from "./vault/guards/mandatory-authenticator-account.util";
 import { MandatoryAuthenticatorEnforcementService } from "./vault/guards/mandatory-authenticator-enforcement.service";
 import { MandatoryAuthenticatorLockService } from "./vault/guards/mandatory-authenticator-lock.service";
+import { mandatory2faLog, mandatory2faWarn } from "./vault/guards/mandatory-authenticator.policy";
 
 const BroadcasterSubscriptionId = "AppComponent";
 const IdleTimeout = 60000 * 10; // 10 minutes
@@ -118,14 +119,25 @@ export class AppComponent implements OnDestroy, OnInit {
       this.ngZone.run(async () => {
         switch (message.command) {
           case "authBlocked":
+            mandatory2faLog("authBlocked received", message);
             if (await this.mandatoryAuthenticatorEnforcementService.handleAuthFailure(message)) {
+              mandatory2faLog("authBlocked handled as mandatory setup — no login redirect");
               break;
             }
+            mandatory2faWarn("authBlocked — redirecting to login");
             // FIXME: Verify that this floating promise is intentional. If it is, add an explanatory comment and ensure there is proper error handling.
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             this.router.navigate(["/"]);
             break;
           case "logout":
+            // Only invalidAccessToken from mandatory-setup race — never suppress other logout reasons.
+            if (
+              message?.logoutReason === "invalidAccessToken" &&
+              (await this.mandatoryAuthenticatorEnforcementService.handleAuthFailure(message))
+            ) {
+              mandatory2faWarn("logout (invalidAccessToken) suppressed — mandatory 2FA setup active");
+              break;
+            }
             // note: the message.logoutReason isn't consumed anymore because of the process reload clearing any toasts.
             await this.logOut(message.redirect);
             break;
@@ -135,9 +147,12 @@ export class AppComponent implements OnDestroy, OnInit {
             break;
           }
           case "locked":
+            mandatory2faLog("locked received", message);
             if (await this.mandatoryAuthenticatorEnforcementService.handleAuthFailure(message)) {
+              mandatory2faLog("locked handled as mandatory setup — no process reload");
               break;
             }
+            mandatory2faWarn("locked — redirecting to login and process reload");
             await this.router.navigate(["/"]);
             await this.processReloadService.startProcessReload();
             break;

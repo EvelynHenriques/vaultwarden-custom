@@ -152,13 +152,25 @@ export function extractApiErrorMessage(error: unknown): string | null {
     response?: { message?: string; Message?: string };
     error?: unknown;
     data?: unknown;
+    errorModel?: { message?: string };
+    validationErrors?: Record<string, string[]>;
   };
-  return (
+  const direct =
     candidate.message ??
     candidate.Message ??
     candidate.error_description ??
     candidate.response?.message ??
     candidate.response?.Message ??
+    candidate.errorModel?.message ??
+    null;
+  if (direct) {
+    return direct;
+  }
+  const validationMessages = candidate.validationErrors?.[""];
+  if (Array.isArray(validationMessages) && validationMessages.length > 0) {
+    return validationMessages.join(" ");
+  }
+  return (
     extractApiErrorMessage(candidate.error) ??
     extractApiErrorMessage(candidate.data) ??
     null
@@ -176,6 +188,63 @@ export function isMandatoryAuthenticatorSetupApiError(error: unknown): boolean {
     message.includes("Authenticator app setup is required") ||
     message.includes("User must configure Authenticator 2FA")
   );
+}
+
+/** Broadcaster / API payloads may nest the mandatory setup error. */
+export function isMandatoryAuthenticatorAuthFailureSignal(
+  signal?: Record<string, unknown>,
+): boolean {
+  if (signal == null) {
+    return false;
+  }
+  if (isMandatoryAuthenticatorSetupApiError(signal)) {
+    return true;
+  }
+  for (const key of ["error", "response", "data", "body"] as const) {
+    if (isMandatoryAuthenticatorSetupApiError(signal[key])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True while post-login verification or mandatory setup is in progress.
+ * Vault access remains denied until gatePhase becomes `released`.
+ */
+export function isMandatoryGateRestricted(): boolean {
+  return gatePhase === "pending" || gatePhase === "blocked";
+}
+
+/**
+ * Whether authBlocked/locked/logout(invalidAccessToken) should be handled as
+ * mandatory Authenticator setup instead of invalid session.
+ *
+ * Scope (intentionally narrow):
+ * - `released` + no mandatory payload → never intercept (normal auth failures apply)
+ * - explicit mandatory 2FA message in payload → intercept in any non-idle phase
+ * - `pending` / `blocked` → intercept (login-time race / setup flow only)
+ * - `idle` without mandatory payload → never intercept
+ */
+export function shouldInterceptAuthFailureAsMandatorySetup(
+  phase: MandatoryGatePhase,
+  signal?: Record<string, unknown>,
+): boolean {
+  const hasMandatoryPayload = isMandatoryAuthenticatorAuthFailureSignal(signal);
+
+  if (phase === "released") {
+    return hasMandatoryPayload;
+  }
+
+  if (phase === "idle") {
+    return hasMandatoryPayload;
+  }
+
+  if (hasMandatoryPayload) {
+    return true;
+  }
+
+  return phase === "pending" || phase === "blocked";
 }
 
 export function normalizeMandatorySetupPath(url: string): string {
@@ -341,6 +410,9 @@ export function shouldBlockMandatoryVaultApiRequest(request: Request): boolean {
         log(`API allowed: ${apiPath}`);
       }
       return false;
+    }
+    if (apiPath === "/sync" || apiPath.startsWith("/sync")) {
+      log("/api/sync attempted before mandatory setup — blocked locally");
     }
     log(`API blocked locally: ${apiPath}`);
     return true;

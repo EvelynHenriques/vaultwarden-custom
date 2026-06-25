@@ -22,7 +22,7 @@ OLD_PATCHED = f"""  async run(userId: UserId, masterPassword: string | null): Pr
     }}
     await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
 
-PATCHED = f"""  async run(userId: UserId, masterPassword: string | null): Promise<void> {{
+TRY_CATCH_PATCHED = f"""  async run(userId: UserId, masterPassword: string | null): Promise<void> {{
     try {{
       await this.syncService.fullSync(true, {{ skipTokenRefresh: true }});
     }} catch (error: unknown) {{
@@ -47,19 +47,46 @@ PATCHED = f"""  async run(userId: UserId, masterPassword: string | null): Promis
     }}
     await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
 
+PATCHED = f"""  async run(userId: UserId, masterPassword: string | null): Promise<void> {{
+    // {MARKER}: UserLayout runs fullSync after mandatory Authenticator 2FA gate resolves.
+    // Calling /api/sync here races the gate and triggers logout for users without Authenticator 2FA.
+    this.logService.debug(
+      "[EBvault] Post-login fullSync skipped; UserLayout syncs after mandatory 2FA gate.",
+    );
+
+    await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
+
 
 def apply_defer_login_sync_patch(path: Path) -> bool:
     text = path.read_text(encoding="utf-8")
     original = text
 
+    if MARKER in text and "fullSync skipped" in text:
+        print(f"  defer login sync patch already applied in {path.name}")
+        return False
+
+    if MARKER in text and TRY_CATCH_PATCHED in text:
+        text = text.replace(TRY_CATCH_PATCHED, PATCHED, 1)
+        path.write_text(text, encoding="utf-8")
+        print(f"  upgraded post-login fullSync to skip (no login-time /api/sync) in {path.name}")
+        return True
+
     if MARKER in text and OLD_PATCHED in text:
         text = text.replace(OLD_PATCHED, PATCHED, 1)
         path.write_text(text, encoding="utf-8")
-        print(f"  upgraded post-login fullSync logging in {path.name}")
+        print(f"  upgraded post-login fullSync to skip (no login-time /api/sync) in {path.name}")
         return True
 
     if MARKER in text:
-        print(f"  defer login sync patch already applied in {path.name}")
+        text = text.replace(
+            f"    // {MARKER}: UserLayout runs fullSync after mandatory 2FA gate on self-host.",
+            f"    // {MARKER}: UserLayout runs fullSync after mandatory Authenticator 2FA gate resolves.",
+            1,
+        )
+        if "fullSync skipped" not in text:
+            raise RuntimeError(
+                f"{path}: unknown defer-login-sync patch variant — manual update required"
+            )
         return False
 
     if ORIGINAL not in text:

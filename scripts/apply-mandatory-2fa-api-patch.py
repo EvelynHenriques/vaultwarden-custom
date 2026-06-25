@@ -8,6 +8,52 @@ from pathlib import Path
 
 MARKER = "EBvault mandatory Authenticator 2FA gate"
 
+HELPER = f"""function extractMandatoryAuthenticatorSetupMessage(responseJson: unknown): string | null {{
+  if (responseJson == null || typeof responseJson !== "object") {{
+    return null;
+  }}
+  const payload = responseJson as {{
+    Message?: string;
+    message?: string;
+    errorModel?: {{ message?: string }};
+    response?: {{ message?: string; Message?: string }};
+    error_description?: string;
+    validationErrors?: Record<string, string[]>;
+  }};
+  const candidates = [
+    payload.Message,
+    payload.message,
+    payload.errorModel?.message,
+    payload.response?.message,
+    payload.response?.Message,
+    payload.error_description,
+  ];
+  for (const candidate of candidates) {{
+    const text = String(candidate ?? "");
+    if (
+      text.includes("Authenticator app setup is required") ||
+      text.includes("User must configure Authenticator 2FA")
+    ) {{
+      return text;
+    }}
+  }}
+  const validationMessages = payload.validationErrors?.[""];
+  if (Array.isArray(validationMessages)) {{
+    for (const msg of validationMessages) {{
+      const text = String(msg ?? "");
+      if (
+        text.includes("Authenticator app setup is required") ||
+        text.includes("User must configure Authenticator 2FA")
+      ) {{
+        return text;
+      }}
+    }}
+  }}
+  return null;
+}}
+
+"""
+
 ORIGINAL = """  private async handleApiRequestError(
     response: Response,
     userIsAuthenticated: boolean,
@@ -24,7 +70,7 @@ ORIGINAL = """  private async handleApiRequestError(
     return new ErrorResponse(responseJson, response.status);
   }"""
 
-PATCHED = f"""  private async handleApiRequestError(
+PATCHED = f"""{HELPER}  private async handleApiRequestError(
     response: Response,
     userIsAuthenticated: boolean,
   ): Promise<ErrorResponse> {{
@@ -32,10 +78,7 @@ PATCHED = f"""  private async handleApiRequestError(
 
     // {MARKER}: keep the session alive when the server blocks vault APIs for missing Authenticator 2FA.
     if (userIsAuthenticated && response.status === HttpStatusCode.Forbidden) {{
-      const errorMessage = String(
-        responseJson?.Message ?? responseJson?.message ?? "",
-      );
-      if (errorMessage.includes("Authenticator app setup is required") || errorMessage.includes("User must configure Authenticator 2FA")) {{
+      if (extractMandatoryAuthenticatorSetupMessage(responseJson) != null) {{
         return new ErrorResponse(responseJson, response.status);
       }}
     }}
@@ -51,21 +94,40 @@ PATCHED = f"""  private async handleApiRequestError(
     return new ErrorResponse(responseJson, response.status);
   }}"""
 
+OLD_INLINE_FORBIDDEN_CHECK = """      const errorMessage = String(
+        responseJson?.Message ?? responseJson?.message ?? "",
+      );
+      if (errorMessage.includes("Authenticator app setup is required") || errorMessage.includes("User must configure Authenticator 2FA")) {
+        return new ErrorResponse(responseJson, response.status);
+      }"""
+
 
 def apply_api_patch(path: Path) -> bool:
     text = path.read_text(encoding="utf-8")
     original = text
 
     if MARKER in text:
-        old_check = 'if (errorMessage.includes("Authenticator app setup is required")) {'
-        new_check = (
-            'if (errorMessage.includes("Authenticator app setup is required") '
-            '|| errorMessage.includes("User must configure Authenticator 2FA")) {'
-        )
-        if old_check in text and new_check not in text:
-            text = text.replace(old_check, new_check, 1)
+        changed = False
+        if "function extractMandatoryAuthenticatorSetupMessage" not in text:
+            anchor = "  private async handleApiRequestError("
+            if anchor not in text:
+                raise RuntimeError(
+                    f"{path}: could not find handleApiRequestError anchor for helper insertion"
+                )
+            text = text.replace(anchor, HELPER + anchor, 1)
+            changed = True
+        if OLD_INLINE_FORBIDDEN_CHECK in text:
+            text = text.replace(
+                OLD_INLINE_FORBIDDEN_CHECK,
+                "      if (extractMandatoryAuthenticatorSetupMessage(responseJson) != null) {\n"
+                "        return new ErrorResponse(responseJson, response.status);\n"
+                "      }",
+                1,
+            )
+            changed = True
+        if changed:
             path.write_text(text, encoding="utf-8")
-            print(f"  updated mandatory 2FA error message matching in {path.name}")
+            print(f"  upgraded mandatory 2FA API error matching in {path.name}")
             return True
         print(f"  mandatory 2FA API patch already applied in {path.name}")
         return False

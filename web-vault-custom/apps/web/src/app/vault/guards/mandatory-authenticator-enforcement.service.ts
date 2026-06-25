@@ -20,19 +20,20 @@ import {
   enterPostLoginVerificationState,
   failSafeUnresolvedGate,
   getMandatoryGatePhase,
-  isMandatoryAuthenticatorSetupApiError,
   isMandatoryLockExemptNavigation,
   isMandatoryLockSuspended,
   isMandatorySetupAllowedUrl,
   isPreLoginAuthenticationRoute,
   isVaultAccessAllowedByGate,
   mandatory2faLog,
+  mandatory2faWarn,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   normalizeMandatorySetupPath,
   resetMandatoryAuthenticatorSetupState,
   resolveMandatoryAuthenticatorGate,
   resumeMandatoryLock,
   shouldHideAuthenticatedContent,
+  shouldInterceptAuthFailureAsMandatorySetup,
 } from "./mandatory-authenticator.policy";
 
 /** Safety fallback only — normal flow is event/state-driven. */
@@ -91,6 +92,7 @@ export class MandatoryAuthenticatorEnforcementService {
 
         if (status === AuthenticationStatus.Unlocked) {
           mandatory2faLog("login or unlock success");
+          enterPostLoginVerificationState();
           this.scheduleGateResolution();
         }
       });
@@ -128,6 +130,7 @@ export class MandatoryAuthenticatorEnforcementService {
     const status = await getAuthStatusOrNull(this.authService, userId);
     if (status === AuthenticationStatus.Unlocked) {
       mandatory2faLog("login or unlock success (existing session)");
+      enterPostLoginVerificationState();
       this.scheduleGateResolution();
     }
   }
@@ -161,14 +164,33 @@ export class MandatoryAuthenticatorEnforcementService {
     return isVaultAccessAllowedByGate();
   }
 
+  /**
+   * Handle authBlocked/locked/mandatory invalidAccessToken without logging out.
+   * Returns false for generic auth failures outside mandatory gate scope.
+   */
   async handleAuthFailure(signal?: Record<string, unknown>): Promise<boolean> {
-    if (isMandatoryLockSuspended() || !isMandatoryAuthenticatorSetupApiError(signal)) {
+    if (isMandatoryLockSuspended()) {
       return false;
     }
 
+    const phase = getMandatoryGatePhase();
+    if (!shouldInterceptAuthFailureAsMandatorySetup(phase, signal)) {
+      mandatory2faLog("auth failure not treated as mandatory setup", { phase, signal });
+      return false;
+    }
+
+    mandatory2faLog("mandatory 2FA auth failure intercepted — not treating as logout", {
+      phase,
+      signal,
+    });
+
     const userId = await this.waitForActiveUnlockedAccount();
     if (!userId) {
-      return false;
+      mandatory2faWarn("mandatory auth failure but no unlocked account yet — applying fail-safe");
+      confirmMandatoryAuthenticatorRequiredFromApi();
+      failSafeUnresolvedGate();
+      await this.openMandatorySetupAfterGate();
+      return true;
     }
 
     confirmMandatoryAuthenticatorRequiredFromApi();
