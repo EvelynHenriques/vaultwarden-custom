@@ -12,9 +12,7 @@ import {
 } from "./mandatory-authenticator-account.util";
 import { MandatoryAuthenticatorLockService } from "./mandatory-authenticator-lock.service";
 import {
-  ensureMandatoryAuthenticatorStatus,
   isMandatoryAuthenticatorSetupComplete,
-  isMandatoryPostLoginRouteBlocked,
   isLogoutNavigationTarget,
   isMandatoryLockExemptNavigation,
   isMandatoryLockSuspended,
@@ -111,10 +109,6 @@ export class MandatoryAuthenticatorEnforcementService {
     }
 
     if (isMandatorySetupAllowedUrl(url)) {
-      return false;
-    }
-
-    if (!isMandatoryPostLoginRouteBlocked(url)) {
       return false;
     }
 

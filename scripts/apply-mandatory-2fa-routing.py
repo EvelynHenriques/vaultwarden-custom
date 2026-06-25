@@ -12,27 +12,36 @@ IMPORT_BLOCK = """import {
   mandatoryAuthenticatorGuard,
 } from "./vault/guards/mandatory-authenticator.guard";"""
 
+SETUP_EXTENSION_IMPORT = """import {
+  blockSetupExtensionUntilMandatory2faGuard,
+  setupExtensionRedirectGuard,
+} from "./vault/guards/setup-extension-redirect.guard";"""
+
+LEGACY_SETUP_EXTENSION_IMPORT = (
+    'import { setupExtensionRedirectGuard } from "./vault/guards/setup-extension-redirect.guard";'
+)
+
 
 def ensure_import(text: str) -> str:
-    if "mandatoryAuthenticatorActivate" in text and "mandatoryAuthenticatorGuard" in text:
-        return text
-
-    patterns = [
-        'import { mandatoryAuthenticatorGuard } from "./vault/guards/mandatory-authenticator.guard";',
-        """import {
-  mandatoryAuthenticatorActivate,
-  mandatoryAuthenticatorGuard,
-} from "./vault/guards/mandatory-authenticator.guard";""",
-    ]
-    for pattern in patterns:
-        if pattern in text and pattern != IMPORT_BLOCK:
-            text = text.replace(pattern, IMPORT_BLOCK)
+    if LEGACY_SETUP_EXTENSION_IMPORT in text:
+        text = text.replace(LEGACY_SETUP_EXTENSION_IMPORT, SETUP_EXTENSION_IMPORT)
 
     if IMPORT_BLOCK not in text:
-        anchor = 'import { setupExtensionRedirectGuard } from "./vault/guards/setup-extension-redirect.guard";'
-        if anchor not in text:
-            raise RuntimeError("Could not find setupExtensionRedirectGuard import anchor")
-        text = text.replace(anchor, anchor + "\n" + IMPORT_BLOCK)
+        patterns = [
+            'import { mandatoryAuthenticatorGuard } from "./vault/guards/mandatory-authenticator.guard";',
+        ]
+        for pattern in patterns:
+            if pattern in text:
+                text = text.replace(pattern, IMPORT_BLOCK)
+
+        if IMPORT_BLOCK not in text:
+            if SETUP_EXTENSION_IMPORT in text:
+                text = text.replace(
+                    SETUP_EXTENSION_IMPORT,
+                    SETUP_EXTENSION_IMPORT + "\n" + IMPORT_BLOCK,
+                )
+            else:
+                raise RuntimeError("Could not find setupExtensionRedirectGuard import anchor")
 
     return text
 
@@ -109,8 +118,12 @@ def apply_mandatory_routing(path: Path) -> bool:
 
     simple = [
         (
-            'path: "setup-extension",',
             'path: "setup-extension",\n    canActivate: [mandatoryAuthenticatorActivate],',
+            'path: "setup-extension",\n    canActivate: [blockSetupExtensionUntilMandatory2faGuard],',
+        ),
+        (
+            'path: "setup-extension",',
+            'path: "setup-extension",\n    canActivate: [blockSetupExtensionUntilMandatory2faGuard],',
         ),
         (
             "canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard]",
@@ -163,7 +176,8 @@ def verify_mandatory_routing(text: str, path: Path) -> None:
         ("mandatoryAuthenticatorActivate import", "mandatoryAuthenticatorActivate"),
         ("UserLayout canActivateChild", "canActivateChild: [mandatoryAuthenticatorGuard]"),
         ("UserLayout runGuardsAndResolvers", 'runGuardsAndResolvers: "always"'),
-        ("setup-extension guard", 'path: "setup-extension",\n    canActivate: [mandatoryAuthenticatorActivate]'),
+        ("setup-extension guard", 'canActivate: [blockSetupExtensionUntilMandatory2faGuard]'),
+        ("blockSetupExtension import", "blockSetupExtensionUntilMandatory2faGuard"),
         ("vault mandatory guard", "canActivate: [mandatoryAuthenticatorActivate, setupExtensionRedirectGuard]"),
         ("settings child guard", 'path: "settings",\n        canActivateChild: [mandatoryAuthenticatorGuard]'),
         ("organizations child guard", 'path: "organizations",\n    canActivate: [authGuard, mandatoryAuthenticatorActivate],\n    canActivateChild: [mandatoryAuthenticatorGuard]'),

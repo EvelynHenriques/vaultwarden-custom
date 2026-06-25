@@ -331,3 +331,12 @@ export async function resolveMandatoryAuthenticatorAccess(
 export function createMandatorySetupUrlTree(router: Router): UrlTree {
   return router.createUrlTree([MANDATORY_TWO_FACTOR_SETUP_URL]);
 }
+
+/** True when the user must not access post-login onboarding (e.g. /setup-extension). */
+export function shouldRedirectToMandatoryAuthenticatorSetup(): boolean {
+  if (isMandatoryLockSuspended() || isMandatoryAuthenticatorSetupComplete()) {
+    return false;
+  }
+
+  return mandatoryAuthenticatorRequired || !providerStatusKnown;
+}

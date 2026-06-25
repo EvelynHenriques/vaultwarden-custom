@@ -21,6 +21,7 @@ import {
 import {
   createMandatorySetupUrlTree,
   mustCompleteMandatoryAuthenticatorSetup,
+  shouldRedirectToMandatoryAuthenticatorSetup,
 } from "./mandatory-authenticator.policy";
 
 export const SETUP_EXTENSION_DISMISSED = new UserKeyDefinition<boolean>(
@@ -44,19 +45,14 @@ export const setupExtensionRedirectGuard: CanActivateFn = async () => {
   const stateProvider = inject(StateProvider);
   const twoFactorService = inject(TwoFactorService);
 
-  const userId = await getActiveAccountUserIdOrNull(accountService);
-  if (userId) {
-    const authStatus = await getAuthStatusOrNull(authService, userId);
-    if (authStatus === AuthenticationStatus.Unlocked) {
-      if (await mustCompleteMandatoryAuthenticatorSetup(twoFactorService)) {
-        if (typeof console !== "undefined" && console.debug) {
-          console.debug(
-            "[Mandatory2FA] blocking setup-extension redirect — Authenticator 2FA required first",
-          );
-        }
-        return createMandatorySetupUrlTree(router);
-      }
-    }
+  const mandatoryRedirect = await redirectToMandatorySetupIfRequired(
+    router,
+    accountService,
+    authService,
+    twoFactorService,
+  );
+  if (mandatoryRedirect !== true) {
+    return mandatoryRedirect;
   }
 
   const isMobile = Utils.isMobileBrowser;
@@ -94,6 +90,60 @@ export const setupExtensionRedirectGuard: CanActivateFn = async () => {
 
   return router.createUrlTree(["/setup-extension"]);
 };
+
+/**
+ * Blocks direct navigation to /setup-extension until mandatory Authenticator 2FA is configured.
+ * Applied on the setup-extension route itself (outside UserLayout).
+ */
+export const blockSetupExtensionUntilMandatory2faGuard: CanActivateFn = async () => {
+  const router = inject(Router);
+  const accountService = inject(AccountService);
+  const authService = inject(AuthService);
+  const twoFactorService = inject(TwoFactorService);
+
+  return redirectToMandatorySetupIfRequired(
+    router,
+    accountService,
+    authService,
+    twoFactorService,
+    "setup-extension page",
+  );
+};
+
+async function redirectToMandatorySetupIfRequired(
+  router: Router,
+  accountService: AccountService,
+  authService: AuthService,
+  twoFactorService: TwoFactorService,
+  context = "post-login navigation",
+): Promise<true | import("@angular/router").UrlTree> {
+  const userId = await getActiveAccountUserIdOrNull(accountService);
+  if (!userId) {
+    return true;
+  }
+
+  const authStatus = await getAuthStatusOrNull(authService, userId);
+  if (authStatus === AuthenticationStatus.LoggedOut) {
+    return true;
+  }
+
+  // Never show extension onboarding while the vault is locked or still unlocking.
+  if (authStatus !== AuthenticationStatus.Unlocked) {
+    return true;
+  }
+
+  if (await mustCompleteMandatoryAuthenticatorSetup(twoFactorService)) {
+    if (typeof console !== "undefined" && console.debug) {
+      console.debug(
+        `[Mandatory2FA] blocking ${context} — Authenticator 2FA required first`,
+        { shouldRedirect: shouldRedirectToMandatoryAuthenticatorSetup() },
+      );
+    }
+    return createMandatorySetupUrlTree(router);
+  }
+
+  return true;
+}
 
 /** Returns true when the user's profile is older than 30 days */
 async function profileIsOlderThan30Days(

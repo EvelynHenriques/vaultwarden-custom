@@ -16,6 +16,7 @@ import {
 } from "./mandatory-authenticator-account.util";
 import {
   ensureMandatoryAuthenticatorStatus,
+  isMandatoryAuthenticatorSetupComplete,
   isMandatoryLockExemptNavigation,
   isMandatoryLockModeActive,
   isMandatoryLockSuspended,
@@ -116,7 +117,7 @@ export class MandatoryAuthenticatorLockService {
     }
 
     await this.refreshLockState();
-    if (this.isLockModeActive()) {
+    if (!isMandatoryAuthenticatorSetupComplete()) {
       await this.enforceRoute(true);
     }
   }
@@ -242,19 +243,19 @@ export class MandatoryAuthenticatorLockService {
   }
 
   async enforceRoute(replaceUrl = true): Promise<boolean> {
-    if (isMandatoryLockSuspended() || !this.isLockModeActive()) {
+    if (isMandatoryLockSuspended()) {
       return false;
     }
 
     await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
     this.syncDomLockClass();
 
-    if (!this.isLockModeActive()) {
+    if (isMandatoryAuthenticatorSetupComplete()) {
       return false;
     }
 
     const url = this.router.url;
-    if (!shouldBlockMandatorySetupNavigation(url)) {
+    if (isMandatorySetupAllowedUrl(url) || isMandatoryLockExemptNavigation(url)) {
       if (!this.authenticatorDialogRegistered) {
         this.requestAuthenticatorDialogReopen();
       }
@@ -389,7 +390,7 @@ export class MandatoryAuthenticatorLockService {
     }
 
     await this.refreshLockState();
-    if (this.isLockModeActive()) {
+    if (!isMandatoryAuthenticatorSetupComplete()) {
       await this.enforceRoute(true);
     }
   }
@@ -406,15 +407,15 @@ export class MandatoryAuthenticatorLockService {
       return;
     }
 
-    // Resolve status early so lock mode activates before route activation completes.
+    // Resolve status before route activation so extension onboarding cannot win the race.
     await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
     this.syncDomLockClass();
 
-    if (!this.isLockModeActive()) {
+    if (isMandatoryAuthenticatorSetupComplete()) {
       return;
     }
 
-    if (!shouldBlockMandatorySetupNavigation(url)) {
+    if (isMandatorySetupAllowedUrl(url)) {
       if (!this.authenticatorDialogRegistered) {
         this.requestAuthenticatorDialogReopen();
       }
