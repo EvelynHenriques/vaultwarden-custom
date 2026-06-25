@@ -1,29 +1,15 @@
 import { inject, Injectable } from "@angular/core";
 import { NavigationStart, Router } from "@angular/router";
-import {
-  EMPTY,
-  catchError,
-  defaultIfEmpty,
-  distinctUntilChanged,
-  filter,
-  firstValueFrom,
-  map,
-  of,
-  switchMap,
-  take,
-  timeout,
-} from "rxjs";
+import { distinctUntilChanged, EMPTY, switchMap } from "rxjs";
 
 import { ApiService } from "@bitwarden/common/abstractions/api.service";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
 import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
-import type { FetchMiddleware } from "@bitwarden/common/platform/misc/fetch-middleware";
 import { UserId } from "@bitwarden/common/types/guid";
 
 import {
-  activeAccountUserId$,
   getActiveAccountUserIdOrNull,
   getAuthStatusOrNull,
 } from "./mandatory-authenticator-account.util";
@@ -55,7 +41,7 @@ const ACCOUNT_WAIT_MS = 15_000;
 const GATE_WAIT_MS = 20_000;
 
 type ApiServiceWithMiddleware = ApiService & {
-  addMiddleware?: (middleware: FetchMiddleware) => void;
+  addMiddleware?: (middleware: unknown) => void;
 };
 
 @Injectable({ providedIn: "root" })
@@ -114,21 +100,23 @@ export class MandatoryAuthenticatorEnforcementService {
 
   /** Clear stale mandatory gate state when returning to pre-unlock login routes. */
   private attachPreLoginRouteListener(): void {
-    this.router.events
-      .pipe(filter((event): event is NavigationStart => event instanceof NavigationStart))
-      .subscribe((event) => {
-        if (!isPreLoginAuthenticationRoute(event.url)) {
-          return;
-        }
+    this.router.events.subscribe((event) => {
+      if (!(event instanceof NavigationStart)) {
+        return;
+      }
 
-        const phase = getMandatoryGatePhase();
-        if (phase === "pending" || phase === "blocked") {
-          mandatory2faLog("reset gate for pre-login route", {
-            path: normalizeMandatorySetupPath(event.url),
-          });
-          resetMandatoryAuthenticatorSetupState();
-        }
-      });
+      if (!isPreLoginAuthenticationRoute(event.url)) {
+        return;
+      }
+
+      const phase = getMandatoryGatePhase();
+      if (phase === "pending" || phase === "blocked") {
+        mandatory2faLog("reset gate for pre-login route", {
+          path: normalizeMandatorySetupPath(event.url),
+        });
+        resetMandatoryAuthenticatorSetupState();
+      }
+    });
   }
 
   private async bootstrapExistingSession(): Promise<void> {
@@ -254,28 +242,22 @@ export class MandatoryAuthenticatorEnforcementService {
    * Wait until activeAccount$ has an id and auth status is Unlocked.
    * Must not complete early on transient null account emissions.
    */
-  private waitForActiveUnlockedAccount(): Promise<UserId | null> {
-    return firstValueFrom(
-      activeAccountUserId$(this.accountService).pipe(
-        filter((userId): userId is UserId => userId != null),
-        switchMap((userId) =>
-          this.authService.authStatusFor$(userId).pipe(
-            filter((status) => status === AuthenticationStatus.Unlocked),
-            take(1),
-            map(() => userId),
-          ),
-        ),
-        timeout({
-          first: ACCOUNT_WAIT_MS,
-          with: () => {
-            mandatory2faLog("active account = null (timed out waiting)");
-            return of(null);
-          },
-        }),
-        defaultIfEmpty(null),
-        catchError(() => of(null)),
-      ),
-    );
+  private async waitForActiveUnlockedAccount(): Promise<UserId | null> {
+    const deadline = Date.now() + ACCOUNT_WAIT_MS;
+
+    while (Date.now() < deadline) {
+      const userId = await getActiveAccountUserIdOrNull(this.accountService);
+      if (userId) {
+        const status = await getAuthStatusOrNull(this.authService, userId);
+        if (status === AuthenticationStatus.Unlocked) {
+          return userId;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    mandatory2faLog("active account = null (timed out waiting)");
+    return null;
   }
 
   private async navigateToMandatorySetupIfNeeded(): Promise<void> {

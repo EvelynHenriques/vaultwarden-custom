@@ -65,6 +65,7 @@ declare module "@angular/router" {
   export class NavigationStart {
     url: string;
   }
+  export type RouterEvent = NavigationStart | NavigationEnd;
   export type CanActivateFn = (
     route: unknown,
     state: RouterStateSnapshot,
@@ -72,7 +73,7 @@ declare module "@angular/router" {
   export type CanActivateChildFn = CanActivateFn;
   export class Router {
     url: string;
-    events: import("rxjs").Observable<unknown>;
+    events: import("rxjs").Observable<RouterEvent>;
     createUrlTree(commands: string[]): UrlTree;
     navigate(commands: string[], extras?: { replaceUrl?: boolean }): Promise<boolean>;
     navigateByUrl(url: string, extras?: { replaceUrl?: boolean }): Promise<boolean>;
@@ -123,6 +124,12 @@ declare module "rxjs" {
   export function takeUntil<T>(notifier: Observable<unknown>): OperatorFunction<T, T>;
   export function switchMap<T, R>(project: (value: T) => Observable<R>): OperatorFunction<T, R>;
   export function distinctUntilChanged<T>(): OperatorFunction<T, T>;
+  export function of<T>(...values: T[]): Observable<T>;
+  export function catchError<T>(
+    selector: (err: unknown) => Observable<T>,
+  ): OperatorFunction<T, T>;
+  export function defaultIfEmpty<T>(defaultValue: T): OperatorFunction<T, T>;
+  export function take<T>(count: number): OperatorFunction<T, T>;
   export function combineLatest<T extends readonly unknown[]>(
     sources: [...{ [K in keyof T]: Observable<T[K]> }],
   ): Observable<T>;
@@ -131,9 +138,24 @@ declare module "rxjs" {
   ): OperatorFunction<T, [T, ...R[]]>;
   export function timeout<T>(config: {
     first: number;
-    with: () => Error;
+    with: () => Error | Observable<T>;
   }): OperatorFunction<T, T>;
   export const EMPTY: Observable<never>;
+}
+
+declare module "@bitwarden/common/platform/misc/fetch-middleware" {
+  export type FetchMiddleware = (
+    request: Request,
+    next: (request: Request) => Promise<Response>,
+  ) => Promise<Response>;
+}
+
+declare module "@bitwarden/common/abstractions/api.service" {
+  export class ApiService {
+    addMiddleware?(
+      middleware: import("@bitwarden/common/platform/misc/fetch-middleware").FetchMiddleware,
+    ): void;
+  }
 }
 
 declare module "rxjs/operators";
