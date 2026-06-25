@@ -23,6 +23,7 @@ import type { FetchMiddleware } from "@bitwarden/common/platform/misc/fetch-midd
 import { UserId } from "@bitwarden/common/types/guid";
 
 import {
+  activeAccountUserId$,
   getActiveAccountUserIdOrNull,
   getAuthStatusOrNull,
 } from "./mandatory-authenticator-account.util";
@@ -54,8 +55,6 @@ const GATE_WAIT_MS = 20_000;
 type ApiServiceWithMiddleware = ApiService & {
   addMiddleware?: (middleware: FetchMiddleware) => void;
 };
-
-type ActiveAccount = { id: UserId };
 
 @Injectable({ providedIn: "root" })
 export class MandatoryAuthenticatorEnforcementService {
@@ -235,13 +234,13 @@ export class MandatoryAuthenticatorEnforcementService {
    */
   private waitForActiveUnlockedAccount(): Promise<UserId | null> {
     return firstValueFrom(
-      this.accountService.activeAccount$.pipe(
-        filter((account): account is ActiveAccount => account?.id != null),
-        switchMap((account) =>
-          this.authService.authStatusFor$(account.id).pipe(
+      activeAccountUserId$(this.accountService).pipe(
+        filter((userId): userId is UserId => userId != null),
+        switchMap((userId) =>
+          this.authService.authStatusFor$(userId).pipe(
             filter((status) => status === AuthenticationStatus.Unlocked),
             take(1),
-            map(() => account.id),
+            map(() => userId),
           ),
         ),
         timeout({
