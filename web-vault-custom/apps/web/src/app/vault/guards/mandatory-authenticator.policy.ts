@@ -15,7 +15,53 @@ let mandatoryLockSuspended = false;
 
 const MANDATORY_2FA_LOG_PREFIX = "[Mandatory2FA]";
 
-/** Trace guard decisions in the browser console (filter by Mandatory2FA). */
+/** Must match `MANDATORY_AUTHENTICATOR_SETUP_MESSAGE` in vaultwarden `mandatory_authenticator_2fa.rs`. */
+export const MANDATORY_AUTHENTICATOR_SETUP_MESSAGE =
+  "Authenticator app setup is required before continuing";
+
+export function extractApiErrorMessage(error: unknown): string | null {
+  if (error == null) {
+    return null;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  const candidate = error as {
+    message?: string;
+    Message?: string;
+    error_description?: string;
+    response?: { message?: string; Message?: string };
+    error?: unknown;
+    data?: unknown;
+  };
+
+  return (
+    candidate.message ??
+    candidate.Message ??
+    candidate.error_description ??
+    candidate.response?.message ??
+    candidate.response?.Message ??
+    extractApiErrorMessage(candidate.error) ??
+    extractApiErrorMessage(candidate.data) ??
+    null
+  );
+}
+
+/** True only for the vaultwarden mandatory-2FA gate message — not generic 403 responses. */
+export function isMandatoryAuthenticatorSetupApiError(error: unknown): boolean {
+  const message = extractApiErrorMessage(error);
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes(MANDATORY_AUTHENTICATOR_SETUP_MESSAGE) ||
+    message.includes("Authenticator app setup is required")
+  );
+}
+
 function logMandatoryDecision(message: string, detail?: Record<string, unknown>): void {
   if (typeof console !== "undefined" && console.debug) {
     console.debug(`${MANDATORY_2FA_LOG_PREFIX} ${message}`, detail ?? "");
@@ -38,6 +84,7 @@ export function markMandatoryAuthenticatorSetupComplete(): void {
   authenticatorSetupCompleteForSession = true;
   mandatoryAuthenticatorRequired = false;
   providerStatusKnown = true;
+  logMandatoryDecision("Authenticator 2FA configured — restriction lifted");
 }
 
 export function resetMandatoryAuthenticatorSetupState(): void {
@@ -45,6 +92,17 @@ export function resetMandatoryAuthenticatorSetupState(): void {
   mandatoryAuthenticatorRequired = false;
   providerStatusKnown = false;
   statusCheckPromise = null;
+}
+
+/** Called when the server returns the mandatory-2FA gate message. */
+export function confirmMandatoryAuthenticatorRequiredFromApi(): void {
+  if (mandatoryLockSuspended || isMandatoryAuthenticatorSetupComplete()) {
+    return;
+  }
+
+  mandatoryAuthenticatorRequired = true;
+  providerStatusKnown = true;
+  logMandatoryDecision("server reports Authenticator 2FA required");
 }
 
 /** @deprecated Use resetMandatoryAuthenticatorSetupState */
@@ -60,22 +118,13 @@ export function isMandatoryAuthenticatorSetupRequired(): boolean {
   return mandatoryAuthenticatorRequired && !authenticatorSetupCompleteForSession;
 }
 
-/** Global lock mode: active only after we confirm Authenticator 2FA is missing. */
+/** Active while Authenticator 2FA is missing or still being verified after unlock. */
 export function isMandatoryLockModeActive(): boolean {
-  if (mandatoryLockSuspended) {
-    logMandatoryDecision("lock mode inactive: suspended (logout in progress)");
+  if (mandatoryLockSuspended || isMandatoryAuthenticatorSetupComplete()) {
     return false;
   }
-  if (isMandatoryAuthenticatorSetupComplete()) {
-    return false;
-  }
-  if (!providerStatusKnown) {
-    return false;
-  }
-  if (mandatoryAuthenticatorRequired) {
-    logMandatoryDecision("lock mode active: Authenticator 2FA not configured");
-  }
-  return mandatoryAuthenticatorRequired;
+
+  return mandatoryAuthenticatorRequired || !providerStatusKnown;
 }
 
 export function isMandatoryAuthenticatorStatusKnown(): boolean {
@@ -102,10 +151,7 @@ export function normalizeMandatorySetupPath(url: string): string {
   return path.replace(/\/+$/, "") || "/";
 }
 
-/**
- * Whitelist while mandatory 2FA is missing:
- * - /settings/security/two-factor (2FA setup page + dialog)
- */
+/** Whitelist while mandatory 2FA is missing. */
 export function isMandatorySetupAllowedUrl(url: string): boolean {
   const path = normalizeMandatorySetupPath(url);
 
@@ -115,10 +161,7 @@ export function isMandatorySetupAllowedUrl(url: string): boolean {
   );
 }
 
-/**
- * Routes that must never be blocked by mandatory 2FA lock (login/logout/auth flows).
- * Distinct from the authenticated 2FA setup whitelist.
- */
+/** Routes that must never be blocked (login/logout/auth flows). */
 export function isMandatoryLockExemptNavigation(url: string): boolean {
   const path = normalizeMandatorySetupPath(url);
 
@@ -126,13 +169,10 @@ export function isMandatoryLockExemptNavigation(url: string): boolean {
     return true;
   }
 
-  // Login-time two-factor (not Settings → Security → two-factor)
   if (path === "/two-factor" || (path.startsWith("/two-factor/") && !path.includes("/settings/"))) {
     return true;
   }
 
-  // Note: "/" is intentionally omitted — it is the post-login default route for authenticated
-  // users and must redirect to mandatory 2FA setup when enrollment is pending.
   const exemptPaths = [
     "/login",
     "/logout",
@@ -161,11 +201,7 @@ export function isMandatoryLockExemptNavigation(url: string): boolean {
   return exemptPaths.some((exempt) => path === exempt || path.startsWith(`${exempt}/`));
 }
 
-/**
- * Explicit unauthenticated auth routes used during logout navigation.
- * "/" is NOT included — authenticated users land on "/" after login and must stay in-session
- * for mandatory 2FA setup; treating "/" as logout incorrectly clears the mandatory lock.
- */
+/** Logout/disconnect destinations — never block sign-out navigation. */
 export function isLogoutNavigationTarget(url: string): boolean {
   const path = normalizeMandatorySetupPath(url);
 
@@ -184,15 +220,7 @@ export function isLogoutNavigationTarget(url: string): boolean {
   return logoutTargets.some((target) => path === target || path.startsWith(`${target}/`));
 }
 
-/** Default-deny: block unless 2FA is complete or URL is explicitly whitelisted. */
-export function shouldBlockMandatorySetupNavigation(url: string): boolean {
-  return isMandatoryPostLoginRouteBlocked(url);
-}
-
-/**
- * Hide authenticated vault chrome while the mandatory 2FA API check is still in flight.
- * Prevents a brief vault flash for new accounts before redirect to setup.
- */
+/** Hide vault chrome while the mandatory 2FA status check is still in flight. */
 export function shouldHideVaultUntilMandatoryStatusResolved(url: string): boolean {
   if (mandatoryLockSuspended || isMandatoryAuthenticatorSetupComplete()) {
     return false;
@@ -206,7 +234,6 @@ export function shouldHideVaultUntilMandatoryStatusResolved(url: string): boolea
     return false;
   }
 
-  logMandatoryDecision("hide vault content until mandatory 2FA status is resolved", { url });
   return true;
 }
 
@@ -229,17 +256,20 @@ async function refreshMandatoryAuthenticatorStatus(
       if (hasEnabledAuthenticator) {
         authenticatorSetupCompleteForSession = true;
         mandatoryAuthenticatorRequired = false;
-        logMandatoryDecision("status check: Authenticator 2FA configured — vault access allowed");
+        logMandatoryDecision("status check: Authenticator 2FA configured");
       } else {
         mandatoryAuthenticatorRequired = true;
-        logMandatoryDecision("status check: no Authenticator 2FA — redirect to setup required");
+        logMandatoryDecision("status check: Authenticator 2FA not configured");
       }
       providerStatusKnown = true;
-    } catch {
-      // Transient API errors must not permanently lock the session; retry on next navigation.
-      mandatoryAuthenticatorRequired = true;
-      providerStatusKnown = false;
-      logMandatoryDecision("status check failed — will retry on next check");
+    } catch (error) {
+      if (isMandatoryAuthenticatorSetupApiError(error)) {
+        confirmMandatoryAuthenticatorRequiredFromApi();
+      } else {
+        logMandatoryDecision("status check failed — not assuming missing 2FA", {
+          error: extractApiErrorMessage(error),
+        });
+      }
     } finally {
       statusCheckPromise = null;
     }
@@ -248,6 +278,10 @@ async function refreshMandatoryAuthenticatorStatus(
   await statusCheckPromise;
 }
 
+/**
+ * Single entry point for the mandatory-2FA provider check.
+ * Deduplicates concurrent calls and leaves session state in a known shape.
+ */
 export async function ensureMandatoryAuthenticatorStatus(
   twoFactorService: TwoFactorService,
 ): Promise<boolean> {
@@ -262,21 +296,6 @@ export async function ensureMandatoryAuthenticatorStatus(
   return authenticatorSetupCompleteForSession;
 }
 
-/**
- * True when mandatory Authenticator enrollment must be completed before any post-login
- * onboarding (extension setup, vault, etc.) is allowed.
- */
-export async function mustCompleteMandatoryAuthenticatorSetup(
-  twoFactorService: TwoFactorService,
-): Promise<boolean> {
-  if (isMandatoryLockSuspended() || isMandatoryAuthenticatorSetupComplete()) {
-    return false;
-  }
-
-  await ensureMandatoryAuthenticatorStatus(twoFactorService);
-  return !isMandatoryAuthenticatorSetupComplete();
-}
-
 /** Authenticated routes blocked until mandatory Authenticator 2FA is configured. */
 export function isMandatoryPostLoginRouteBlocked(url: string): boolean {
   if (isMandatoryLockSuspended() || isMandatoryAuthenticatorSetupComplete()) {
@@ -287,44 +306,41 @@ export function isMandatoryPostLoginRouteBlocked(url: string): boolean {
     return false;
   }
 
-  return isMandatoryLockModeActive() || !providerStatusKnown;
+  return isMandatoryLockModeActive();
 }
 
+/**
+ * Route-guard decision: allow navigation, or return a UrlTree to the setup page.
+ * This is the single routing enforcement entry point.
+ */
 export async function resolveMandatoryAuthenticatorAccess(
   router: Router,
   twoFactorService: TwoFactorService,
   url?: string,
 ): Promise<boolean | UrlTree> {
-  // Priority 1: logout/disconnect in progress — never block sign-out navigation.
   if (isMandatoryLockSuspended()) {
-    logMandatoryDecision("route guard: allow — mandatory lock suspended (logout)");
     return true;
   }
 
   if (url != null && isLogoutNavigationTarget(url)) {
-    logMandatoryDecision("route guard: allow — logout/disconnect destination", { url });
     return true;
   }
 
   if (url != null && isMandatoryLockExemptNavigation(url)) {
-    logMandatoryDecision("route guard: allow — public/auth exempt route", { url });
     return true;
   }
 
-  // Priority 3: authenticated Unlocked user — resolve mandatory 2FA enrollment.
   await ensureMandatoryAuthenticatorStatus(twoFactorService);
 
   if (isMandatoryAuthenticatorSetupComplete()) {
-    logMandatoryDecision("route guard: allow — 2FA configured or not required", { url });
     return true;
   }
 
-  if (url && (isMandatorySetupAllowedUrl(url) || isMandatoryLockExemptNavigation(url))) {
-    logMandatoryDecision("route guard: allow — whitelisted or auth-exempt route", { url });
+  if (url && isMandatorySetupAllowedUrl(url)) {
     return true;
   }
 
-  logMandatoryDecision("route guard: redirect to mandatory 2FA setup", { url });
+  logMandatoryDecision("route blocked — redirect to mandatory 2FA setup", { url });
   return createMandatorySetupUrlTree(router);
 }
 
@@ -332,11 +348,36 @@ export function createMandatorySetupUrlTree(router: Router): UrlTree {
   return router.createUrlTree([MANDATORY_TWO_FACTOR_SETUP_URL]);
 }
 
-/** True when the user must not access post-login onboarding (e.g. /setup-extension). */
-export function shouldRedirectToMandatoryAuthenticatorSetup(): boolean {
+/** Used by setup-extension guards after the shared status check. */
+export async function getMandatoryAuthenticatorRedirect(
+  router: Router,
+  twoFactorService: TwoFactorService,
+): Promise<UrlTree | null> {
   if (isMandatoryLockSuspended() || isMandatoryAuthenticatorSetupComplete()) {
+    return null;
+  }
+
+  await ensureMandatoryAuthenticatorStatus(twoFactorService);
+
+  if (isMandatoryAuthenticatorSetupComplete()) {
+    return null;
+  }
+
+  return createMandatorySetupUrlTree(router);
+}
+
+export function shouldHideAuthenticatedContent(url: string): boolean {
+  if (isMandatoryLockSuspended()) {
     return false;
   }
 
-  return mandatoryAuthenticatorRequired || !providerStatusKnown;
+  if (shouldHideVaultUntilMandatoryStatusResolved(url)) {
+    return true;
+  }
+
+  if (!isMandatoryLockModeActive()) {
+    return false;
+  }
+
+  return isMandatoryPostLoginRouteBlocked(url);
 }

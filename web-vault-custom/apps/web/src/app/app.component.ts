@@ -28,10 +28,9 @@ import { InternalFolderService } from "@bitwarden/common/vault/abstractions/fold
 import { DialogService, RouterFocusManagerService, ToastService } from "@bitwarden/components";
 import { KeyService, BiometricStateService } from "@bitwarden/key-management";
 
-import { getActiveAccountUserIdOrNull, getAuthStatusOrNull } from "./vault/guards/mandatory-authenticator-account.util";
+import { getActiveAccountUserIdOrNull } from "./vault/guards/mandatory-authenticator-account.util";
 import { MandatoryAuthenticatorEnforcementService } from "./vault/guards/mandatory-authenticator-enforcement.service";
 import { MandatoryAuthenticatorLockService } from "./vault/guards/mandatory-authenticator-lock.service";
-import { MANDATORY_TWO_FACTOR_SETUP_URL } from "./vault/guards/mandatory-authenticator.policy";
 
 const BroadcasterSubscriptionId = "AppComponent";
 const IdleTimeout = 60000 * 10; // 10 minutes
@@ -118,7 +117,7 @@ export class AppComponent implements OnDestroy, OnInit {
       this.ngZone.run(async () => {
         switch (message.command) {
           case "authBlocked":
-            if (await this.redirectMandatoryTwoFactorSetupIfRequired()) {
+            if (await this.mandatoryAuthenticatorEnforcementService.handleAuthFailure(message)) {
               break;
             }
             // FIXME: Verify that this floating promise is intentional. If it is, add an explanatory comment and ensure there is proper error handling.
@@ -135,7 +134,7 @@ export class AppComponent implements OnDestroy, OnInit {
             break;
           }
           case "locked":
-            if (await this.redirectMandatoryTwoFactorSetupIfRequired()) {
+            if (await this.mandatoryAuthenticatorEnforcementService.handleAuthFailure(message)) {
               break;
             }
             await this.router.navigate(["/"]);
@@ -252,32 +251,6 @@ export class AppComponent implements OnDestroy, OnInit {
         subtree: true,
       });
     }
-  }
-
-  /**
-   * When mandatory Authenticator enrollment is pending, keep the session alive and send the user
-   * to the setup page instead of treating API 403 / lock signals as a full logout.
-   *
-   * Only applies to Unlocked sessions missing Authenticator — vault Locked state is separate.
-   */
-  private async redirectMandatoryTwoFactorSetupIfRequired(): Promise<boolean> {
-    const userId = await getActiveAccountUserIdOrNull(this.accountService);
-    if (userId == null) {
-      return false;
-    }
-
-    const status = await getAuthStatusOrNull(this.authService, userId);
-    if (status !== AuthenticationStatus.Unlocked) {
-      return false;
-    }
-
-    await this.mandatoryAuthenticatorLockService.refreshLockState();
-    if (!this.mandatoryAuthenticatorLockService.isLockModeActive()) {
-      return false;
-    }
-
-    await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
-    return true;
   }
 
   private async logOut(redirect = true) {

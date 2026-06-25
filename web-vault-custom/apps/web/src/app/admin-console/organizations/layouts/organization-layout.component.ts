@@ -2,7 +2,7 @@
 // @ts-strict-ignore
 import { CommonModule } from "@angular/common";
 import { Component, OnDestroy, OnInit, inject } from "@angular/core";
-import { ActivatedRoute, NavigationEnd, NavigationStart, Router, RouterModule } from "@angular/router";
+import { ActivatedRoute, NavigationStart, Router, RouterModule } from "@angular/router";
 import { combineLatest, filter, map, Observable, Subject, switchMap, takeUntil, withLatestFrom } from "rxjs";
 
 import { JslibModule } from "@bitwarden/angular/jslib.module";
@@ -158,36 +158,20 @@ export class OrganizationLayoutComponent implements OnInit, OnDestroy {
 
     this.router.events
       .pipe(
-        filter(
-          (event) => event instanceof NavigationStart || event instanceof NavigationEnd,
-        ),
+        filter((event) => event instanceof NavigationStart),
         takeUntil(this.destroy$),
       )
       .subscribe((event) => {
-        const url =
-          event instanceof NavigationStart ? event.url : event.urlAfterRedirects;
-        this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(url);
-
-        if (event instanceof NavigationEnd) {
-          void this.onNavigationSettled(event.urlAfterRedirects);
-        }
+        this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(event.url);
       });
 
     await ensureMandatoryAuthenticatorStatus(this.twoFactorService);
-    await this.onNavigationSettled(this.router.url);
+    this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(this.router.url);
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-  }
-
-  private async onNavigationSettled(url: string): Promise<void> {
-    this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(url);
-    await this.enforcementService.redirectIfBlocked(url, true);
-    this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(
-      this.router.url,
-    );
   }
 
   canShowVaultTab(organization: Organization): boolean {

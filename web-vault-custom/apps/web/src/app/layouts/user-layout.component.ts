@@ -3,7 +3,7 @@
 import { CommonModule } from "@angular/common";
 import { Component, computed, inject, OnDestroy, OnInit, Signal } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
-import { NavigationEnd, NavigationStart, Router, RouterModule } from "@angular/router";
+import { NavigationStart, Router, RouterModule } from "@angular/router";
 import { filter, map, Observable, of, Subject, switchMap, takeUntil } from "rxjs";
 
 import { JslibModule } from "@bitwarden/angular/jslib.module";
@@ -95,19 +95,11 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
 
     this.router.events
       .pipe(
-        filter(
-          (event) => event instanceof NavigationStart || event instanceof NavigationEnd,
-        ),
+        filter((event) => event instanceof NavigationStart),
         takeUntil(this.destroy$),
       )
       .subscribe((event) => {
-        const url =
-          event instanceof NavigationStart ? event.url : event.urlAfterRedirects;
-        this.updateRouterOutletVisibility(url);
-
-        if (event instanceof NavigationEnd) {
-          void this.onNavigationSettled(event.urlAfterRedirects);
-        }
+        this.updateRouterOutletVisibility(event.url);
       });
 
     await this.initializeMandatoryTwoFactorGate();
@@ -130,21 +122,10 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
       return;
     }
 
-    await this.onNavigationSettled(this.router.url);
+    this.lockService.requestAuthenticatorDialogReopen();
   }
 
   private updateRouterOutletVisibility(url: string): void {
     this.showRouterOutlet = !this.enforcementService.shouldHideAuthenticatedContent(url);
-  }
-
-  private async onNavigationSettled(url: string): Promise<void> {
-    if (isMandatoryAuthenticatorSetupComplete()) {
-      this.showRouterOutlet = true;
-      return;
-    }
-
-    this.updateRouterOutletVisibility(url);
-    await this.enforcementService.redirectIfBlocked(url, true);
-    this.updateRouterOutletVisibility(this.router.url);
   }
 }

@@ -14,7 +14,6 @@ import {
   ensureMandatoryAuthenticatorStatus,
   isMandatoryLockModeActive,
 } from "../../../vault/guards/mandatory-authenticator.policy";
-import { MandatoryAuthenticatorEnforcementService } from "../../../vault/guards/mandatory-authenticator-enforcement.service";
 import { MandatoryAuthenticatorLockService } from "../../../vault/guards/mandatory-authenticator-lock.service";
 
 // FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
@@ -32,7 +31,6 @@ export class SecurityComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly twoFactorService = inject(TwoFactorService);
-  private readonly enforcementService = inject(MandatoryAuthenticatorEnforcementService);
   private readonly lockService = inject(MandatoryAuthenticatorLockService);
 
   constructor(
@@ -57,17 +55,11 @@ export class SecurityComponent implements OnInit {
       )
       .subscribe(() => {
         this.syncMandatoryTwoFactorOnly();
-        if (this.mandatoryTwoFactorOnly && this.lockService.isLockModeActive()) {
-          void this.router.navigate(["two-factor"], { relativeTo: this.route, replaceUrl: true });
-        }
       });
 
     if (this.mandatoryTwoFactorOnly) {
       await this.router.navigate(["two-factor"], { relativeTo: this.route, replaceUrl: true });
-      return;
     }
-
-    await this.enforcementService.redirectIfBlocked(this.router.url, true);
   }
 
   private syncMandatoryTwoFactorOnly(): void {

@@ -18,11 +18,7 @@ import {
   getActiveAccountUserIdOrNull,
   getAuthStatusOrNull,
 } from "./mandatory-authenticator-account.util";
-import {
-  createMandatorySetupUrlTree,
-  mustCompleteMandatoryAuthenticatorSetup,
-  shouldRedirectToMandatoryAuthenticatorSetup,
-} from "./mandatory-authenticator.policy";
+import { getMandatoryAuthenticatorRedirect } from "./mandatory-authenticator.policy";
 
 export const SETUP_EXTENSION_DISMISSED = new UserKeyDefinition<boolean>(
   SETUP_EXTENSION_DISMISSED_DISK,
@@ -35,7 +31,6 @@ export const SETUP_EXTENSION_DISMISSED = new UserKeyDefinition<boolean>(
 
 /**
  * Extension onboarding redirect — mandatory Authenticator 2FA enrollment takes priority.
- * Users without TOTP must complete Security → 2FA setup before seeing /setup-extension.
  */
 export const setupExtensionRedirectGuard: CanActivateFn = async () => {
   const router = inject(Router);
@@ -45,44 +40,35 @@ export const setupExtensionRedirectGuard: CanActivateFn = async () => {
   const stateProvider = inject(StateProvider);
   const twoFactorService = inject(TwoFactorService);
 
-  const mandatoryRedirect = await redirectToMandatorySetupIfRequired(
-    router,
-    accountService,
-    authService,
-    twoFactorService,
-  );
-  if (mandatoryRedirect !== true) {
+  const mandatoryRedirect = await getMandatoryAuthenticatorRedirect(router, twoFactorService);
+  if (mandatoryRedirect) {
     return mandatoryRedirect;
   }
 
-  const isMobile = Utils.isMobileBrowser;
-
-  // The extension page isn't applicable for mobile users, do not redirect them.
-  // Include before any other checks to avoid unnecessary processing.
-  if (isMobile) {
+  if (Utils.isMobileBrowser) {
     return true;
   }
 
-  const currentAcct = await firstValueFrom(accountService.activeAccount$);
-
-  if (!currentAcct) {
+  const userId = await getActiveAccountUserIdOrNull(accountService);
+  if (!userId) {
     return router.createUrlTree(["/login"]);
+  }
+
+  const authStatus = await getAuthStatusOrNull(authService, userId);
+  if (authStatus !== AuthenticationStatus.Unlocked) {
+    return true;
   }
 
   const dismissedExtensionPage = await firstValueFrom(
     stateProvider
-      .getUser(currentAcct.id, SETUP_EXTENSION_DISMISSED)
+      .getUser(userId, SETUP_EXTENSION_DISMISSED)
       .state$.pipe(map((dismissed) => dismissed ?? false)),
   );
 
   const isProfileOlderThan30Days = await profileIsOlderThan30Days(
     vaultProfileService,
-    currentAcct.id,
-  ).catch(
-    () =>
-      // If the call for the profile fails for any reason, do not block the user
-      true,
-  );
+    userId,
+  ).catch(() => true);
 
   if (dismissedExtensionPage || isProfileOlderThan30Days) {
     return true;
@@ -91,61 +77,15 @@ export const setupExtensionRedirectGuard: CanActivateFn = async () => {
   return router.createUrlTree(["/setup-extension"]);
 };
 
-/**
- * Blocks direct navigation to /setup-extension until mandatory Authenticator 2FA is configured.
- * Applied on the setup-extension route itself (outside UserLayout).
- */
+/** Blocks direct navigation to /setup-extension until mandatory Authenticator 2FA is configured. */
 export const blockSetupExtensionUntilMandatory2faGuard: CanActivateFn = async () => {
   const router = inject(Router);
-  const accountService = inject(AccountService);
-  const authService = inject(AuthService);
   const twoFactorService = inject(TwoFactorService);
 
-  return redirectToMandatorySetupIfRequired(
-    router,
-    accountService,
-    authService,
-    twoFactorService,
-    "setup-extension page",
-  );
+  const mandatoryRedirect = await getMandatoryAuthenticatorRedirect(router, twoFactorService);
+  return mandatoryRedirect ?? true;
 };
 
-async function redirectToMandatorySetupIfRequired(
-  router: Router,
-  accountService: AccountService,
-  authService: AuthService,
-  twoFactorService: TwoFactorService,
-  context = "post-login navigation",
-): Promise<true | import("@angular/router").UrlTree> {
-  const userId = await getActiveAccountUserIdOrNull(accountService);
-  if (!userId) {
-    return true;
-  }
-
-  const authStatus = await getAuthStatusOrNull(authService, userId);
-  if (authStatus === AuthenticationStatus.LoggedOut) {
-    return true;
-  }
-
-  // Never show extension onboarding while the vault is locked or still unlocking.
-  if (authStatus !== AuthenticationStatus.Unlocked) {
-    return true;
-  }
-
-  if (await mustCompleteMandatoryAuthenticatorSetup(twoFactorService)) {
-    if (typeof console !== "undefined" && console.debug) {
-      console.debug(
-        `[Mandatory2FA] blocking ${context} — Authenticator 2FA required first`,
-        { shouldRedirect: shouldRedirectToMandatoryAuthenticatorSetup() },
-      );
-    }
-    return createMandatorySetupUrlTree(router);
-  }
-
-  return true;
-}
-
-/** Returns true when the user's profile is older than 30 days */
 async function profileIsOlderThan30Days(
   vaultProfileService: VaultProfileService,
   userId: string,
@@ -154,7 +94,6 @@ async function profileIsOlderThan30Days(
   return isMoreThan30DaysAgo(creationDate);
 }
 
-/** Returns the true when the date given is older than 30 days */
 function isMoreThan30DaysAgo(date?: string | Date): boolean {
   if (!date) {
     return false;
@@ -162,7 +101,6 @@ function isMoreThan30DaysAgo(date?: string | Date): boolean {
 
   const inputDate = new Date(date).getTime();
   const today = new Date().getTime();
-
   const differenceInMS = today - inputDate;
   const msInADay = 1000 * 60 * 60 * 24;
   const differenceInDays = Math.round(differenceInMS / msInADay);
