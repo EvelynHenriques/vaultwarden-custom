@@ -126,6 +126,8 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
   private updateRouterOutletVisibility(url: string): void {
     const onSetupRoute = isMandatorySetupAllowedUrl(url);
     const hideVaultChrome = this.enforcementService.shouldHideAuthenticatedContent(url);
-    this.showRouterOutlet = onSetupRoute || !hideVaultChrome || !this.enforcementService.isMandatorySetupPending();
+    const setupPending = this.enforcementService.isMandatorySetupPending();
+    // Always show outlet on the mandatory setup route, even while the gate is resolving.
+    this.showRouterOutlet = onSetupRoute || !hideVaultChrome || !setupPending;
   }
 }

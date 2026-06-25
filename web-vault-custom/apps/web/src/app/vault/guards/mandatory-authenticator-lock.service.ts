@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { Subject } from "rxjs";
+import { ReplaySubject } from "rxjs";
 
 import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 import { BroadcasterService } from "@bitwarden/common/platform/abstractions/broadcaster.service";
@@ -36,7 +36,8 @@ export class MandatoryAuthenticatorLockService {
   private readonly mandatoryDialogRefs = new Set<DialogRef>();
   private authenticatorDialogRegistered = false;
 
-  readonly reopenAuthenticatorDialog$ = new Subject<void>();
+  private reopenAuthenticatorDialogSubject = new ReplaySubject<void>(1);
+  reopenAuthenticatorDialog$ = this.reopenAuthenticatorDialogSubject.asObservable();
 
   initializeUi(): void {
     if (this.uiInitialized) {
@@ -58,6 +59,7 @@ export class MandatoryAuthenticatorLockService {
     this.mandatoryDialogRefs.clear();
     document.body.classList.remove("vw-mandatory-2fa-lock-mode");
     this.dialogService.closeAll();
+    this.resetReopenAuthenticatorDialogSubject();
   }
 
   isLockModeActive(): boolean {
@@ -142,7 +144,13 @@ export class MandatoryAuthenticatorLockService {
       return;
     }
 
-    this.reopenAuthenticatorDialog$.next();
+    this.reopenAuthenticatorDialogSubject.next();
+  }
+
+  private resetReopenAuthenticatorDialogSubject(): void {
+    this.reopenAuthenticatorDialogSubject.complete();
+    this.reopenAuthenticatorDialogSubject = new ReplaySubject<void>(1);
+    this.reopenAuthenticatorDialog$ = this.reopenAuthenticatorDialogSubject.asObservable();
   }
 
   private patchDialogService(): void {

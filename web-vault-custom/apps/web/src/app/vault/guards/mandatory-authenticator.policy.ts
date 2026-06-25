@@ -250,6 +250,11 @@ export function isMandatoryVaultApiAllowedPath(path: string): boolean {
     normalized = `/${normalized}`;
   }
 
+  // Never block Identity Server requests (login, token exchange, SSO, etc.).
+  if (normalized.startsWith("/identity/")) {
+    return true;
+  }
+
   if (
     normalized === "/identity/connect/token" ||
     normalized === "/config" ||

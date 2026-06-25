@@ -3,6 +3,7 @@ import { Router } from "@angular/router";
 import {
   EMPTY,
   catchError,
+  defaultIfEmpty,
   distinctUntilChanged,
   filter,
   firstValueFrom,
@@ -53,6 +54,8 @@ const GATE_WAIT_MS = 20_000;
 type ApiServiceWithMiddleware = ApiService & {
   addMiddleware?: (middleware: FetchMiddleware) => void;
 };
+
+type ActiveAccount = { id: UserId };
 
 @Injectable({ providedIn: "root" })
 export class MandatoryAuthenticatorEnforcementService {
@@ -167,13 +170,12 @@ export class MandatoryAuthenticatorEnforcementService {
 
   async openMandatorySetupAfterGate(): Promise<void> {
     await this.navigateToMandatorySetupIfNeeded();
+    await this.waitForSetupRouteActivation();
     mandatory2faLog("opening mandatory setup dialog");
     this.lockService.requestAuthenticatorDialogReopen();
   }
 
   private scheduleGateResolution(): void {
-    enterPostLoginVerificationState();
-
     if (this.gateResolvePromise) {
       return;
     }
@@ -199,8 +201,9 @@ export class MandatoryAuthenticatorEnforcementService {
 
     const userId = await this.waitForActiveUnlockedAccount();
     if (!userId) {
-      mandatory2faLog("active account = null (not unlocked yet)");
+      mandatory2faLog("active account = null (timed out waiting for unlocked account)");
       failSafeUnresolvedGate();
+      await this.navigateToMandatorySetupIfNeeded();
       return;
     }
 
@@ -216,44 +219,31 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
-    await this.openMandatorySetupAfterGate();
+    await this.navigateToMandatorySetupIfNeeded();
   }
 
   /** Fail-safe: never release vault when 2FA state is unknown or unresolved. */
   private applyFailSafeRestrictedState(): void {
     failSafeUnresolvedGate();
     this.lockService.syncDomLockClass();
-    void this.openMandatorySetupAfterGate();
+    void this.navigateToMandatorySetupIfNeeded();
   }
 
   /**
-   * Event-driven: resolves when activeAccount$ emits and auth status is Unlocked.
-   * Timeout is a safety fallback only.
+   * Wait until activeAccount$ has an id and auth status is Unlocked.
+   * Must not complete early on transient null account emissions.
    */
   private waitForActiveUnlockedAccount(): Promise<UserId | null> {
     return firstValueFrom(
       this.accountService.activeAccount$.pipe(
-        switchMap((account) => {
-          if (!account?.id) {
-            mandatory2faLog("active account loaded / missing / null", { userId: null });
-            return EMPTY;
-          }
-
-          return this.authService.authStatusFor$(account.id).pipe(
-            filter((status) => {
-              if (status !== AuthenticationStatus.Unlocked) {
-                mandatory2faLog("active account loaded / missing / null", {
-                  userId: account.id,
-                  authStatus: status,
-                });
-                return false;
-              }
-              return true;
-            }),
+        filter((account): account is ActiveAccount => account?.id != null),
+        switchMap((account) =>
+          this.authService.authStatusFor$(account.id).pipe(
+            filter((status) => status === AuthenticationStatus.Unlocked),
             take(1),
-            map(() => account.id as UserId),
-          );
-        }),
+            map(() => account.id),
+          ),
+        ),
         timeout({
           first: ACCOUNT_WAIT_MS,
           with: () => {
@@ -261,6 +251,7 @@ export class MandatoryAuthenticatorEnforcementService {
             return of(null);
           },
         }),
+        defaultIfEmpty(null),
         catchError(() => of(null)),
       ),
     );
@@ -274,5 +265,20 @@ export class MandatoryAuthenticatorEnforcementService {
 
     mandatory2faLog("navigating to mandatory 2FA setup", { from: currentPath });
     await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
+  }
+
+  /** Wait until the mandatory setup route is active so the setup component can mount. */
+  private async waitForSetupRouteActivation(): Promise<void> {
+    const target = normalizeMandatorySetupPath(MANDATORY_TWO_FACTOR_SETUP_URL);
+
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const current = normalizeMandatorySetupPath(this.router.url);
+      if (current === target || current.startsWith(`${target}/`)) {
+        // One extra tick lets Angular instantiate the routed component.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
   }
 }
