@@ -37,8 +37,6 @@ import { OrgSwitcherComponent } from "../../../layouts/org-switcher/org-switcher
 import { WebLayoutModule } from "../../../layouts/web-layout.module";
 import { MandatoryAuthenticatorEnforcementService } from "../../../vault/guards/mandatory-authenticator-enforcement.service";
 
-import { MandatoryAuthenticatorEnforcementService } from "../../../vault/guards/mandatory-authenticator-enforcement.service";
-
 // FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
 // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
 @Component({
