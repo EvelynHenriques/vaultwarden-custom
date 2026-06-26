@@ -9,7 +9,10 @@ import { AccountService } from "@bitwarden/common/auth/abstractions/account.serv
 import { HeaderModule } from "../../../layouts/header/header.module";
 import { SharedModule } from "../../../shared";
 import { getActiveAccountUserIdOrNull } from "../../../vault/guards/mandatory-authenticator-account.util";
-import { getMandatoryGatePhase } from "../../../vault/guards/mandatory-authenticator.policy";
+import {
+  getMandatoryGatePhase,
+  mandatory2faNavLog,
+} from "../../../vault/guards/mandatory-authenticator.policy";
 import { MandatoryAuthenticatorLockService } from "../../../vault/guards/mandatory-authenticator-lock.service";
 
 // FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
@@ -52,6 +55,11 @@ export class SecurityComponent implements OnInit {
       });
 
     if (this.mandatoryTwoFactorOnly) {
+      mandatory2faNavLog("SecurityComponent/ngOnInit", {
+        currentUrl: this.router.url,
+        requestedUrl: "two-factor",
+        finalUrl: "/settings/security/two-factor",
+      });
       await this.router.navigate(["two-factor"], { relativeTo: this.route, replaceUrl: true });
     }
   }

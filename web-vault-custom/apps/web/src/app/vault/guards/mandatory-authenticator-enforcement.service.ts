@@ -1,5 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import { NavigationStart, Router } from "@angular/router";
+import { NavigationEnd, NavigationStart, Router } from "@angular/router";
 import { distinctUntilChanged, EMPTY, switchMap } from "rxjs";
 
 import { ApiService } from "@bitwarden/common/abstractions/api.service";
@@ -17,16 +17,20 @@ import {
 import { registerMandatoryAuthenticatorApiMiddleware } from "./mandatory-authenticator-api.middleware";
 import { MandatoryAuthenticatorLockService } from "./mandatory-authenticator-lock.service";
 import {
+  beginMandatoryAuthFlow,
   confirmMandatoryAuthenticatorRequiredFromApi,
   enterPostLoginVerificationState,
   failSafeUnresolvedGate,
+  finishMandatoryAuthFlow,
   getMandatoryGatePhase,
+  isMandatoryAuthFlowInProgress,
   isMandatoryLockExemptNavigation,
   isMandatoryLockSuspended,
   isMandatorySetupAllowedUrl,
   isPreLoginAuthenticationRoute,
   isVaultAccessAllowedByGate,
   mandatory2faLog,
+  mandatory2faNavLog,
   mandatory2faWarn,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   normalizeMandatorySetupPath,
@@ -76,7 +80,7 @@ export class MandatoryAuthenticatorEnforcementService {
     }
 
     this.lockService.initializeUi();
-    this.attachPreLoginRouteListener();
+    this.attachAuthRouteListener();
 
     this.accountService.activeAccount$
       .pipe(
@@ -84,7 +88,15 @@ export class MandatoryAuthenticatorEnforcementService {
           const accountId = account?.id ?? null;
           if (accountId !== this.currentAccountId) {
             this.currentAccountId = accountId;
-            this.resetGateForRevalidation("account transition");
+            if (isMandatoryAuthFlowInProgress()) {
+              mandatory2faLog("skip gate reset during active auth flow", {
+                reason: "account transition",
+                accountId,
+                currentUrl: this.router.url,
+              });
+            } else {
+              this.resetGateForRevalidation("account transition");
+            }
           }
 
           if (!account?.id) {
@@ -94,6 +106,17 @@ export class MandatoryAuthenticatorEnforcementService {
         }),
       )
       .subscribe((status) => {
+        if (isMandatoryAuthFlowInProgress() && isPreLoginAuthenticationRoute(this.router.url)) {
+          mandatory2faLog("auth status observed during active login/2FA flow; deferring custom handling", {
+            status,
+            currentUrl: this.router.url,
+          });
+          if (status === AuthenticationStatus.Unlocked) {
+            enterPostLoginVerificationState();
+          }
+          return;
+        }
+
         if (status === AuthenticationStatus.LoggedOut) {
           this.pauseServerNotifications();
           this.lockService.prepareForLogout();
@@ -121,24 +144,31 @@ export class MandatoryAuthenticatorEnforcementService {
     void this.bootstrapExistingSession();
   }
 
-  /** Clear stale mandatory gate state when returning to pre-unlock login routes. */
-  private attachPreLoginRouteListener(): void {
+  /** Track the original login/2FA flow so custom enforcement does not race it. */
+  private attachAuthRouteListener(): void {
     this.router.events.subscribe((event) => {
-      if (!(event instanceof NavigationStart)) {
+      if (event instanceof NavigationStart) {
+        if (!isPreLoginAuthenticationRoute(event.url)) {
+          return;
+        }
+
+        beginMandatoryAuthFlow("pre-login route navigation");
         return;
       }
 
-      if (!isPreLoginAuthenticationRoute(event.url)) {
+      if (!(event instanceof NavigationEnd) || !isMandatoryAuthFlowInProgress()) {
         return;
       }
 
-      const phase = getMandatoryGatePhase();
-      if (phase !== "idle") {
-        mandatory2faLog("reset gate for pre-login route", {
-          path: normalizeMandatorySetupPath(event.url),
-        });
-        this.resetGateForRevalidation("pre-login route");
+      const finalUrl = event.urlAfterRedirects || event.url;
+      if (isPreLoginAuthenticationRoute(finalUrl)) {
+        return;
       }
+
+      setTimeout(() => {
+        finishMandatoryAuthFlow("post-login navigation completed");
+        this.scheduleGateResolution();
+      }, 0);
     });
   }
 
@@ -349,11 +379,25 @@ export class MandatoryAuthenticatorEnforcementService {
       route: currentPath,
       reason: "mandatory Authenticator setup required",
     });
+    mandatory2faNavLog("navigateToMandatorySetupIfNeeded", {
+      currentUrl: this.router.url,
+      requestedUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
+      finalUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
+    });
     await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
   }
 
   private async navigateToVaultAfterReleaseIfNeeded(): Promise<void> {
     const currentPath = normalizeMandatorySetupPath(this.router.url);
+    if (isMandatoryAuthFlowInProgress()) {
+      mandatory2faNavLog("navigateToVaultAfterReleaseIfNeeded/deferred", {
+        currentUrl: this.router.url,
+        requestedUrl: "/vault",
+        finalUrl: this.router.url,
+      });
+      return;
+    }
+
     if (
       currentPath === "/" ||
       isMandatorySetupAllowedUrl(currentPath) ||
@@ -361,6 +405,11 @@ export class MandatoryAuthenticatorEnforcementService {
     ) {
       mandatory2faLog("current route", currentPath);
       mandatory2faLog("target route", "/vault");
+      mandatory2faNavLog("navigateToVaultAfterReleaseIfNeeded", {
+        currentUrl: this.router.url,
+        requestedUrl: "/vault",
+        finalUrl: "/vault",
+      });
       await this.router.navigate(["/vault"], { replaceUrl: true });
     }
   }

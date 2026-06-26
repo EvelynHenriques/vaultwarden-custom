@@ -18,7 +18,10 @@ import {
   getActiveAccountUserIdOrNull,
   getAuthStatusOrNull,
 } from "./mandatory-authenticator-account.util";
-import { getMandatoryAuthenticatorRedirect } from "./mandatory-authenticator.policy";
+import {
+  getMandatoryAuthenticatorRedirect,
+  mandatory2faNavLog,
+} from "./mandatory-authenticator.policy";
 
 export const SETUP_EXTENSION_DISMISSED = new UserKeyDefinition<boolean>(
   SETUP_EXTENSION_DISMISSED_DISK,
@@ -46,6 +49,11 @@ export const setupExtensionRedirectGuard: CanActivateFn = async () => {
 
   const userId = await getActiveAccountUserIdOrNull(accountService);
   if (!userId) {
+    mandatory2faNavLog("setupExtensionRedirectGuard/noUser", {
+      currentUrl: router.url,
+      requestedUrl: "/login",
+      finalUrl: "/login",
+    });
     return router.createUrlTree(["/login"]);
   }
 
@@ -74,6 +82,11 @@ export const setupExtensionRedirectGuard: CanActivateFn = async () => {
     return true;
   }
 
+  mandatory2faNavLog("setupExtensionRedirectGuard/setupExtension", {
+    currentUrl: router.url,
+    requestedUrl: "/setup-extension",
+    finalUrl: "/setup-extension",
+  });
   return router.createUrlTree(["/setup-extension"]);
 };
 

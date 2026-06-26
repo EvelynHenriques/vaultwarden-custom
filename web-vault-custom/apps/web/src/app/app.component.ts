@@ -30,7 +30,12 @@ import { KeyService, BiometricStateService } from "@bitwarden/key-management";
 import { getActiveAccountUserIdOrNull } from "./vault/guards/mandatory-authenticator-account.util";
 import { MandatoryAuthenticatorEnforcementService } from "./vault/guards/mandatory-authenticator-enforcement.service";
 import { MandatoryAuthenticatorLockService } from "./vault/guards/mandatory-authenticator-lock.service";
-import { mandatory2faLog, mandatory2faWarn } from "./vault/guards/mandatory-authenticator.policy";
+import {
+  isMandatoryAuthFlowInProgress,
+  mandatory2faLog,
+  mandatory2faNavLog,
+  mandatory2faWarn,
+} from "./vault/guards/mandatory-authenticator.policy";
 
 const BroadcasterSubscriptionId = "AppComponent";
 const IdleTimeout = 60000 * 10; // 10 minutes
@@ -123,11 +128,20 @@ export class AppComponent implements OnDestroy, OnInit {
               break;
             }
             mandatory2faWarn("authBlocked; redirecting to login");
+            mandatory2faNavLog("AppComponent/authBlocked", {
+              currentUrl: this.router.url,
+              requestedUrl: "/",
+              finalUrl: "/",
+            });
             // FIXME: Verify that this floating promise is intentional. If it is, add an explanatory comment and ensure there is proper error handling.
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             this.router.navigate(["/"]);
             break;
           case "logout":
+            if (isMandatoryAuthFlowInProgress()) {
+              mandatory2faLog("logout ignored during active login/2FA flow", message);
+              break;
+            }
             // Only invalidAccessToken from mandatory-setup race — never suppress other logout reasons.
             if (
               message?.logoutReason === "invalidAccessToken" &&
@@ -140,11 +154,19 @@ export class AppComponent implements OnDestroy, OnInit {
             await this.logOut(message.redirect);
             break;
           case "lockVault": {
+            if (isMandatoryAuthFlowInProgress()) {
+              mandatory2faLog("lockVault ignored during active login/2FA flow", message);
+              break;
+            }
             mandatory2faLog("lockVault received; EBvault requires full re-login before vault access");
             await this.logOut(true);
             break;
           }
           case "locked":
+            if (isMandatoryAuthFlowInProgress()) {
+              mandatory2faLog("locked ignored during active login/2FA flow", message);
+              break;
+            }
             mandatory2faLog("locked received", message);
             if (await this.mandatoryAuthenticatorEnforcementService.handleAuthFailure(message)) {
               mandatory2faLog("locked handled as mandatory setup; no full re-login");
@@ -170,6 +192,11 @@ export class AppComponent implements OnDestroy, OnInit {
               type: "info",
             });
             if (upgradeConfirmed) {
+              mandatory2faNavLog("AppComponent/upgradeOrganization", {
+                currentUrl: this.router.url,
+                requestedUrl: "/vault",
+                finalUrl: "/vault",
+              });
               await this.router.navigate(["vault"], { replaceUrl: true });
             }
             break;
@@ -186,6 +213,11 @@ export class AppComponent implements OnDestroy, OnInit {
             this.toastService._showToast(message);
             break;
           case "convertAccountToKeyConnector":
+            mandatory2faNavLog("AppComponent/convertAccountToKeyConnector", {
+              currentUrl: this.router.url,
+              requestedUrl: "/remove-password",
+              finalUrl: "/remove-password",
+            });
             // FIXME: Verify that this floating promise is intentional. If it is, add an explanatory comment and ensure there is proper error handling.
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             this.router.navigate(["/remove-password"]);
@@ -285,6 +317,11 @@ export class AppComponent implements OnDestroy, OnInit {
     if (userId == null) {
       await this.accountService.switchAccount(null);
       if (redirect) {
+        mandatory2faNavLog("AppComponent/logOut/noUser", {
+          currentUrl: this.router.url,
+          requestedUrl: "/login",
+          finalUrl: "/login",
+        });
         await this.router.navigate(["/login"], {
           replaceUrl: true,
         });
@@ -327,6 +364,11 @@ export class AppComponent implements OnDestroy, OnInit {
       }
 
       if (redirect) {
+        mandatory2faNavLog("AppComponent/logOut", {
+          currentUrl: this.router.url,
+          requestedUrl: "/login",
+          finalUrl: "/login",
+        });
         await this.router.navigate(["/login"], {
           replaceUrl: true,
         });

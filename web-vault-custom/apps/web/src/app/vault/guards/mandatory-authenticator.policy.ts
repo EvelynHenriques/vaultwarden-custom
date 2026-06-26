@@ -36,6 +36,7 @@ export type MandatoryGatePhase = "idle" | "pending" | "blocked" | "released";
 let gatePhase: MandatoryGatePhase = "idle";
 let statusCheckPromise: Promise<MandatoryGatePhase> | null = null;
 let mandatoryLockSuspended = false;
+let authFlowInProgress = false;
 
 export const MANDATORY_AUTHENTICATOR_SETUP_MESSAGE =
   "Authenticator app setup is required before continuing";
@@ -49,6 +50,48 @@ function log(message: string, detail?: unknown): void {
 
 export function getMandatoryGatePhase(): MandatoryGatePhase {
   return gatePhase;
+}
+
+export function isMandatoryAuthFlowInProgress(): boolean {
+  return authFlowInProgress;
+}
+
+export function beginMandatoryAuthFlow(reason: string): void {
+  if (!authFlowInProgress) {
+    log(`auth flow in progress = true (${reason})`);
+  }
+  authFlowInProgress = true;
+}
+
+export function finishMandatoryAuthFlow(reason: string): void {
+  if (authFlowInProgress) {
+    log(`auth flow in progress = false (${reason})`);
+  }
+  authFlowInProgress = false;
+}
+
+export function mandatory2faNavLog(
+  source: string,
+  detail: {
+    currentUrl?: string;
+    requestedUrl?: string;
+    finalUrl?: string;
+  },
+): void {
+  if (!MANDATORY_2FA_DEBUG_ENABLED || typeof console === "undefined" || !console.log) {
+    return;
+  }
+
+  console.log("[EBvault 2FA NAV]", {
+    source,
+    currentUrl: detail.currentUrl,
+    requestedUrl: detail.requestedUrl,
+    finalUrl: detail.finalUrl,
+    gatePhase,
+    hasAuthenticator: gatePhase === "released",
+    mandatorySetupRequired: gatePhase === "blocked",
+    authFlowInProgress,
+  });
 }
 
 export function suspendMandatoryLock(): void {
@@ -523,10 +566,20 @@ export async function resolveMandatoryAuthenticatorAccess(
   }
 
   log("route blocked — redirect to mandatory 2FA setup", { url });
+  mandatory2faNavLog("resolveMandatoryAuthenticatorAccess", {
+    currentUrl: router.url,
+    requestedUrl: url,
+    finalUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
+  });
   return createMandatorySetupUrlTree(router);
 }
 
 export function createMandatorySetupUrlTree(router: Router): UrlTree {
+  mandatory2faNavLog("createMandatorySetupUrlTree", {
+    currentUrl: router.url,
+    requestedUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
+    finalUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
+  });
   return router.createUrlTree([MANDATORY_TWO_FACTOR_SETUP_URL]);
 }
 
