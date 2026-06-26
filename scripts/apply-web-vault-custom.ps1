@@ -86,6 +86,11 @@ New-Item -ItemType Directory -Force -Path (Split-Path $serverLogo -Parent) | Out
 Copy-Item $ebvaultLogoSource $serverLogo -Force
 Write-Host "  updated src/static/images/logo-ebvault.svg"
 
+$serverShieldLogo = Join-Path (Join-Path $ScriptDir "..") "src\static\images\logo-shield.svg"
+New-Item -ItemType Directory -Force -Path (Split-Path $serverShieldLogo -Parent) | Out-Null
+Copy-Item $shieldLogoSource $serverShieldLogo -Force
+Write-Host "  updated src/static/images/logo-shield.svg"
+
 $python = $null
 foreach ($candidate in @("python3", "python", "py")) {
     if (Get-Command $candidate -ErrorAction SilentlyContinue) {

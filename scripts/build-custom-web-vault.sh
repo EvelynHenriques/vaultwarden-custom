@@ -64,9 +64,13 @@ if [[ -f "${OUTPUT_DIR}/index.html" ]]; then
   # Remove only <link rel="icon" ...> tags — never delete whole lines (minified index.html is often one line).
   sed -i 's/<link[^>]*rel="icon"[^>]*>//g' "${INDEX}" 2>/dev/null || \
     sed -i '' 's/<link[^>]*rel="icon"[^>]*>//g' "${INDEX}" 2>/dev/null || true
-  if ! grep -q 'logo-shield.svg' "${INDEX}"; then
+  if ! grep -q 'rel="icon" type="image/svg+xml" href="images/icons/logo-shield.svg"' "${INDEX}"; then
     sed -i 's|</head>|    <link rel="icon" type="image/svg+xml" href="images/icons/logo-shield.svg" />\n</head>|' "${INDEX}" 2>/dev/null || \
       sed -i '' 's|</head>|    <link rel="icon" type="image/svg+xml" href="images/icons/logo-shield.svg" />\n</head>|' "${INDEX}" 2>/dev/null || true
+  fi
+  if ! grep -q 'rel="icon" type="image/x-icon" href="favicon.ico"' "${INDEX}"; then
+    sed -i 's|</head>|    <link rel="icon" type="image/x-icon" href="favicon.ico" />\n</head>|' "${INDEX}" 2>/dev/null || \
+      sed -i '' 's|</head>|    <link rel="icon" type="image/x-icon" href="favicon.ico" />\n</head>|' "${INDEX}" 2>/dev/null || true
   fi
   sed -i 's|<link rel="apple-touch-icon"[^>]*>|<link rel="apple-touch-icon" href="images/icons/logo-shield.svg" />|g' "${INDEX}" 2>/dev/null || \
     sed -i '' 's|<link rel="apple-touch-icon"[^>]*>|<link rel="apple-touch-icon" href="images/icons/logo-shield.svg" />|g' "${INDEX}" 2>/dev/null || true
@@ -80,6 +84,14 @@ if [[ -f "${OUTPUT_DIR}/index.html" ]]; then
     echo "ERROR: index.html is missing <!DOCTYPE html> after branding patches — aborting." >&2
     exit 1
   fi
+fi
+
+shield_icon="${OUTPUT_DIR}/images/icons/logo-shield.svg"
+if [[ -f "${shield_icon}" ]]; then
+  cp "${shield_icon}" "${OUTPUT_DIR}/favicon.ico"
+  cp "${shield_icon}" "${OUTPUT_DIR}/favicon.svg"
+  cp "${shield_icon}" "${OUTPUT_DIR}/favicon.png"
+  cp "${shield_icon}" "${OUTPUT_DIR}/apple-touch-icon.png"
 fi
 
 MANIFEST="${OUTPUT_DIR}/manifest.json"

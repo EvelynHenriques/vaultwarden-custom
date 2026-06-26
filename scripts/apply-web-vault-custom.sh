@@ -111,6 +111,13 @@ if [[ -f "${ebvault_logo_source}" ]]; then
   echo "  updated src/static/images/logo-ebvault.svg"
 fi
 
+server_shield_logo="${SCRIPT_DIR}/../src/static/images/logo-shield.svg"
+if [[ -f "${shield_logo_source}" ]]; then
+  mkdir -p "$(dirname "${server_shield_logo}")"
+  cp "${shield_logo_source}" "${server_shield_logo}"
+  echo "  updated src/static/images/logo-shield.svg"
+fi
+
 # Idempotent source patches (routing, favicon, org guards). Fail the build if any step fails.
 if command -v python3 >/dev/null 2>&1; then
   PYTHON=python3

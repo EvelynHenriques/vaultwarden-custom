@@ -109,6 +109,7 @@ export class MandatoryAuthenticatorEnforcementService {
         }
 
         if (status === AuthenticationStatus.Unlocked) {
+          mandatory2faLog("token login success");
           mandatory2faLog("post-login continuation started after successful authentication");
           mandatory2faLog("login or unlock success");
           enterPostLoginVerificationState();
@@ -270,6 +271,7 @@ export class MandatoryAuthenticatorEnforcementService {
       mandatory2faLog("mandatory authenticator status detected: configured");
       await this.resumeServerNotifications();
       mandatory2faLog("selected navigation target: vault");
+      await this.navigateToVaultAfterReleaseIfNeeded();
       return;
     }
 
@@ -300,6 +302,7 @@ export class MandatoryAuthenticatorEnforcementService {
       await Promise.resolve(this.serverNotificationsService.reconnectFromActivity());
       mandatory2faLog("server notifications resume requested");
     } catch (error) {
+      mandatory2faWarn("SignalR failed but continuing login", error);
       mandatory2faWarn("server notifications resume failed; continuing without SignalR", error);
     }
   }
@@ -335,12 +338,31 @@ export class MandatoryAuthenticatorEnforcementService {
 
   private async navigateToMandatorySetupIfNeeded(): Promise<void> {
     const currentPath = normalizeMandatorySetupPath(this.router.url);
-    if (isMandatorySetupAllowedUrl(currentPath) || isMandatoryLockExemptNavigation(currentPath)) {
+    if (isMandatorySetupAllowedUrl(currentPath)) {
+      mandatory2faLog("current route already mandatory setup route", { currentRoute: currentPath });
       return;
     }
 
-    mandatory2faLog("blocked route; redirecting to mandatory 2FA setup", { from: currentPath });
+    mandatory2faLog("current route", currentPath);
+    mandatory2faLog("target route", MANDATORY_TWO_FACTOR_SETUP_URL);
+    mandatory2faLog("route blocked", {
+      route: currentPath,
+      reason: "mandatory Authenticator setup required",
+    });
     await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
+  }
+
+  private async navigateToVaultAfterReleaseIfNeeded(): Promise<void> {
+    const currentPath = normalizeMandatorySetupPath(this.router.url);
+    if (
+      currentPath === "/" ||
+      isMandatorySetupAllowedUrl(currentPath) ||
+      isMandatoryLockExemptNavigation(currentPath)
+    ) {
+      mandatory2faLog("current route", currentPath);
+      mandatory2faLog("target route", "/vault");
+      await this.router.navigate(["/vault"], { replaceUrl: true });
+    }
   }
 
   /** Wait until the mandatory setup route is active so the setup component can mount. */

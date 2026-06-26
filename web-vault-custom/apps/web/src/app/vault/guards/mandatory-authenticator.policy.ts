@@ -6,7 +6,7 @@ import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 /** Only whitelisted authenticated route while mandatory Authenticator 2FA is pending. */
 export const MANDATORY_TWO_FACTOR_SETUP_URL = "/settings/security/two-factor";
 
-const LOG = "[Mandatory2FA]";
+const LOG = "[EBvault 2FA]";
 
 /** Set to `false` to disable temporary mandatory-2FA debug logs after validation. */
 export let MANDATORY_2FA_DEBUG_ENABLED = true;
@@ -16,10 +16,10 @@ export function setMandatory2faDebugEnabled(enabled: boolean): void {
 }
 
 export function mandatory2faLog(message: string, detail?: unknown): void {
-  if (!MANDATORY_2FA_DEBUG_ENABLED || typeof console === "undefined" || !console.debug) {
+  if (!MANDATORY_2FA_DEBUG_ENABLED || typeof console === "undefined" || !console.log) {
     return;
   }
-  console.debug(`${LOG} ${message}`, detail ?? "");
+  console.log(`${LOG} ${message}`, detail ?? "");
 }
 
 /** Operational warnings (sync failures, etc.) — visible without DevTools Verbose. */
@@ -420,6 +420,10 @@ async function fetchMandatoryAuthenticatorStatus(
         provider.type === TwoFactorProviderType.Authenticator && provider.enabled === true,
     );
 
+    log("/api/two-factor response", providerList);
+    log("hasAuthenticator", hasEnabledAuthenticator);
+    log("mandatorySetupRequired", !hasEnabledAuthenticator);
+    log("mandatoryAuthSatisfied", hasEnabledAuthenticator);
     log("/api/two-factor result = success", {
       providers: providerList.data.map((p) => ({ type: p.type, enabled: p.enabled })),
       hasEnabledAuthenticator,
@@ -467,10 +471,6 @@ export async function resolveMandatoryAuthenticatorGate(
   }
 
   enterPostLoginVerificationState();
-
-  if (gatePhase === "blocked") {
-    return "blocked";
-  }
 
   if (statusCheckPromise) {
     return statusCheckPromise;
