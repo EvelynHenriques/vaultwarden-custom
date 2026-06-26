@@ -72,6 +72,7 @@ export function resetMandatoryAuthenticatorSetupState(): void {
 
 export function markMandatoryAuthenticatorSetupComplete(): void {
   gatePhase = "released";
+  statusCheckPromise = null;
   log("releasing gate after 2FA configured");
 }
 
@@ -222,29 +223,17 @@ export function isMandatoryGateRestricted(): boolean {
  *
  * Scope (intentionally narrow):
  * - `released` + no mandatory payload → never intercept (normal auth failures apply)
- * - explicit mandatory 2FA message in payload → intercept in any non-idle phase
- * - `pending` / `blocked` → intercept (login-time race / setup flow only)
- * - `idle` without mandatory payload → never intercept
+ * - explicit mandatory 2FA message in payload → intercept
+ * - missing mandatory payload → never intercept, even while pending/blocked
  */
 export function shouldInterceptAuthFailureAsMandatorySetup(
   phase: MandatoryGatePhase,
   signal?: Record<string, unknown>,
 ): boolean {
+  void phase;
   const hasMandatoryPayload = isMandatoryAuthenticatorAuthFailureSignal(signal);
 
-  if (phase === "released") {
-    return hasMandatoryPayload;
-  }
-
-  if (phase === "idle") {
-    return hasMandatoryPayload;
-  }
-
-  if (hasMandatoryPayload) {
-    return true;
-  }
-
-  return phase === "pending" || phase === "blocked";
+  return hasMandatoryPayload;
 }
 
 export function normalizeMandatorySetupPath(url: string): string {
@@ -391,10 +380,9 @@ export function shouldBlockMandatoryVaultApiRequest(request: Request): boolean {
     return false;
   }
 
-  // Only block after the gate confirms Authenticator is missing (`blocked`).
-  // While `pending`, loginSuccessHandler may still run fullSync — blocking here breaks
-  // post-login navigation for accounts that already have 2FA configured.
-  if (isMandatoryLockSuspended() || gatePhase !== "blocked") {
+  // Block sensitive vault APIs while the gate is unresolved or confirmed blocked.
+  // Setup/bootstrap endpoints remain available so Authenticator enrollment can complete.
+  if (isMandatoryLockSuspended() || (gatePhase !== "pending" && gatePhase !== "blocked")) {
     return false;
   }
 
@@ -412,7 +400,7 @@ export function shouldBlockMandatoryVaultApiRequest(request: Request): boolean {
       return false;
     }
     if (apiPath === "/sync" || apiPath.startsWith("/sync")) {
-      log("/api/sync attempted before mandatory setup — blocked locally");
+      log(`/api/sync attempted while mandatory gate is ${gatePhase} — blocked locally`);
     }
     log(`API blocked locally: ${apiPath}`);
     return true;
@@ -436,6 +424,10 @@ async function fetchMandatoryAuthenticatorStatus(
       providers: providerList.data.map((p) => ({ type: p.type, enabled: p.enabled })),
       hasEnabledAuthenticator,
     });
+
+    if (gatePhase === "released") {
+      return "released";
+    }
 
     if (hasEnabledAuthenticator) {
       log("decision = authenticator configured");

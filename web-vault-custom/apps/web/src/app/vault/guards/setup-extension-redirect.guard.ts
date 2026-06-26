@@ -40,11 +40,6 @@ export const setupExtensionRedirectGuard: CanActivateFn = async () => {
   const stateProvider = inject(StateProvider);
   const twoFactorService = inject(TwoFactorService);
 
-  const mandatoryRedirect = await getMandatoryAuthenticatorRedirect(router, twoFactorService);
-  if (mandatoryRedirect) {
-    return mandatoryRedirect;
-  }
-
   if (Utils.isMobileBrowser) {
     return true;
   }
@@ -57,6 +52,11 @@ export const setupExtensionRedirectGuard: CanActivateFn = async () => {
   const authStatus = await getAuthStatusOrNull(authService, userId);
   if (authStatus !== AuthenticationStatus.Unlocked) {
     return true;
+  }
+
+  const mandatoryRedirect = await getMandatoryAuthenticatorRedirect(router, twoFactorService);
+  if (mandatoryRedirect) {
+    return mandatoryRedirect;
   }
 
   const dismissedExtensionPage = await firstValueFrom(
@@ -80,7 +80,15 @@ export const setupExtensionRedirectGuard: CanActivateFn = async () => {
 /** Blocks direct navigation to /setup-extension until mandatory Authenticator 2FA is configured. */
 export const blockSetupExtensionUntilMandatory2faGuard: CanActivateFn = async () => {
   const router = inject(Router);
+  const accountService = inject(AccountService);
+  const authService = inject(AuthService);
   const twoFactorService = inject(TwoFactorService);
+
+  const userId = await getActiveAccountUserIdOrNull(accountService);
+  const authStatus = await getAuthStatusOrNull(authService, userId);
+  if (authStatus !== AuthenticationStatus.Unlocked) {
+    return true;
+  }
 
   const mandatoryRedirect = await getMandatoryAuthenticatorRedirect(router, twoFactorService);
   return mandatoryRedirect ?? true;

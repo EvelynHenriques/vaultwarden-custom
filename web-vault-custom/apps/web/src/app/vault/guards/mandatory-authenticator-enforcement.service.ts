@@ -7,6 +7,7 @@ import { AccountService } from "@bitwarden/common/auth/abstractions/account.serv
 import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
 import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
+import { ServerNotificationsService } from "@bitwarden/common/platform/server-notifications";
 import { UserId } from "@bitwarden/common/types/guid";
 
 import {
@@ -53,6 +54,7 @@ export class MandatoryAuthenticatorEnforcementService {
   private readonly twoFactorService = inject(TwoFactorService);
   private readonly lockService = inject(MandatoryAuthenticatorLockService);
   private readonly apiService = inject(ApiService) as ApiServiceWithMiddleware;
+  private readonly serverNotificationsService = inject(ServerNotificationsService);
 
   private started = false;
   private gateResolvePromise: Promise<void> | null = null;
@@ -86,6 +88,7 @@ export class MandatoryAuthenticatorEnforcementService {
       )
       .subscribe((status) => {
         if (status === AuthenticationStatus.LoggedOut) {
+          this.pauseServerNotifications();
           this.lockService.prepareForLogout();
           return;
         }
@@ -93,6 +96,7 @@ export class MandatoryAuthenticatorEnforcementService {
         if (status === AuthenticationStatus.Unlocked) {
           mandatory2faLog("login or unlock success");
           enterPostLoginVerificationState();
+          this.pauseServerNotifications();
           this.scheduleGateResolution();
         }
       });
@@ -131,6 +135,7 @@ export class MandatoryAuthenticatorEnforcementService {
     if (status === AuthenticationStatus.Unlocked) {
       mandatory2faLog("login or unlock success (existing session)");
       enterPostLoginVerificationState();
+      this.pauseServerNotifications();
       this.scheduleGateResolution();
     }
   }
@@ -246,10 +251,12 @@ export class MandatoryAuthenticatorEnforcementService {
     this.lockService.syncDomLockClass();
 
     if (phase === "released") {
+      this.resumeServerNotifications();
       mandatory2faLog("navigating to vault");
       return;
     }
 
+    this.pauseServerNotifications();
     await this.navigateToMandatorySetupIfNeeded();
   }
 
@@ -257,7 +264,16 @@ export class MandatoryAuthenticatorEnforcementService {
   private applyFailSafeRestrictedState(): void {
     failSafeUnresolvedGate();
     this.lockService.syncDomLockClass();
+    this.pauseServerNotifications();
     void this.navigateToMandatorySetupIfNeeded();
+  }
+
+  private pauseServerNotifications(): void {
+    this.serverNotificationsService.disconnectFromInactivity();
+  }
+
+  private resumeServerNotifications(): void {
+    this.serverNotificationsService.reconnectFromActivity();
   }
 
   /**

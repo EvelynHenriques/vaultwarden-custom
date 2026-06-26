@@ -35,6 +35,7 @@ import { ProductTierType } from "@bitwarden/common/billing/enums";
 import { ConfigService } from "@bitwarden/common/platform/abstractions/config/config.service";
 import { I18nService } from "@bitwarden/common/platform/abstractions/i18n.service";
 import { MessagingService } from "@bitwarden/common/platform/abstractions/messaging.service";
+import { ServerNotificationsService } from "@bitwarden/common/platform/server-notifications";
 import { SyncService } from "@bitwarden/common/platform/sync";
 import { DialogRef, DialogService, ItemModule, ToastService } from "@bitwarden/components";
 
@@ -77,6 +78,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
   private mandatoryDialogOpening = false;
   private readonly syncService = inject(SyncService);
   private readonly lockService = inject(MandatoryAuthenticatorLockService);
+  private readonly serverNotificationsService = inject(ServerNotificationsService);
 
   constructor(
     protected dialogService: DialogService,
@@ -174,6 +176,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     if (authenticatorEnabled) {
       markMandatoryAuthenticatorSetupComplete();
       this.lockService.syncDomLockClass();
+      this.serverNotificationsService.reconnectFromActivity();
     } else if (gateBlocked || this.lockService.isLockModeActive()) {
       void this.openMandatoryAuthenticatorDialog();
     }
@@ -399,6 +402,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     if (enabled && type === TwoFactorProviderType.Authenticator) {
       markMandatoryAuthenticatorSetupComplete();
       this.lockService.syncDomLockClass();
+      this.serverNotificationsService.reconnectFromActivity();
       void this.syncService.fullSync(false);
     }
     this.evaluatePolicies();

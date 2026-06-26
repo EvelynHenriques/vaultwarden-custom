@@ -24,11 +24,15 @@ def apply_index_html(path: Path) -> bool:
 
     text = re.sub(r"<title[^>]*>.*?</title>", "<title>EBvault</title>", text, count=1, flags=re.DOTALL)
 
-    text = re.sub(r"\s*<link[^>]*rel=\"apple-touch-icon\"[^>]*>\s*", "\n", text)
-    text = re.sub(r"\s*<link[^>]*rel=\"icon\"[^>]*>\s*", "\n", text)
-    text = re.sub(r"\s*<link[^>]*rel=\"mask-icon\"[^>]*>\s*", "\n", text)
+    text = re.sub(r"\s*<link[^>]*rel=[\"']apple-touch-icon[\"'][^>]*>\s*", "\n", text)
+    text = re.sub(r"\s*<link[^>]*rel=[\"']icon[\"'][^>]*>\s*", "\n", text)
+    text = re.sub(r"\s*<link[^>]*rel=[\"']mask-icon[\"'][^>]*>\s*", "\n", text)
 
-    if "logo-shield.svg" not in text:
+    has_svg_favicon = re.search(
+        r"<link[^>]*rel=[\"']icon[\"'][^>]*href=[\"']images/icons/logo-shield\.svg[\"'][^>]*>",
+        text,
+    )
+    if not has_svg_favicon:
         text = text.replace(
             '<link rel="manifest" href="manifest.json" />',
             FAVICON_BLOCK + '\n    <link rel="manifest" href="manifest.json" />',

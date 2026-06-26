@@ -123,30 +123,6 @@ struct SyncData {
 async fn sync(data: SyncData, headers: Headers, client_version: Option<ClientVersion>, conn: DbConn) -> JsonResult {
     let user_json = headers.user.to_json(&conn).await;
 
-    if !crate::mandatory_authenticator_2fa::user_has_enabled_authenticator_2fa(&headers.user.uuid, &conn).await
-    {
-        let domains_json = if data.exclude_domains {
-            Value::Null
-        } else {
-            api::core::get_eq_domains(&headers, true).into_inner()
-        };
-
-        return Ok(Json(json!({
-            "profile": user_json,
-            "folders": [],
-            "collections": [],
-            "policies": [],
-            "ciphers": [],
-            "domains": domains_json,
-            "sends": [],
-            "userDecryption": {
-                "masterPasswordUnlock": Value::Null,
-            },
-            "MandatoryAuthenticatorSetup": true,
-            "object": "sync"
-        })));
-    }
-
     // Get all ciphers which are visible by the user
     let mut ciphers = Cipher::find_by_user_visible(&headers.user.uuid, &conn).await;
 

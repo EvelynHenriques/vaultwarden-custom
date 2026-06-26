@@ -111,6 +111,13 @@ mod tests {
     #[test]
     fn sync_is_not_whitelisted_by_path() {
         assert!(!is_mandatory_2fa_setup_allowed_path("/sync"));
+        assert!(!is_mandatory_2fa_setup_allowed_path("/api/sync"));
+    }
+
+    #[test]
+    fn notification_hub_is_not_whitelisted_by_path() {
+        assert!(!is_mandatory_2fa_setup_allowed_path("/notifications/hub"));
+        assert!(!is_mandatory_2fa_setup_allowed_path("/api/notifications/hub"));
     }
 
     #[test]

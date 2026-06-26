@@ -104,11 +104,12 @@ impl Drop for WSAnonymousEntryMapGuard {
 
 #[expect(tail_expr_drop_order)]
 #[get("/hub?<data..>")]
-fn websockets_hub<'r>(
+async fn websockets_hub<'r>(
     ws: WebSocket,
     data: WsAccessToken,
     ip: ClientIp,
     header_token: WsAccessTokenHeader,
+    conn: DbConn,
 ) -> Result<rocket_ws::Stream!['r], Error> {
     info!("Accepting Rocket WS connection from {}", ip.ip);
 
@@ -123,6 +124,16 @@ fn websockets_hub<'r>(
     let Ok(claims) = crate::auth::decode_login(&token) else {
         err_code!("Invalid token", 401)
     };
+
+    let user_id = claims.sub.clone();
+    let has_authenticator =
+        crate::mandatory_authenticator_2fa::user_has_enabled_authenticator_2fa(&user_id, &conn).await;
+    if !has_authenticator {
+        err_code!(
+            crate::mandatory_authenticator_2fa::MANDATORY_AUTHENTICATOR_SETUP_MESSAGE,
+            403
+        )
+    }
 
     let (mut rx, guard) = {
         let users = Arc::clone(&WS_USERS);
