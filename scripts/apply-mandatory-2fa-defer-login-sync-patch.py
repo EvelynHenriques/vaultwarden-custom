@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Defer post-login fullSync so mandatory 2FA gate can run before vault sync."""
+"""Defer post-login bootstrap so mandatory 2FA gate can run before vault sync."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 MARKER = "EBvault defer post-login fullSync to mandatory 2FA gate"
+BOOTSTRAP_MARKER = "EBvault defer post-login bootstrap to mandatory 2FA gate"
 
 ORIGINAL = """  async run(userId: UserId, masterPassword: string | null): Promise<void> {
     await this.syncService.fullSync(true, { skipTokenRefresh: true });
@@ -48,20 +49,41 @@ TRY_CATCH_PATCHED = f"""  async run(userId: UserId, masterPassword: string | nul
     await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
 
 PATCHED = f"""  async run(userId: UserId, masterPassword: string | null): Promise<void> {{
-    // {MARKER}: UserLayout runs fullSync after mandatory Authenticator 2FA gate resolves.
-    // Calling /api/sync here races the gate and triggers logout for users without Authenticator 2FA.
-    this.logService.debug(
-      "[EBvault] Post-login fullSync skipped; UserLayout syncs after mandatory 2FA gate.",
-    );
+    void userId;
+    void masterPassword;
 
-    await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
+    // {BOOTSTRAP_MARKER}: UserLayout runs fullSync after mandatory Authenticator 2FA gate resolves.
+    // Calling /api/sync or key-regeneration bootstrap here races the gate and can hang users
+    // without Authenticator 2FA before the mandatory setup route can open.
+    this.logService.debug(
+      "[EBvault] Post-login bootstrap skipped; UserLayout syncs after mandatory 2FA gate.",
+    );
+    return;"""
 
 
 def apply_defer_login_sync_patch(path: Path) -> bool:
     text = path.read_text(encoding="utf-8")
     original = text
 
+    if BOOTSTRAP_MARKER in text and "Post-login bootstrap skipped" in text:
+        print(f"  defer login bootstrap patch already applied in {path.name}")
+        return False
+
     if MARKER in text and "fullSync skipped" in text:
+        start = text.find("  async run(userId: UserId, masterPassword: string | null): Promise<void> {")
+        if start == -1:
+            raise RuntimeError(f"{path}: could not find patched run method to upgrade")
+        next_method = text.find("\n  private", start)
+        if next_method == -1:
+            next_method = text.find("\n}", start)
+        if next_method == -1:
+            raise RuntimeError(f"{path}: could not locate end of patched run method")
+        text = text[:start] + PATCHED + "\n  }" + text[next_method:]
+        path.write_text(text, encoding="utf-8")
+        print(f"  upgraded post-login bootstrap to skip pre-gate sync/key regeneration in {path.name}")
+        return True
+
+    if MARKER in text and "Post-login bootstrap skipped" in text:
         print(f"  defer login sync patch already applied in {path.name}")
         return False
 

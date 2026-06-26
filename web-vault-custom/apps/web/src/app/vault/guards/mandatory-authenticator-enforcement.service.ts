@@ -58,6 +58,7 @@ export class MandatoryAuthenticatorEnforcementService {
 
   private started = false;
   private gateResolvePromise: Promise<void> | null = null;
+  private currentAccountId: UserId | null | undefined;
 
   start(): void {
     if (this.started) {
@@ -80,6 +81,12 @@ export class MandatoryAuthenticatorEnforcementService {
     this.accountService.activeAccount$
       .pipe(
         switchMap((account) => {
+          const accountId = account?.id ?? null;
+          if (accountId !== this.currentAccountId) {
+            this.currentAccountId = accountId;
+            this.resetGateForRevalidation("account transition");
+          }
+
           if (!account?.id) {
             return EMPTY;
           }
@@ -90,6 +97,13 @@ export class MandatoryAuthenticatorEnforcementService {
         if (status === AuthenticationStatus.LoggedOut) {
           this.pauseServerNotifications();
           this.lockService.prepareForLogout();
+          return;
+        }
+
+        if (status === AuthenticationStatus.Locked) {
+          mandatory2faLog("vault locked — mandatory gate will revalidate after unlock");
+          this.pauseServerNotifications();
+          this.resetGateForRevalidation("vault locked");
           return;
         }
 
@@ -116,11 +130,11 @@ export class MandatoryAuthenticatorEnforcementService {
       }
 
       const phase = getMandatoryGatePhase();
-      if (phase === "pending" || phase === "blocked") {
+      if (phase !== "idle") {
         mandatory2faLog("reset gate for pre-login route", {
           path: normalizeMandatorySetupPath(event.url),
         });
-        resetMandatoryAuthenticatorSetupState();
+        this.resetGateForRevalidation("pre-login route");
       }
     });
   }
@@ -274,6 +288,13 @@ export class MandatoryAuthenticatorEnforcementService {
 
   private resumeServerNotifications(): void {
     this.serverNotificationsService.reconnectFromActivity();
+  }
+
+  private resetGateForRevalidation(reason: string): void {
+    mandatory2faLog(`reset gate for revalidation (${reason})`);
+    resetMandatoryAuthenticatorSetupState();
+    this.gateResolvePromise = null;
+    this.lockService.syncDomLockClass();
   }
 
   /**
