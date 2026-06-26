@@ -119,10 +119,10 @@ export class AppComponent implements OnDestroy, OnInit {
           case "authBlocked":
             mandatory2faLog("authBlocked received", message);
             if (await this.mandatoryAuthenticatorEnforcementService.handleAuthFailure(message)) {
-              mandatory2faLog("authBlocked handled as mandatory setup — no login redirect");
+              mandatory2faLog("authBlocked handled as mandatory setup; no login redirect");
               break;
             }
-            mandatory2faWarn("authBlocked — redirecting to login");
+            mandatory2faWarn("authBlocked; redirecting to login");
             // FIXME: Verify that this floating promise is intentional. If it is, add an explanatory comment and ensure there is proper error handling.
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             this.router.navigate(["/"]);
@@ -147,12 +147,11 @@ export class AppComponent implements OnDestroy, OnInit {
           case "locked":
             mandatory2faLog("locked received", message);
             if (await this.mandatoryAuthenticatorEnforcementService.handleAuthFailure(message)) {
-              mandatory2faLog("locked handled as mandatory setup — no process reload");
+              mandatory2faLog("locked handled as mandatory setup; no full re-login");
               break;
             }
-            mandatory2faWarn("locked — redirecting to login and process reload");
-            await this.router.navigate(["/"]);
-            await this.processReloadService.startProcessReload();
+            mandatory2faWarn("locked; EBvault requires full re-login before vault access");
+            await this.logOut(true);
             break;
           case "lockedUrl":
             break;

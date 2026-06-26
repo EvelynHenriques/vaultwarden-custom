@@ -62,6 +62,26 @@ for relative in "${OVERLAY_FILES[@]}"; do
   echo "  updated ${relative}"
 done
 
+app_component="${CLIENTS_DIR}/apps/web/src/app/app.component.ts"
+if grep -Fq "lockService.lock(" "${app_component}"; then
+  echo "ERROR: EBvault full re-login lock behavior missing: app.component.ts still calls lockService.lock()" >&2
+  exit 1
+fi
+if ! grep -Fq "lockVault received; EBvault requires full re-login before vault access" "${app_component}"; then
+  echo "ERROR: EBvault full re-login lock behavior marker missing in app.component.ts" >&2
+  exit 1
+fi
+if ! grep -Fq "locked; EBvault requires full re-login before vault access" "${app_component}"; then
+  echo "ERROR: EBvault locked-event full re-login marker missing in app.component.ts" >&2
+  exit 1
+fi
+
+user_layout="${CLIENTS_DIR}/apps/web/src/app/layouts/user-layout.component.ts"
+if ! grep -Fq "this.showRouterOutlet = onSetupRoute || setupPending || !hideVaultChrome;" "${user_layout}"; then
+  echo "ERROR: EBvault mandatory setup outlet sequencing marker missing in user-layout.component.ts" >&2
+  exit 1
+fi
+
 shield_logo_source="${CUSTOM_DIR}/apps/web/src/images/icons/logo-shield.svg"
 shield_logo_destination="${CLIENTS_DIR}/apps/web/src/images/icons/logo-shield.svg"
 if [[ -f "${shield_logo_source}" ]]; then

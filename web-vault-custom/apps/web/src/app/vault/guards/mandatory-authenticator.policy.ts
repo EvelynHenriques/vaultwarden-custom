@@ -483,14 +483,6 @@ export async function resolveMandatoryAuthenticatorGate(
   return statusCheckPromise;
 }
 
-/** @deprecated Use resolveMandatoryAuthenticatorGate */
-export async function ensureMandatoryAuthenticatorStatus(
-  twoFactorService: TwoFactorService,
-): Promise<boolean> {
-  const phase = await resolveMandatoryAuthenticatorGate(twoFactorService);
-  return phase === "released";
-}
-
 export function isMandatoryPostLoginRouteBlocked(url: string): boolean {
   if (isMandatoryLockSuspended() || gatePhase === "released" || gatePhase === "idle") {
     return false;

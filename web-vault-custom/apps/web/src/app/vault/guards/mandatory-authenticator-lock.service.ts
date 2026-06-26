@@ -1,7 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { ReplaySubject } from "rxjs";
 
-import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 import { BroadcasterService } from "@bitwarden/common/platform/abstractions/broadcaster.service";
 import { DialogRef, DialogService } from "@bitwarden/components";
 
@@ -9,7 +8,6 @@ import {
   isMandatoryLockModeActive,
   isMandatoryLockSuspended,
   resetMandatoryAuthenticatorSetupState,
-  resolveMandatoryAuthenticatorGate,
   suspendMandatoryLock,
 } from "./mandatory-authenticator.policy";
 
@@ -21,7 +19,6 @@ type MandatoryDialogKind = "verify" | "authenticator";
  */
 @Injectable({ providedIn: "root" })
 export class MandatoryAuthenticatorLockService {
-  private readonly twoFactorService = inject(TwoFactorService);
   private readonly dialogService = inject(DialogService);
   private readonly broadcasterService = inject(BroadcasterService);
 
@@ -64,12 +61,6 @@ export class MandatoryAuthenticatorLockService {
 
   isLockModeActive(): boolean {
     return isMandatoryLockModeActive();
-  }
-
-  async refreshLockState(): Promise<boolean> {
-    await resolveMandatoryAuthenticatorGate(this.twoFactorService);
-    this.syncDomLockClass();
-    return this.isLockModeActive();
   }
 
   syncDomLockClass(): void {

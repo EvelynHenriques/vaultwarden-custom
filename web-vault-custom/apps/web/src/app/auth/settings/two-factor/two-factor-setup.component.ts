@@ -165,19 +165,15 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     this.evaluatePolicies();
     this.loading = false;
 
-    await this.lockService.refreshLockState();
-
     const gateBlocked = getMandatoryGatePhase() === "blocked";
-    const authenticatorEnabled = providerList.data.some(
-      (provider) =>
-        provider.type === TwoFactorProviderType.Authenticator && provider.enabled === true,
-    );
+    const authenticatorEnabled = this.hasEnabledAuthenticatorProvider();
 
     if (authenticatorEnabled) {
       markMandatoryAuthenticatorSetupComplete();
       this.lockService.syncDomLockClass();
       this.serverNotificationsService.reconnectFromActivity();
     } else if (gateBlocked || this.lockService.isLockModeActive()) {
+      this.lockService.syncDomLockClass();
       void this.openMandatoryAuthenticatorDialog();
     }
   }
@@ -187,11 +183,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const authenticatorEnabled = (await this.getTwoFactorProviders()).data.some(
-      (provider) =>
-        provider.type === TwoFactorProviderType.Authenticator && provider.enabled === true,
-    );
-    if (authenticatorEnabled) {
+    if (this.hasEnabledAuthenticatorProvider()) {
       return;
     }
 
@@ -387,6 +379,13 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
 
   protected getTwoFactorProviders() {
     return this.twoFactorService.getEnabledTwoFactorProviders();
+  }
+
+  private hasEnabledAuthenticatorProvider(): boolean {
+    return this.providers.some(
+      (provider) =>
+        provider.type === TwoFactorProviderType.Authenticator && provider.enabled === true,
+    );
   }
 
   protected filterProvider(type: TwoFactorProviderType): boolean {
