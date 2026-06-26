@@ -95,6 +95,51 @@ def fix_organizations_guard(text: str) -> str:
     return text
 
 
+def merge_guard_list(existing: str, guard: str) -> str:
+    guards = [item.strip() for item in existing.split(",") if item.strip()]
+    if guard not in guards:
+        guards.append(guard)
+    return ", ".join(guards)
+
+
+def fix_setup_extension_guard(text: str) -> str:
+    """Add setup-extension mandatory guard without duplicating canActivate."""
+    guard = "blockSetupExtensionUntilMandatory2faGuard"
+
+    duplicate_pattern = re.compile(
+        r'(path: "setup-extension",\n\s*canActivate: \[)([^\]]*)(\],\n)\s*canActivate: \[blockSetupExtensionUntilMandatory2faGuard\],'
+    )
+
+    def repair_duplicate(match: re.Match[str]) -> str:
+        merged = merge_guard_list(match.group(2), guard)
+        return f"{match.group(1)}{merged}{match.group(3)}"
+
+    text = duplicate_pattern.sub(repair_duplicate, text)
+
+    route_pattern = re.compile(
+        r'(?P<path_line>path: "setup-extension",\n)(?P<body>[\s\S]*?)(?=\n\s*\},)'
+    )
+    match = route_pattern.search(text)
+    if not match:
+        raise RuntimeError("Could not find setup-extension route")
+
+    body = match.group("body")
+    can_activate_pattern = re.compile(r'(?P<prefix>\s*canActivate: \[)(?P<guards>[^\]]*)(?P<suffix>\],)')
+
+    can_activate_match = can_activate_pattern.search(body)
+    if can_activate_match:
+        merged = merge_guard_list(can_activate_match.group("guards"), guard)
+        body = (
+            body[: can_activate_match.start()]
+            + f"{can_activate_match.group('prefix')}{merged}{can_activate_match.group('suffix')}"
+            + body[can_activate_match.end() :]
+        )
+    else:
+        body = f"    canActivate: [{guard}],\n" + body
+
+    return text[: match.start()] + match.group("path_line") + body + text[match.end() :]
+
+
 def apply_mandatory_routing(path: Path) -> bool:
     text = path.read_text(encoding="utf-8")
     original = text
@@ -102,6 +147,7 @@ def apply_mandatory_routing(path: Path) -> bool:
     text = ensure_import(text)
     text = fix_user_layout_guard(text)
     text = fix_organizations_guard(text)
+    text = fix_setup_extension_guard(text)
 
     regex_replacements = [
         (
@@ -117,14 +163,6 @@ def apply_mandatory_routing(path: Path) -> bool:
         text = re.sub(pattern, repl, text, count=1)
 
     simple = [
-        (
-            'path: "setup-extension",\n    canActivate: [mandatoryAuthenticatorActivate],',
-            'path: "setup-extension",\n    canActivate: [blockSetupExtensionUntilMandatory2faGuard],',
-        ),
-        (
-            'path: "setup-extension",',
-            'path: "setup-extension",\n    canActivate: [blockSetupExtensionUntilMandatory2faGuard],',
-        ),
         (
             "canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard]",
             "canActivate: [mandatoryAuthenticatorActivate, setupExtensionRedirectGuard]",
@@ -176,7 +214,7 @@ def verify_mandatory_routing(text: str, path: Path) -> None:
         ("mandatoryAuthenticatorActivate import", "mandatoryAuthenticatorActivate"),
         ("UserLayout canActivateChild", "canActivateChild: [mandatoryAuthenticatorGuard]"),
         ("UserLayout runGuardsAndResolvers", 'runGuardsAndResolvers: "always"'),
-        ("setup-extension guard", 'canActivate: [blockSetupExtensionUntilMandatory2faGuard]'),
+        ("setup-extension guard", "blockSetupExtensionUntilMandatory2faGuard"),
         ("blockSetupExtension import", "blockSetupExtensionUntilMandatory2faGuard"),
         ("vault mandatory guard", "canActivate: [mandatoryAuthenticatorActivate, setupExtensionRedirectGuard]"),
         ("settings child guard", 'path: "settings",\n        canActivateChild: [mandatoryAuthenticatorGuard]'),
@@ -188,6 +226,31 @@ def verify_mandatory_routing(text: str, path: Path) -> None:
 
     if "canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorGuard]" in text:
         raise RuntimeError(f"{path}: UserLayout still uses mandatoryAuthenticatorGuard on canActivate (wrong)")
+
+    setup_match = re.search(
+        r'path: "setup-extension",\n(?P<body>[\s\S]*?)(?=\n\s*\},)',
+        text,
+    )
+    if not setup_match:
+        raise RuntimeError(f"{path}: setup-extension route not found")
+
+    setup_body = setup_match.group("body")
+    if len(re.findall(r"\bcanActivate\s*:", setup_body)) != 1:
+        raise RuntimeError(f"{path}: setup-extension route must contain exactly one canActivate")
+
+    can_activate_match = re.search(r"canActivate: \[(?P<guards>[^\]]*)\]", setup_body)
+    if not can_activate_match:
+        raise RuntimeError(f"{path}: setup-extension route canActivate not found")
+
+    guards = [guard.strip() for guard in can_activate_match.group("guards").split(",") if guard.strip()]
+    duplicates = sorted({guard for guard in guards if guards.count(guard) > 1})
+    if duplicates:
+        raise RuntimeError(
+            f"{path}: setup-extension route has duplicate canActivate guards: {', '.join(duplicates)}"
+        )
+
+    if "blockSetupExtensionUntilMandatory2faGuard" not in guards:
+        raise RuntimeError(f"{path}: setup-extension route missing mandatory 2FA guard")
 
 
 def main() -> int:
