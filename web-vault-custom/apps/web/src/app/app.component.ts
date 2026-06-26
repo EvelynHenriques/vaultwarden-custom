@@ -8,7 +8,6 @@ import { Subject, filter, firstValueFrom, map, timeout } from "rxjs";
 
 import { DeviceTrustToastService } from "@bitwarden/angular/auth/services/device-trust-toast.service.abstraction";
 import { DocumentLangSetter } from "@bitwarden/angular/platform/i18n";
-import { LockService } from "@bitwarden/auth/common";
 import { InternalOrganizationServiceAbstraction } from "@bitwarden/common/admin-console/abstractions/organization/organization.service.abstraction";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
 import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
@@ -62,7 +61,6 @@ export class AppComponent implements OnDestroy, OnInit {
     private platformUtilsService: PlatformUtilsService,
     private ngZone: NgZone,
     private keyService: KeyService,
-    private lockService: LockService,
     private serverNotificationsService: ServerNotificationsService,
     private stateService: StateService,
     private eventUploadService: EventUploadService,
@@ -142,8 +140,8 @@ export class AppComponent implements OnDestroy, OnInit {
             await this.logOut(message.redirect);
             break;
           case "lockVault": {
-            const userId = await firstValueFrom(this.accountService.activeAccount$.pipe(getUserId));
-            await this.lockService.lock(userId);
+            mandatory2faLog("lockVault received; EBvault requires full re-login before vault access");
+            await this.logOut(true);
             break;
           }
           case "locked":

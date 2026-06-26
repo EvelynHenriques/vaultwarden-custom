@@ -97,6 +97,11 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
         this.updateRouterOutletVisibility(event.url);
       });
 
+    // Mount the child route immediately; the mandatory setup route/dialog must be able to load
+    // even while the gate is still resolving.
+    this.showRouterOutlet = true;
+    this.updateRouterOutletVisibility(this.router.url);
+
     await this.initializeMandatoryTwoFactorGate();
   }
 
@@ -113,7 +118,7 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
     mandatory2faLog(`UserLayout gate resolved — setupComplete=${setupComplete}`, { phase });
     this.lockService.syncDomLockClass();
 
-    // Router-outlet must be visible so the mandatory 2FA setup route/component can mount.
+    // Router-outlet must stay visible so the mandatory 2FA setup route/component can mount.
     this.showRouterOutlet = true;
     this.updateRouterOutletVisibility(this.router.url);
 
@@ -136,7 +141,8 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
     const onSetupRoute = isMandatorySetupAllowedUrl(url);
     const hideVaultChrome = this.enforcementService.shouldHideAuthenticatedContent(url);
     const setupPending = this.enforcementService.isMandatorySetupPending();
-    // Always show outlet on the mandatory setup route, even while the gate is resolving.
-    this.showRouterOutlet = onSetupRoute || !hideVaultChrome || !setupPending;
+    // Keep the outlet mounted while the mandatory gate is resolving; route guards/API middleware
+    // still prevent vault data access until Authenticator setup is confirmed.
+    this.showRouterOutlet = onSetupRoute || setupPending || !hideVaultChrome;
   }
 }
