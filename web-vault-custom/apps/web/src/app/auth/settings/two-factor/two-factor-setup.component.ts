@@ -52,6 +52,8 @@ import { activeAccountUserId$ } from "../../../vault/guards/mandatory-authentica
 import {
   getMandatoryGatePhase,
   markMandatoryAuthenticatorSetupComplete,
+  mandatory2faLog,
+  mandatory2faWarn,
 } from "../../../vault/guards/mandatory-authenticator.policy";
 import { MandatoryAuthenticatorLockService } from "../../../vault/guards/mandatory-authenticator-lock.service";
 
@@ -171,7 +173,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     if (authenticatorEnabled) {
       markMandatoryAuthenticatorSetupComplete();
       this.lockService.syncDomLockClass();
-      this.serverNotificationsService.reconnectFromActivity();
+      this.resumeServerNotificationsBestEffort("setup load detected Authenticator already enabled");
     } else if (gateBlocked || this.lockService.isLockModeActive()) {
       this.lockService.syncDomLockClass();
       void this.openMandatoryAuthenticatorDialog();
@@ -401,10 +403,29 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     if (enabled && type === TwoFactorProviderType.Authenticator) {
       markMandatoryAuthenticatorSetupComplete();
       this.lockService.syncDomLockClass();
-      this.serverNotificationsService.reconnectFromActivity();
+      mandatory2faLog("Authenticator setup completed; mandatory gate released");
+      this.resumeServerNotificationsBestEffort("Authenticator setup completed");
       void this.syncService.fullSync(false);
     }
     this.evaluatePolicies();
+  }
+
+  private resumeServerNotificationsBestEffort(reason: string): void {
+    try {
+      void Promise.resolve(this.serverNotificationsService.reconnectFromActivity()).catch(
+        (error) => {
+          mandatory2faWarn(
+            `server notifications resume failed after ${reason}; continuing without SignalR`,
+            error,
+          );
+        },
+      );
+    } catch (error) {
+      mandatory2faWarn(
+        `server notifications resume failed after ${reason}; continuing without SignalR`,
+        error,
+      );
+    }
   }
 
   private evaluatePolicies() {

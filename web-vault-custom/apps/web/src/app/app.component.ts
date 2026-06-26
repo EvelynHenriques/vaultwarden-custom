@@ -370,9 +370,27 @@ export class AppComponent implements OnDestroy, OnInit {
 
   private idleStateChanged() {
     if (this.isIdle) {
-      this.serverNotificationsService.disconnectFromInactivity();
+      try {
+        this.serverNotificationsService.disconnectFromInactivity();
+      } catch (error) {
+        mandatory2faWarn("server notification pause failed during idle transition", error);
+      }
     } else {
-      this.serverNotificationsService.reconnectFromActivity();
+      try {
+        void Promise.resolve(this.serverNotificationsService.reconnectFromActivity()).catch(
+          (error) => {
+            mandatory2faWarn(
+              "server notifications resume failed during activity transition; continuing without SignalR",
+              error,
+            );
+          },
+        );
+      } catch (error) {
+        mandatory2faWarn(
+          "server notifications resume failed during activity transition; continuing without SignalR",
+          error,
+        );
+      }
     }
   }
 }

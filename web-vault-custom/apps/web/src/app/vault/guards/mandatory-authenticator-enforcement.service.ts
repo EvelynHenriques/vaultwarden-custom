@@ -101,6 +101,7 @@ export class MandatoryAuthenticatorEnforcementService {
         }
 
         if (status === AuthenticationStatus.Locked) {
+          mandatory2faLog("lock/unlock path selected: full login required before vault access");
           mandatory2faLog("vault locked — mandatory gate will revalidate after unlock");
           this.pauseServerNotifications();
           this.resetGateForRevalidation("vault locked");
@@ -108,6 +109,7 @@ export class MandatoryAuthenticatorEnforcementService {
         }
 
         if (status === AuthenticationStatus.Unlocked) {
+          mandatory2faLog("post-login continuation started after successful authentication");
           mandatory2faLog("login or unlock success");
           enterPostLoginVerificationState();
           this.pauseServerNotifications();
@@ -265,12 +267,15 @@ export class MandatoryAuthenticatorEnforcementService {
     this.lockService.syncDomLockClass();
 
     if (phase === "released") {
-      this.resumeServerNotifications();
-      mandatory2faLog("navigating to vault");
+      mandatory2faLog("mandatory authenticator status detected: configured");
+      await this.resumeServerNotifications();
+      mandatory2faLog("selected navigation target: vault");
       return;
     }
 
+    mandatory2faLog("mandatory authenticator status detected: not configured");
     this.pauseServerNotifications();
+    mandatory2faLog("selected navigation target: security two-factor setup");
     await this.navigateToMandatorySetupIfNeeded();
   }
 
@@ -283,11 +288,20 @@ export class MandatoryAuthenticatorEnforcementService {
   }
 
   private pauseServerNotifications(): void {
-    this.serverNotificationsService.disconnectFromInactivity();
+    try {
+      this.serverNotificationsService.disconnectFromInactivity();
+    } catch (error) {
+      mandatory2faWarn("server notification pause failed; continuing", error);
+    }
   }
 
-  private resumeServerNotifications(): void {
-    this.serverNotificationsService.reconnectFromActivity();
+  private async resumeServerNotifications(): Promise<void> {
+    try {
+      await Promise.resolve(this.serverNotificationsService.reconnectFromActivity());
+      mandatory2faLog("server notifications resume requested");
+    } catch (error) {
+      mandatory2faWarn("server notifications resume failed; continuing without SignalR", error);
+    }
   }
 
   private resetGateForRevalidation(reason: string): void {
@@ -325,7 +339,7 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
-    mandatory2faLog("navigating to mandatory 2FA setup", { from: currentPath });
+    mandatory2faLog("blocked route; redirecting to mandatory 2FA setup", { from: currentPath });
     await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
   }
 

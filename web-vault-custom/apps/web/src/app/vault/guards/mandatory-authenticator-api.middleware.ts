@@ -3,10 +3,9 @@ import type { FetchMiddleware } from "@bitwarden/common/platform/misc/fetch-midd
 import {
   MANDATORY_AUTHENTICATOR_SETUP_MESSAGE,
   isIdentityServerRequest,
+  mandatory2faLog,
   shouldBlockMandatoryVaultApiRequest,
 } from "./mandatory-authenticator.policy";
-
-const LOG = "[Mandatory2FA]";
 
 let middlewareRegistered = false;
 
@@ -34,6 +33,10 @@ export function createMandatoryAuthenticatorApiMiddleware(): FetchMiddleware {
     if (!shouldBlockMandatoryVaultApiRequest(request)) {
       return next(request);
     }
+
+    mandatory2faLog("blocked API request; mandatory Authenticator setup required", {
+      url: request.url,
+    });
 
     return new Response(
       JSON.stringify({
