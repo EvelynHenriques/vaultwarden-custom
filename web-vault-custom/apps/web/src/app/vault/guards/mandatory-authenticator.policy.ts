@@ -37,6 +37,10 @@ let gatePhase: MandatoryGatePhase = "idle";
 let statusCheckPromise: Promise<MandatoryGatePhase> | null = null;
 let mandatoryLockSuspended = false;
 let authFlowInProgress = false;
+let hasAuthenticatorConfigured = false;
+let currentAuthFlowPassedTotp = false;
+let mandatorySetupRequired = false;
+let mandatoryGateReleased = false;
 
 export const MANDATORY_AUTHENTICATOR_SETUP_MESSAGE =
   "Authenticator app setup is required before continuing";
@@ -50,6 +54,79 @@ function log(message: string, detail?: unknown): void {
 
 export function getMandatoryGatePhase(): MandatoryGatePhase {
   return gatePhase;
+}
+
+function syncGatePhaseFromState(): void {
+  if (mandatoryGateReleased) {
+    gatePhase = "released";
+    return;
+  }
+  if (mandatorySetupRequired) {
+    gatePhase = "blocked";
+    return;
+  }
+  if (hasAuthenticatorConfigured && !currentAuthFlowPassedTotp) {
+    gatePhase = "pending";
+    return;
+  }
+  if (gatePhase === "released") {
+    gatePhase = "idle";
+  }
+}
+
+export function getMandatory2faState() {
+  return {
+    hasAuthenticatorConfigured,
+    currentAuthFlowPassedTotp,
+    mandatorySetupRequired,
+    mandatoryGateReleased,
+  };
+}
+
+export function mandatory2faStateLog(
+  source: string,
+  detail: {
+    currentUrl?: string;
+    requestedUrl?: string;
+    finalUrl?: string;
+  } = {},
+): void {
+  if (!MANDATORY_2FA_DEBUG_ENABLED || typeof console === "undefined" || !console.log) {
+    return;
+  }
+
+  console.log("[EBvault 2FA STATE]", {
+    source,
+    hasAuthenticatorConfigured,
+    currentAuthFlowPassedTotp,
+    mandatorySetupRequired,
+    mandatoryGateReleased,
+    currentUrl: detail.currentUrl,
+    requestedUrl: detail.requestedUrl,
+    finalUrl: detail.finalUrl,
+  });
+}
+
+export function markCurrentAuthFlowPassedTotp(source: string): void {
+  currentAuthFlowPassedTotp = true;
+  log(`current auth flow passed TOTP (${source})`);
+  mandatory2faStateLog(source);
+  if (hasAuthenticatorConfigured) {
+    mandatoryGateReleased = true;
+    mandatorySetupRequired = false;
+    syncGatePhaseFromState();
+    log("gate state = released");
+  }
+}
+
+export function resetCurrentAuthFlowTotp(source: string): void {
+  if (currentAuthFlowPassedTotp || mandatoryGateReleased) {
+    log(`current auth flow TOTP reset (${source})`);
+  }
+  currentAuthFlowPassedTotp = false;
+  mandatoryGateReleased = false;
+  syncGatePhaseFromState();
+  mandatory2faStateLog(source);
 }
 
 export function isMandatoryAuthFlowInProgress(): boolean {
@@ -88,8 +165,10 @@ export function mandatory2faNavLog(
     requestedUrl: detail.requestedUrl,
     finalUrl: detail.finalUrl,
     gatePhase,
-    hasAuthenticator: gatePhase === "released",
-    mandatorySetupRequired: gatePhase === "blocked",
+    hasAuthenticatorConfigured,
+    currentAuthFlowPassedTotp,
+    mandatorySetupRequired,
+    mandatoryGateReleased,
     authFlowInProgress,
   });
 }
@@ -108,15 +187,25 @@ export function isMandatoryLockSuspended(): boolean {
 }
 
 export function resetMandatoryAuthenticatorSetupState(): void {
+  hasAuthenticatorConfigured = false;
+  currentAuthFlowPassedTotp = false;
+  mandatorySetupRequired = false;
+  mandatoryGateReleased = false;
   gatePhase = "idle";
   statusCheckPromise = null;
   log("gate state = idle (session reset)");
+  mandatory2faStateLog("resetMandatoryAuthenticatorSetupState");
 }
 
 export function markMandatoryAuthenticatorSetupComplete(): void {
+  hasAuthenticatorConfigured = true;
+  currentAuthFlowPassedTotp = true;
+  mandatorySetupRequired = false;
+  mandatoryGateReleased = true;
   gatePhase = "released";
   statusCheckPromise = null;
   log("releasing gate after 2FA configured");
+  mandatory2faStateLog("markMandatoryAuthenticatorSetupComplete");
 }
 
 /** @deprecated Use resetMandatoryAuthenticatorSetupState */
@@ -125,27 +214,27 @@ export function clearMandatoryAuthenticatorGuardCache(): void {
 }
 
 export function isMandatoryAuthenticatorSetupComplete(): boolean {
-  return gatePhase === "released";
+  return mandatoryGateReleased;
 }
 
 export function isMandatoryAuthenticatorSetupRequired(): boolean {
-  return gatePhase === "blocked";
+  return mandatorySetupRequired;
 }
 
 export function isMandatoryLockModeActive(): boolean {
-  if (mandatoryLockSuspended || gatePhase === "released" || gatePhase === "idle") {
+  if (mandatoryLockSuspended || mandatoryGateReleased || gatePhase === "idle") {
     return false;
   }
   return gatePhase === "pending" || gatePhase === "blocked";
 }
 
 export function isMandatoryAuthenticatorStatusKnown(): boolean {
-  return gatePhase === "blocked" || gatePhase === "released";
+  return mandatorySetupRequired || mandatoryGateReleased || hasAuthenticatorConfigured;
 }
 
 /** Begin post-login verification — only transitions from idle. */
 export function enterPostLoginVerificationState(): void {
-  if (mandatoryLockSuspended || gatePhase === "released") {
+  if (mandatoryLockSuspended || mandatoryGateReleased) {
     return;
   }
   if (gatePhase === "idle") {
@@ -156,12 +245,16 @@ export function enterPostLoginVerificationState(): void {
 }
 
 export function confirmMandatoryAuthenticatorRequiredFromApi(): void {
-  if (mandatoryLockSuspended || gatePhase === "released") {
+  if (mandatoryLockSuspended || mandatoryGateReleased) {
     return;
   }
+  hasAuthenticatorConfigured = false;
+  mandatorySetupRequired = true;
+  mandatoryGateReleased = false;
   gatePhase = "blocked";
   log("decision = missing authenticator (from API)");
   log("gate state = blocked");
+  mandatory2faStateLog("confirmMandatoryAuthenticatorRequiredFromApi");
 }
 
 /**
@@ -169,7 +262,7 @@ export function confirmMandatoryAuthenticatorRequiredFromApi(): void {
  * Only transitions from `pending` — never downgrades `released`.
  */
 export function failSafeUnresolvedGate(): void {
-  if (mandatoryLockSuspended || gatePhase === "released" || gatePhase === "blocked") {
+  if (mandatoryLockSuspended || mandatoryGateReleased || gatePhase === "blocked") {
     return;
   }
 
@@ -179,7 +272,7 @@ export function failSafeUnresolvedGate(): void {
 }
 
 export function isVaultAccessAllowedByGate(): boolean {
-  return gatePhase === "released";
+  return mandatoryGateReleased;
 }
 
 export function extractApiErrorMessage(error: unknown): string | null {
@@ -302,11 +395,12 @@ export function isMandatorySetupAllowedUrl(url: string): boolean {
   );
 }
 
+export function isMandatorySetupRoute(url: string): boolean {
+  return isMandatorySetupAllowedUrl(url);
+}
+
 export function isMandatoryLockExemptNavigation(url: string): boolean {
   const path = normalizeMandatorySetupPath(url);
-  if (isMandatorySetupAllowedUrl(url)) {
-    return true;
-  }
   if (path === "/2fa" || path.startsWith("/2fa/")) {
     return true;
   }
@@ -402,9 +496,7 @@ export function isPreLoginAuthenticationRoute(url: string): boolean {
     path === "/2fa" ||
     path.startsWith("/2fa/") ||
     path === "/login" ||
-    path.startsWith("/login/") ||
-    path === "/lock" ||
-    path.startsWith("/lock/")
+    path.startsWith("/login/")
   );
 }
 
@@ -425,7 +517,7 @@ export function shouldBlockMandatoryVaultApiRequest(request: Request): boolean {
 
   // Block sensitive vault APIs while the gate is unresolved or confirmed blocked.
   // Setup/bootstrap endpoints remain available so Authenticator enrollment can complete.
-  if (isMandatoryLockSuspended() || (gatePhase !== "pending" && gatePhase !== "blocked")) {
+  if (isMandatoryLockSuspended() || mandatoryGateReleased || gatePhase === "idle") {
     return false;
   }
 
@@ -464,28 +556,40 @@ async function fetchMandatoryAuthenticatorStatus(
     );
 
     log("/api/two-factor response", providerList);
-    log("hasAuthenticator", hasEnabledAuthenticator);
-    log("mandatorySetupRequired", !hasEnabledAuthenticator);
-    log("mandatoryAuthSatisfied", hasEnabledAuthenticator);
+    hasAuthenticatorConfigured = hasEnabledAuthenticator;
+    mandatorySetupRequired = !hasEnabledAuthenticator;
+    mandatoryGateReleased = hasEnabledAuthenticator && currentAuthFlowPassedTotp;
+
+    log("hasAuthenticatorConfigured", hasAuthenticatorConfigured);
+    log("currentAuthFlowPassedTotp", currentAuthFlowPassedTotp);
+    log("mandatorySetupRequired", mandatorySetupRequired);
+    log("mandatoryGateReleased", mandatoryGateReleased);
     log("/api/two-factor result = success", {
       providers: providerList.data.map((p) => ({ type: p.type, enabled: p.enabled })),
       hasEnabledAuthenticator,
+      currentAuthFlowPassedTotp,
     });
 
-    if (gatePhase === "released") {
+    if (mandatoryGateReleased) {
+      syncGatePhaseFromState();
+      log("decision = authenticator configured and current flow passed TOTP");
+      log("gate state = released");
+      mandatory2faStateLog("fetchMandatoryAuthenticatorStatus");
       return "released";
     }
 
     if (hasEnabledAuthenticator) {
-      log("decision = authenticator configured");
-      gatePhase = "released";
-      log("gate state = released");
-      return "released";
+      syncGatePhaseFromState();
+      log("decision = authenticator configured but current flow has not passed TOTP");
+      log("gate state = pending");
+      mandatory2faStateLog("fetchMandatoryAuthenticatorStatus");
+      return "pending";
     }
 
     log("decision = missing authenticator");
-    gatePhase = "blocked";
+    syncGatePhaseFromState();
     log("gate state = blocked");
+    mandatory2faStateLog("fetchMandatoryAuthenticatorStatus");
     return "blocked";
   } catch (error) {
     log("error while resolving state =", extractApiErrorMessage(error));
@@ -505,7 +609,7 @@ async function fetchMandatoryAuthenticatorStatus(
 export async function resolveMandatoryAuthenticatorGate(
   twoFactorService: TwoFactorService,
 ): Promise<MandatoryGatePhase> {
-  if (gatePhase === "released") {
+  if (mandatoryGateReleased) {
     return "released";
   }
 
@@ -527,7 +631,7 @@ export async function resolveMandatoryAuthenticatorGate(
 }
 
 export function isMandatoryPostLoginRouteBlocked(url: string): boolean {
-  if (isMandatoryLockSuspended() || gatePhase === "released" || gatePhase === "idle") {
+  if (isMandatoryLockSuspended() || mandatoryGateReleased || gatePhase === "idle") {
     return false;
   }
   if (isMandatorySetupAllowedUrl(url) || isMandatoryLockExemptNavigation(url)) {
@@ -561,6 +665,16 @@ export async function resolveMandatoryAuthenticatorAccess(
     return true;
   }
 
+  if (hasAuthenticatorConfigured && !currentAuthFlowPassedTotp) {
+    log("route blocked — full login with TOTP required", { url });
+    mandatory2faNavLog("resolveMandatoryAuthenticatorAccess/fullLoginRequired", {
+      currentUrl: router.url,
+      requestedUrl: url,
+      finalUrl: "/login",
+    });
+    return router.createUrlTree(["/login"]);
+  }
+
   if (phase === "pending") {
     failSafeUnresolvedGate();
   }
@@ -587,7 +701,7 @@ export async function getMandatoryAuthenticatorRedirect(
   router: Router,
   twoFactorService: TwoFactorService,
 ): Promise<UrlTree | null> {
-  if (isMandatoryLockSuspended() || gatePhase === "released") {
+  if (isMandatoryLockSuspended() || mandatoryGateReleased) {
     return null;
   }
 
@@ -595,6 +709,15 @@ export async function getMandatoryAuthenticatorRedirect(
 
   if (phase === "released") {
     return null;
+  }
+
+  if (hasAuthenticatorConfigured && !currentAuthFlowPassedTotp) {
+    mandatory2faNavLog("getMandatoryAuthenticatorRedirect/fullLoginRequired", {
+      currentUrl: router.url,
+      requestedUrl: "/login",
+      finalUrl: "/login",
+    });
+    return router.createUrlTree(["/login"]);
   }
 
   return createMandatorySetupUrlTree(router);
@@ -605,7 +728,7 @@ export function shouldHideAuthenticatedContent(url: string): boolean {
     return false;
   }
 
-  if (gatePhase === "released" || gatePhase === "idle") {
+  if (mandatoryGateReleased || gatePhase === "idle") {
     return false;
   }
 

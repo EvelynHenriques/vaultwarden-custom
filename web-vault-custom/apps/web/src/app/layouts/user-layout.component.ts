@@ -20,7 +20,13 @@ import { CoachmarkComponent, CoachmarkService } from "../vault/components/coachm
 import { activeAccountUserId$ } from "../vault/guards/mandatory-authenticator-account.util";
 import { MandatoryAuthenticatorEnforcementService } from "../vault/guards/mandatory-authenticator-enforcement.service";
 import { MandatoryAuthenticatorLockService } from "../vault/guards/mandatory-authenticator-lock.service";
-import { isMandatorySetupAllowedUrl, mandatory2faLog, mandatory2faWarn } from "../vault/guards/mandatory-authenticator.policy";
+import {
+  getMandatory2faState,
+  isMandatorySetupAllowedUrl,
+  mandatory2faLog,
+  mandatory2faNavLog,
+  mandatory2faWarn,
+} from "../vault/guards/mandatory-authenticator.policy";
 
 import { WebLayoutModule } from "./web-layout.module";
 
@@ -130,6 +136,18 @@ export class UserLayoutComponent implements OnInit, OnDestroy {
       } catch (error) {
         mandatory2faWarn("fullSync failed after gate released — vault may be incomplete until sync succeeds", error);
       }
+      return;
+    }
+
+    const state = getMandatory2faState();
+    if (state.hasAuthenticatorConfigured && !state.currentAuthFlowPassedTotp) {
+      mandatory2faLog("full login required before vault access");
+      mandatory2faNavLog("UserLayout/fullLoginRequired", {
+        currentUrl: this.router.url,
+        requestedUrl: "/login",
+        finalUrl: "/login",
+      });
+      await this.router.navigate(["/login"], { replaceUrl: true });
       return;
     }
 

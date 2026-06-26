@@ -35,6 +35,7 @@ import {
   mandatory2faLog,
   mandatory2faNavLog,
   mandatory2faWarn,
+  resetCurrentAuthFlowTotp,
 } from "./vault/guards/mandatory-authenticator.policy";
 
 const BroadcasterSubscriptionId = "AppComponent";
@@ -96,6 +97,7 @@ export class AppComponent implements OnDestroy, OnInit {
     });
 
     this.mandatoryAuthenticatorEnforcementService.start();
+    this.suppressMandatory2faSignalRRejections();
   }
 
   ngOnInit() {
@@ -158,6 +160,7 @@ export class AppComponent implements OnDestroy, OnInit {
               mandatory2faLog("lockVault ignored during active login/2FA flow", message);
               break;
             }
+            resetCurrentAuthFlowTotp("lockVault broadcaster event");
             mandatory2faLog("lockVault received; EBvault requires full re-login before vault access");
             await this.logOut(true);
             break;
@@ -167,6 +170,7 @@ export class AppComponent implements OnDestroy, OnInit {
               mandatory2faLog("locked ignored during active login/2FA flow", message);
               break;
             }
+            resetCurrentAuthFlowTotp("locked broadcaster event");
             mandatory2faLog("locked received", message);
             if (await this.mandatoryAuthenticatorEnforcementService.handleAuthFailure(message)) {
               mandatory2faLog("locked handled as mandatory setup; no full re-login");
@@ -418,21 +422,26 @@ export class AppComponent implements OnDestroy, OnInit {
         mandatory2faWarn("server notification pause failed during idle transition", error);
       }
     } else {
-      try {
-        void Promise.resolve(this.serverNotificationsService.reconnectFromActivity()).catch(
-          (error) => {
-            mandatory2faWarn(
-              "server notifications resume failed during activity transition; continuing without SignalR",
-              error,
-            );
-          },
-        );
-      } catch (error) {
-        mandatory2faWarn(
-          "server notifications resume failed during activity transition; continuing without SignalR",
-          error,
-        );
-      }
+      mandatory2faWarn("server notifications resume skipped by EBvault mandatory 2FA policy");
     }
+  }
+
+  private suppressMandatory2faSignalRRejections(): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.addEventListener("unhandledrejection", (event) => {
+      const reasonText =
+        event.reason instanceof Error
+          ? event.reason.message
+          : String(event.reason?.message ?? event.reason ?? "");
+      if (!reasonText.includes("WebSocket failed to connect")) {
+        return;
+      }
+
+      mandatory2faWarn("SignalR failed but EBvault continues without server notifications", event.reason);
+      event.preventDefault();
+    });
   }
 }

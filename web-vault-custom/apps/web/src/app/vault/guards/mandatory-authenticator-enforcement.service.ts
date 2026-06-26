@@ -22,6 +22,7 @@ import {
   enterPostLoginVerificationState,
   failSafeUnresolvedGate,
   finishMandatoryAuthFlow,
+  getMandatory2faState,
   getMandatoryGatePhase,
   isMandatoryAuthFlowInProgress,
   isMandatoryLockExemptNavigation,
@@ -34,6 +35,7 @@ import {
   mandatory2faWarn,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   normalizeMandatorySetupPath,
+  resetCurrentAuthFlowTotp,
   resetMandatoryAuthenticatorSetupState,
   resolveMandatoryAuthenticatorGate,
   resumeMandatoryLock,
@@ -126,8 +128,15 @@ export class MandatoryAuthenticatorEnforcementService {
         if (status === AuthenticationStatus.Locked) {
           mandatory2faLog("lock/unlock path selected: full login required before vault access");
           mandatory2faLog("vault locked — mandatory gate will revalidate after unlock");
+          resetCurrentAuthFlowTotp("vault locked");
           this.pauseServerNotifications();
           this.resetGateForRevalidation("vault locked");
+          mandatory2faNavLog("MandatoryAuthenticatorEnforcementService/authStatusLocked", {
+            currentUrl: this.router.url,
+            requestedUrl: "/login",
+            finalUrl: "/login",
+          });
+          void this.router.navigate(["/login"], { replaceUrl: true });
           return;
         }
 
@@ -148,8 +157,26 @@ export class MandatoryAuthenticatorEnforcementService {
   private attachAuthRouteListener(): void {
     this.router.events.subscribe((event) => {
       if (event instanceof NavigationStart) {
+        const requestedPath = normalizeMandatorySetupPath(event.url);
+        if (requestedPath === "/lock" || requestedPath.startsWith("/lock/")) {
+          resetCurrentAuthFlowTotp("lock route reached");
+          mandatory2faNavLog("MandatoryAuthenticatorEnforcementService/lockRoute", {
+            currentUrl: this.router.url,
+            requestedUrl: event.url,
+            finalUrl: "/login",
+          });
+          setTimeout(() => {
+            void this.router.navigate(["/login"], { replaceUrl: true });
+          }, 0);
+          return;
+        }
+
         if (!isPreLoginAuthenticationRoute(event.url)) {
           return;
+        }
+
+        if (requestedPath === "/login" || requestedPath.startsWith("/login/")) {
+          resetCurrentAuthFlowTotp("login route reached");
         }
 
         beginMandatoryAuthFlow("pre-login route navigation");
@@ -305,6 +332,20 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
+    const state = getMandatory2faState();
+    if (state.hasAuthenticatorConfigured && !state.currentAuthFlowPassedTotp) {
+      mandatory2faLog("mandatory authenticator configured but current auth flow did not pass TOTP");
+      this.pauseServerNotifications();
+      mandatory2faLog("selected navigation target: login");
+      mandatory2faNavLog("runGateResolution/fullLoginRequired", {
+        currentUrl: this.router.url,
+        requestedUrl: "/login",
+        finalUrl: "/login",
+      });
+      await this.router.navigate(["/login"], { replaceUrl: true });
+      return;
+    }
+
     mandatory2faLog("mandatory authenticator status detected: not configured");
     this.pauseServerNotifications();
     mandatory2faLog("selected navigation target: security two-factor setup");
@@ -328,13 +369,7 @@ export class MandatoryAuthenticatorEnforcementService {
   }
 
   private async resumeServerNotifications(): Promise<void> {
-    try {
-      await Promise.resolve(this.serverNotificationsService.reconnectFromActivity());
-      mandatory2faLog("server notifications resume requested");
-    } catch (error) {
-      mandatory2faWarn("SignalR failed but continuing login", error);
-      mandatory2faWarn("server notifications resume failed; continuing without SignalR", error);
-    }
+    mandatory2faWarn("server notifications resume skipped during mandatory 2FA flow");
   }
 
   private resetGateForRevalidation(reason: string): void {

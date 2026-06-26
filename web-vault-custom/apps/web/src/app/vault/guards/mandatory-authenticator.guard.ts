@@ -13,6 +13,7 @@ import {
 } from "./mandatory-authenticator-account.util";
 import {
   createMandatorySetupUrlTree,
+  getMandatory2faState,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   resolveMandatoryAuthenticatorAccess,
 } from "./mandatory-authenticator.policy";
@@ -46,6 +47,28 @@ async function evaluateMandatoryAuthenticatorAccess(
 
   if (ctx.lockSuspended || ctx.isLogoutRoute) {
     logMandatoryGuardDecision("allow — logout/disconnect or lock suspended", ctx);
+    return true;
+  }
+
+  if (ctx.isMandatorySetupRoute) {
+    if (!ctx.hasAccount || !ctx.userId) {
+      logMandatoryGuardDecision("allow — setup route before account is ready", ctx);
+      return true;
+    }
+
+    if (ctx.authStatus === AuthenticationStatus.LoggedOut) {
+      logMandatoryGuardDecision("allow — logged out setup route transition", ctx);
+      return true;
+    }
+
+    const state = getMandatory2faState();
+    console.log("[EBvault 2FA] allow mandatory setup route", {
+      route: ctx.path,
+      hasAccount: ctx.hasAccount,
+      hasAuthenticatorConfigured: state.hasAuthenticatorConfigured,
+      mandatorySetupRequired: state.mandatorySetupRequired,
+    });
+    logMandatoryGuardDecision("allow — mandatory setup route", ctx, state);
     return true;
   }
 

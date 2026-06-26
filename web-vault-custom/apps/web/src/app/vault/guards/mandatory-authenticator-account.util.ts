@@ -15,6 +15,7 @@ import {
   isMandatoryLockExemptNavigation,
   isMandatoryLockModeActive,
   isMandatoryLockSuspended,
+  isMandatorySetupRoute,
   normalizeMandatorySetupPath,
 } from "./mandatory-authenticator.policy";
 
@@ -50,6 +51,7 @@ export type MandatoryGuardContext = {
   userId: UserId | null;
   authStatus: AuthenticationStatus | null;
   isPublicRoute: boolean;
+  isMandatorySetupRoute: boolean;
   isLogoutRoute: boolean;
   lockSuspended: boolean;
   vaultLocked: boolean;
@@ -65,7 +67,8 @@ export async function buildMandatoryGuardContext(
   const path = normalizeMandatorySetupPath(url);
   const lockSuspended = isMandatoryLockSuspended();
   const isLogoutRoute = isLogoutNavigationTarget(url);
-  const isPublicRoute = isMandatoryLockExemptNavigation(url);
+  const isMandatorySetupRouteValue = isMandatorySetupRoute(url);
+  const isPublicRoute = !isMandatorySetupRouteValue && isMandatoryLockExemptNavigation(url);
   const userId = await getActiveAccountUserIdOrNull(accountService);
   const authStatus = await getAuthStatusOrNull(authService, userId);
   const vaultLocked = authStatus === AuthenticationStatus.Locked;
@@ -82,6 +85,7 @@ export async function buildMandatoryGuardContext(
     userId,
     authStatus,
     isPublicRoute,
+    isMandatorySetupRoute: isMandatorySetupRouteValue,
     isLogoutRoute,
     lockSuspended,
     vaultLocked,
@@ -102,6 +106,7 @@ export function logMandatoryGuardDecision(
   console.log(`${LOG_PREFIX} guard decision: ${decision}`, {
     route: context.path,
     isPublicRoute: context.isPublicRoute,
+    isMandatorySetupRoute: context.isMandatorySetupRoute,
     isLogoutRoute: context.isLogoutRoute,
     lockSuspended: context.lockSuspended,
     hasAccount: context.hasAccount,
