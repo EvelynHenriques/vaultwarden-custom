@@ -9,6 +9,12 @@ from pathlib import Path
 
 IMPORT_BLOCK = """import {
   mandatoryAuthenticatorActivate,
+  mandatoryFullReloginLockGuard,
+  mandatoryAuthenticatorGuard,
+} from "./vault/guards/mandatory-authenticator.guard";"""
+
+OLD_IMPORT_BLOCK = """import {
+  mandatoryAuthenticatorActivate,
   mandatoryAuthenticatorGuard,
 } from "./vault/guards/mandatory-authenticator.guard";"""
 
@@ -25,6 +31,9 @@ LEGACY_SETUP_EXTENSION_IMPORT = (
 def ensure_import(text: str) -> str:
     if LEGACY_SETUP_EXTENSION_IMPORT in text:
         text = text.replace(LEGACY_SETUP_EXTENSION_IMPORT, SETUP_EXTENSION_IMPORT)
+
+    if OLD_IMPORT_BLOCK in text:
+        text = text.replace(OLD_IMPORT_BLOCK, IMPORT_BLOCK)
 
     if IMPORT_BLOCK not in text:
         patterns = [
@@ -152,7 +161,7 @@ def fix_setup_extension_guard(text: str) -> str:
             + body[can_activate_match.end() :]
         )
     else:
-        body = f"    canActivate: [{guard}],\n" + body
+        body = f"        canActivate: [{guard}],\n" + body
 
     return text[: match.start()] + match.group("path_line") + body + text[match.end() :]
 
@@ -166,20 +175,19 @@ def apply_mandatory_routing(path: Path) -> bool:
     text = fix_organizations_guard(text)
     text = fix_setup_extension_guard(text)
 
-    regex_replacements = [
-        (
-            r'(path: "remove-password",[\s\S]*?canActivate: \[)authGuard(\])',
-            r"\1authGuard, mandatoryAuthenticatorActivate\2",
-        ),
-        (
-            r'(path: AuthRoute\.ChangePassword,[\s\S]*?canActivate: \[)authGuard(\])',
-            r"\1authGuard, mandatoryAuthenticatorActivate\2",
-        ),
-    ]
-    for pattern, repl in regex_replacements:
-        text = re.sub(pattern, repl, text, count=1)
-
     simple = [
+        (
+            'path: "lock",\n        canActivate: [deepLinkGuard(), lockGuard()],',
+            'path: "lock",\n        canActivate: [deepLinkGuard(), mandatoryFullReloginLockGuard, lockGuard()],',
+        ),
+        (
+            'path: "remove-password",\n        component: RemovePasswordComponent,\n        canActivate: [authGuard],',
+            'path: "remove-password",\n        component: RemovePasswordComponent,\n        canActivate: [authGuard, mandatoryAuthenticatorActivate],',
+        ),
+        (
+            "path: AuthRoute.ChangePassword,\n        component: ChangePasswordComponent,\n        canActivate: [authGuard],",
+            "path: AuthRoute.ChangePassword,\n        component: ChangePasswordComponent,\n        canActivate: [authGuard, mandatoryAuthenticatorActivate],",
+        ),
         (
             "canActivate: [mandatoryAuthenticatorActivate, setupExtensionRedirectGuard]",
             "canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard]",
@@ -221,12 +229,14 @@ def apply_mandatory_routing(path: Path) -> bool:
 def verify_mandatory_routing(text: str, path: Path) -> None:
     checks = [
         ("mandatoryAuthenticatorActivate import", "mandatoryAuthenticatorActivate"),
+        ("mandatoryFullReloginLockGuard import", "mandatoryFullReloginLockGuard"),
         ("UserLayout canActivateChild", "canActivateChild: [mandatoryAuthenticatorGuard]"),
         ("UserLayout runGuardsAndResolvers", 'runGuardsAndResolvers: "always"'),
         ("UserLayout upstream canActivate", "canActivate: [deepLinkGuard(), authGuard]"),
         ("setup-extension guard", "blockSetupExtensionUntilMandatory2faGuard"),
         ("blockSetupExtension import", "blockSetupExtensionUntilMandatory2faGuard"),
         ("vault upstream guards preserved", "canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard]"),
+        ("lock full re-login guard", "canActivate: [deepLinkGuard(), mandatoryFullReloginLockGuard, lockGuard()]"),
         ("organizations child guard", 'path: "organizations",\n    canActivate: [authGuard, mandatoryAuthenticatorActivate],\n    canActivateChild: [mandatoryAuthenticatorGuard]'),
     ]
     missing = [label for label, needle in checks if needle not in text]

@@ -38,6 +38,13 @@ PATCHED_PREFIX = f"""{RUN_SIGNATURE}
       console.log("[EBvault LOGIN] upstream login-time fullSync completed after TOTP");
     }} else {{
       console.log("[EBvault 2FA] sync deferred without throwing during login bootstrap");
+      const ebvaultMandatoryGatePromise =
+        (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<void> }})
+          .EBVAULT_MANDATORY_2FA_GATE_PROMISE;
+      if (ebvaultMandatoryGatePromise != null) {{
+        await ebvaultMandatoryGatePromise;
+        console.log("[EBvault 2FA SETUP] mandatory gate resolved before default navigation");
+      }}
     }}
     console.log("[EBvault LOGIN] original post-login bootstrap completed");
 {REGEN_BLOCK}"""
@@ -93,7 +100,7 @@ def remove_legacy_early_return(run_method: str) -> str:
 def patch_run_method(text: str) -> str:
     if MARKER in text and LEGACY_BOOTSTRAP_MARKER not in text:
         start, end = get_run_method_bounds(text)
-        run_method = ensure_completion_log(upgrade_regeneration_logging(text[start:end]))
+        run_method = ensure_completion_log(upgrade_gate_wait(upgrade_regeneration_logging(text[start:end])))
         return text[:start] + run_method + text[end:]
 
     if ORIGINAL_PREFIX in text:
@@ -131,7 +138,7 @@ def patch_run_method(text: str) -> str:
         return text[:start] + patched_method + text[end:]
 
     if MARKER in run_method:
-        patched_method = ensure_completion_log(run_method)
+        patched_method = ensure_completion_log(upgrade_gate_wait(run_method))
         return text[:start] + patched_method + text[end:]
 
     raise RuntimeError(
@@ -157,6 +164,24 @@ def upgrade_regeneration_logging(run_method: str) -> str:
     if REGEN_LINE not in run_method:
         return run_method
     return run_method.replace(REGEN_LINE, REGEN_BLOCK, 1)
+
+
+def upgrade_gate_wait(run_method: str) -> str:
+    if "EBVAULT_MANDATORY_2FA_GATE_PROMISE" in run_method:
+        return run_method
+
+    anchor = '      console.log("[EBvault 2FA] sync deferred without throwing during login bootstrap");'
+    if anchor not in run_method:
+        return run_method
+
+    gate_wait = """      const ebvaultMandatoryGatePromise =
+        (globalThis as { EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<void> })
+          .EBVAULT_MANDATORY_2FA_GATE_PROMISE;
+      if (ebvaultMandatoryGatePromise != null) {
+        await ebvaultMandatoryGatePromise;
+        console.log("[EBvault 2FA SETUP] mandatory gate resolved before default navigation");
+      }"""
+    return run_method.replace(anchor, f"{anchor}\n{gate_wait}", 1)
 
 
 def apply_defer_login_sync_patch(path: Path) -> bool:

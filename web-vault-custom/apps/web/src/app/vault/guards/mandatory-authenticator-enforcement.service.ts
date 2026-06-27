@@ -439,9 +439,18 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
-    this.gateResolvePromise = this.runGateResolution().finally(() => {
+    const gatePromise = this.runGateResolution().finally(() => {
+      const globalGate = globalThis as {
+        EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<void>;
+      };
+      if (globalGate.EBVAULT_MANDATORY_2FA_GATE_PROMISE === gatePromise) {
+        delete globalGate.EBVAULT_MANDATORY_2FA_GATE_PROMISE;
+      }
       this.gateResolvePromise = null;
     });
+    this.gateResolvePromise = gatePromise;
+    (globalThis as { EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<void> })
+      .EBVAULT_MANDATORY_2FA_GATE_PROMISE = gatePromise;
   }
 
   private async ensureGateResolved(): Promise<void> {

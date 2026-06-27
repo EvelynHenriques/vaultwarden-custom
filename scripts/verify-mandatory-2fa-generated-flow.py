@@ -27,6 +27,7 @@ LOGIN_HANDLER = (
 EXPECTED_LOGIN_MARKERS = (
     "[EBvault LOGIN] DefaultLoginSuccessHandlerService.run started",
     "[EBvault LOGIN] auth state stable",
+    "EBVAULT_MANDATORY_2FA_GATE_PROMISE",
     "[EBvault LOGIN] original post-login bootstrap completed",
     "[EBvault LOGIN] DefaultLoginSuccessHandlerService.run completed",
 )
@@ -39,6 +40,8 @@ BAD_LOGIN_MARKERS = (
 )
 
 OSS_ROUTING = "apps/web/src/app/oss-routing.module.ts"
+TWO_FACTOR_COMPONENT = "libs/auth/src/angular/two-factor-auth/two-factor-auth.component.ts"
+TWO_FACTOR_TEMPLATE = "libs/auth/src/angular/two-factor-auth/two-factor-auth.component.html"
 
 
 def print_matches(clients_dir: Path) -> None:
@@ -94,6 +97,50 @@ def verify_no_ebvault_vault_navigation_log(clients_dir: Path) -> None:
         )
 
     print("  verified no EBvault 'navigation to /vault started' generated log")
+
+
+def verify_lock_guard(clients_dir: Path) -> None:
+    routing = clients_dir / OSS_ROUTING
+    if not routing.is_file():
+        raise RuntimeError(f"missing generated routing module: {routing}")
+
+    text = routing.read_text(encoding="utf-8")
+    if "mandatoryFullReloginLockGuard" not in text:
+        raise RuntimeError(f"{routing}: generated /lock route is missing mandatoryFullReloginLockGuard")
+    if "canActivate: [deepLinkGuard(), mandatoryFullReloginLockGuard, lockGuard()]" not in text:
+        raise RuntimeError(f"{routing}: generated /lock route does not force EBvault full re-login first")
+
+    print("  verified generated /lock route forces full re-login before local lock guard")
+
+
+def verify_remember_device_disabled(clients_dir: Path) -> None:
+    component = clients_dir / TWO_FACTOR_COMPONENT
+    template = clients_dir / TWO_FACTOR_TEMPLATE
+    if not component.is_file():
+        raise RuntimeError(f"missing generated 2FA component: {component}")
+    if not template.is_file():
+        raise RuntimeError(f"missing generated 2FA template: {template}")
+
+    component_text = component.read_text(encoding="utf-8")
+    template_text = template.read_text(encoding="utf-8")
+
+    expected = (
+        "EBvault remember device disabled",
+        "const rememberValue = false;",
+        'this.form.patchValue({ remember: false });',
+    )
+    missing = [marker for marker in expected if marker not in component_text]
+    if missing:
+        raise RuntimeError(
+            f"{component}: remember-device submit path is not fully disabled: {', '.join(missing)}"
+        )
+
+    if "dontAskAgainOnThisDeviceFor30Days" in template_text:
+        raise RuntimeError(f"{template}: remember-device checkbox is still rendered")
+    if 'submit($event.token, $event.remember)' in template_text:
+        raise RuntimeError(f"{template}: WebAuthn can still submit remember=true")
+
+    print("  verified remember-device checkbox and submit state are disabled")
 
 
 def print_routing_context(clients_dir: Path) -> None:
@@ -152,6 +199,8 @@ def main() -> int:
     print_routing_context(clients_dir)
     verify_login_handler(clients_dir)
     verify_no_ebvault_vault_navigation_log(clients_dir)
+    verify_lock_guard(clients_dir)
+    verify_remember_device_disabled(clients_dir)
     return 0
 
 

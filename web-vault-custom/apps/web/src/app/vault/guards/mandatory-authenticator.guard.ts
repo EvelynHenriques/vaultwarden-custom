@@ -14,6 +14,7 @@ import {
   MANDATORY_TWO_FACTOR_SETUP_URL,
   mandatory2faLog,
   mandatory2faNavLog,
+  resetCurrentAuthFlowTotp,
 } from "./mandatory-authenticator.policy";
 
 export {
@@ -119,6 +120,21 @@ export const mandatoryAuthenticatorActivate: CanActivateFn = (_route, state) => 
     ...describeGuardResult(result),
   });
   return result;
+};
+
+export const mandatoryFullReloginLockGuard: CanActivateFn = (_route, state) => {
+  const router = inject(Router) as Router;
+  if (!isMandatory2faEnforcementEnabled()) {
+    return true;
+  }
+
+  resetCurrentAuthFlowTotp("lock route requires full re-login");
+  console.log("[EBvault LOCK] full TOTP re-auth required", { route: state.url });
+  console.log("[EBvault LOCK] redirecting to TOTP challenge", {
+    route: state.url,
+    target: "/login",
+  });
+  return router.createUrlTree(["/login"]);
 };
 
 export { MANDATORY_TWO_FACTOR_SETUP_URL };
