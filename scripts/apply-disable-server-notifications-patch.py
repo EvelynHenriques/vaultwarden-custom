@@ -21,6 +21,8 @@ ASYNC_DISABLE_BODY = f"""    // {MARKER}: /notifications/hub is not available in
     return Promise.resolve();
 """
 
+DEBUG_PATTERNS = ("HubConnection", ".start(", "start(", "reconnect", "WebSocket", "SignalR")
+
 
 def patch_void_method(text: str, method_name: str) -> tuple[str, bool]:
     pattern = re.compile(
@@ -40,7 +42,7 @@ def patch_void_method(text: str, method_name: str) -> tuple[str, bool]:
 
 def patch_async_start_method(text: str) -> tuple[str, bool]:
     patterns = []
-    for method_name in ("start", "connect", "startConnection", "connectToHub"):
+    for method_name in ("start", r"start\$", "connect", "startConnection", "connectToHub"):
         patterns.extend(
             [
                 re.compile(
@@ -72,12 +74,58 @@ def patch_async_start_method(text: str) -> tuple[str, bool]:
     return text, False
 
 
+def dump_signalr_matches(path: Path, text: str) -> None:
+    print(f"  Searching {path.name} for:")
+    for pattern in DEBUG_PATTERNS:
+        print(f"  - {pattern}")
+
+    lines = text.splitlines()
+    found = False
+    for index, line in enumerate(lines, start=1):
+        if any(pattern in line for pattern in DEBUG_PATTERNS):
+            found = True
+            start = max(1, index - 2)
+            end = min(len(lines), index + 2)
+            print(f"  {path}:{index}: {line.rstrip()}")
+            for nearby_index in range(start, end + 1):
+                if nearby_index == index:
+                    continue
+                print(f"    {nearby_index}: {lines[nearby_index - 1].rstrip()}")
+
+    if not found:
+        print(f"  WARNING: no SignalR debug patterns found in {path}")
+
+
+def patch_direct_hub_start_call(text: str) -> tuple[str, bool]:
+    if MARKER in text:
+        return text, True
+
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        lower = line.lower()
+        if ".start(" not in line:
+            continue
+        if "connection" not in lower and "hub" not in lower and "signalr" not in lower:
+            continue
+
+        indent = line[: len(line) - len(line.lstrip())]
+        replacement = (
+            f"{indent}// {MARKER}: direct SignalR startup call disabled.\n"
+            f'{indent}console.warn("[EBvault 2FA] server notifications disabled during mandatory 2FA flow");\n'
+            f"{indent}return;\n"
+        )
+        lines[index] = replacement
+        return "".join(lines), True
+
+    return text, False
+
+
 def patch_default_server_notifications(path: Path, clients_dir: Path) -> bool:
     text = path.read_text(encoding="utf-8")
     original = text
     patched_any = False
 
-    for method in ("reconnectFromActivity", "connect"):
+    for method in ("reconnectFromActivity", "connect", "start", "startListening"):
         text, patched = patch_void_method(text, method)
         patched_any = patched_any or patched
 
@@ -96,10 +144,16 @@ def patch_default_server_notifications(path: Path, clients_dir: Path) -> bool:
 def patch_signalr_connection(path: Path, clients_dir: Path) -> bool:
     text = path.read_text(encoding="utf-8")
     original = text
+    dump_signalr_matches(path.relative_to(clients_dir), text)
 
     text, patched = patch_async_start_method(text)
     if not patched:
-        raise RuntimeError(f"{path}: could not find start(): Promise method to disable")
+        text, patched = patch_direct_hub_start_call(text)
+    if not patched:
+        print(
+            f"  WARNING: {path.relative_to(clients_dir)}: could not find a SignalR start method/call to disable"
+        )
+        return False
 
     if text != original:
         path.write_text(text, encoding="utf-8")
@@ -121,7 +175,8 @@ def main() -> int:
     if not default_paths:
         raise SystemExit("ERROR: could not find default-server-notifications.service.ts")
     if not signalr_paths:
-        raise SystemExit("ERROR: could not find signalr-connection.service.ts")
+        print("  WARNING: could not find signalr-connection.service.ts; high-level notifications remain disabled")
+        signalr_paths = []
 
     for path in default_paths:
         patch_default_server_notifications(path, clients_dir)
