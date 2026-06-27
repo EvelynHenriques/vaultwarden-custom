@@ -63,8 +63,42 @@ for relative in "${OVERLAY_FILES[@]}"; do
 done
 
 app_component="${CLIENTS_DIR}/apps/web/src/app/app.component.ts"
-if grep -Fq "lockService.lock(" "${app_component}"; then
-  echo "ERROR: EBvault full re-login lock behavior missing: app.component.ts still calls lockService.lock()" >&2
+if ! awk '
+  /case "lockVault"/ {
+    in_lock_vault = 1
+    saw_off_mode = 0
+    saw_local_lock = 0
+    saw_enforce_marker = 0
+    saw_enforce_logout = 0
+  }
+  in_lock_vault && /!isMandatory2faEnforcementEnabled\(\)/ {
+    saw_off_mode = 1
+  }
+  in_lock_vault && /lockService\.lock\(/ {
+    saw_local_lock = 1
+    if (!saw_off_mode) {
+      exit 2
+    }
+  }
+  in_lock_vault && /lockVault received; EBvault requires full re-login before vault access/ {
+    saw_enforce_marker = 1
+  }
+  in_lock_vault && /await this\.logOut\(true\)/ && saw_enforce_marker {
+    saw_enforce_logout = 1
+  }
+  in_lock_vault && /case "locked"/ {
+    if (!(saw_off_mode && saw_local_lock && saw_enforce_logout)) {
+      exit 3
+    }
+    in_lock_vault = 0
+  }
+  END {
+    if (in_lock_vault) {
+      exit 4
+    }
+  }
+' "${app_component}"; then
+  echo "ERROR: EBvault lock behavior invalid: enforce mode must force full re-login, and lockService.lock() may only appear in the off/observe mode branch" >&2
   exit 1
 fi
 if ! grep -Fq "lockVault received; EBvault requires full re-login before vault access" "${app_component}"; then
