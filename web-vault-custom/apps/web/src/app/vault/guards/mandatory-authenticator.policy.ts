@@ -652,6 +652,10 @@ export async function resolveMandatoryAuthenticatorGate(
     return gatePhase;
   }
 
+  if (mandatorySetupRequired && gatePhase === "blocked") {
+    return "blocked";
+  }
+
   enterPostLoginVerificationState();
 
   if (statusCheckPromise) {

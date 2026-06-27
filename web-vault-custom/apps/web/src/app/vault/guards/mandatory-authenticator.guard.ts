@@ -1,6 +1,8 @@
 import { inject } from "@angular/core";
 import { CanActivateChildFn, CanActivateFn, Router, UrlTree } from "@angular/router";
 
+import { MessagingService } from "@bitwarden/common/platform/abstractions/messaging.service";
+
 import {
   createMandatorySetupUrlTree,
   getMandatory2faMode,
@@ -16,6 +18,8 @@ import {
   mandatory2faNavLog,
   resetCurrentAuthFlowTotp,
 } from "./mandatory-authenticator.policy";
+
+let lockReloginLogoutRequested = false;
 
 export {
   clearMandatoryAuthenticatorGuardCache,
@@ -70,6 +74,10 @@ function evaluateMandatoryAuthenticatorAccess(url: string): boolean | UrlTree {
 
   if (state.mandatorySetupRequired) {
     mandatory2faLog("route blocked - redirect to mandatory 2FA setup", { url });
+    console.log("[EBvault 2FA SETUP] setup navigation requested", {
+      route: url,
+      target: MANDATORY_TWO_FACTOR_SETUP_URL,
+    });
     const tree = createMandatorySetupUrlTree(router);
     logGuardReturn(router, url, tree, MANDATORY_TWO_FACTOR_SETUP_URL);
     return tree;
@@ -123,18 +131,31 @@ export const mandatoryAuthenticatorActivate: CanActivateFn = (_route, state) => 
 };
 
 export const mandatoryFullReloginLockGuard: CanActivateFn = (_route, state) => {
-  const router = inject(Router) as Router;
   if (!isMandatory2faEnforcementEnabled()) {
     return true;
   }
 
+  const messagingService = inject(MessagingService);
   resetCurrentAuthFlowTotp("lock route requires full re-login");
+  console.log("[EBvault LOCK] lock requested", { route: state.url });
+  console.log("[EBvault LOCK] current TOTP flow reset");
   console.log("[EBvault LOCK] full TOTP re-auth required", { route: state.url });
   console.log("[EBvault LOCK] redirecting to TOTP challenge", {
     route: state.url,
     target: "/login",
   });
-  return router.createUrlTree(["/login"]);
+  console.log("[EBvault LOCK] stale /lock returnUrl cleared");
+  console.log("[EBvault LOCK] no local unlock bypass allowed");
+
+  if (!lockReloginLogoutRequested) {
+    lockReloginLogoutRequested = true;
+    messagingService.send("logout", {
+      redirect: true,
+      logoutReason: "mandatory2faFullRelogin",
+    });
+  }
+
+  return false;
 };
 
 export { MANDATORY_TWO_FACTOR_SETUP_URL };

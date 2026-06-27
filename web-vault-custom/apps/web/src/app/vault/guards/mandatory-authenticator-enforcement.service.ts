@@ -214,9 +214,6 @@ export class MandatoryAuthenticatorEnforcementService {
             requestedUrl: event.url,
             finalUrl: "/login",
           });
-          setTimeout(() => {
-            void this.router.navigate(["/login"], { replaceUrl: true });
-          }, 0);
           return;
         }
 
@@ -535,6 +532,19 @@ export class MandatoryAuthenticatorEnforcementService {
     console.log("[EBvault 2FA SETUP] replacing protected destination with /settings/security/two-factor", {
       currentUrl: this.router.url,
     });
+
+    if (
+      isMandatoryAuthFlowInProgress() &&
+      isPreLoginAuthenticationRoute(normalizeMandatorySetupPath(this.router.url))
+    ) {
+      console.log("[EBvault 2FA SETUP] discarding original protected destination /vault", {
+        currentUrl: this.router.url,
+      });
+      console.log("[EBvault 2FA SETUP] direct setup redirect requested");
+      mandatory2faLog("no-TOTP state resolved; original protected navigation will be redirected by guard");
+      return;
+    }
+
     await this.navigateToMandatorySetupIfNeeded();
   }
 
