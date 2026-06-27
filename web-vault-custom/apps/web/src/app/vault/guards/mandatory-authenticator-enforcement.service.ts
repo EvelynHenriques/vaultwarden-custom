@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NavigationEnd, NavigationStart, Router } from "@angular/router";
-import { distinctUntilChanged, EMPTY, filter, firstValueFrom, switchMap, take } from "rxjs";
+import { distinctUntilChanged, EMPTY, switchMap } from "rxjs";
 
 import { ApiService } from "@bitwarden/common/abstractions/api.service";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
@@ -520,6 +520,7 @@ export class MandatoryAuthenticatorEnforcementService {
     }
 
     mandatory2faLog("mandatory authenticator status detected: not configured");
+    console.log("[EBvault 2FA SETUP] no-TOTP login flow selected");
     this.pauseServerNotifications();
     mandatory2faLog("selected navigation target: security two-factor setup");
     console.log("[EBvault 2FA SETUP] replacing protected destination with /settings/security/two-factor", {
@@ -636,20 +637,18 @@ export class MandatoryAuthenticatorEnforcementService {
       currentUrl: this.router.url,
       targetUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
     });
-    console.log("[EBvault 2FA SETUP] navigating to /settings/security/two-factor");
-    const setupReachedByGuardRedirect =
-      await this.waitForOriginalLoginNavigationToReachSetup(currentPath);
-    if (setupReachedByGuardRedirect) {
-      return;
-    }
-
-    await this.waitForInFlightNavigationToSettleBeforeSetupRedirect();
-    await new Promise((resolve) => setTimeout(resolve, 0));
 
     if (this.shouldSkipMandatorySetupNavigation()) {
       return;
     }
 
+    const protectedDestination = this.currentNavigationTargetUrl() ?? "/vault";
+    console.log("[EBvault 2FA SETUP] discarding original protected destination /vault", {
+      currentUrl: this.router.url,
+      protectedDestination,
+    });
+    console.log("[EBvault 2FA SETUP] direct setup redirect requested");
+    console.log("[EBvault 2FA SETUP] navigating to /settings/security/two-factor");
     await this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl: true });
   }
 
@@ -693,104 +692,21 @@ export class MandatoryAuthenticatorEnforcementService {
     return false;
   }
 
-  private async waitForOriginalLoginNavigationToReachSetup(currentPath: string): Promise<boolean> {
-    if (!isMandatoryAuthFlowInProgress() || !isPreLoginAuthenticationRoute(currentPath)) {
-      return false;
-    }
-
-    console.log("[EBvault 2FA SETUP] waiting for original protected login navigation to redirect to setup", {
-      currentUrl: this.router.url,
-    });
-
-    let setupReached = isMandatorySetupAllowedUrl(this.router.url);
-    let timedOut = false;
-    await Promise.race([
-      firstValueFrom(
-        this.router.events.pipe(
-          filter((event) => {
-            const eventName = getRouterEventName(event);
-            if (eventName === "NavigationError") {
-              return true;
-            }
-
-            const detail = getRouterEventDetail(event);
-            const eventUrl = normalizeMandatorySetupPath(
-              String(detail["urlAfterRedirects"] ?? detail["url"] ?? this.router.url),
-            );
-            if (eventName === "NavigationEnd" && isMandatorySetupAllowedUrl(eventUrl)) {
-              setupReached = true;
-              return true;
-            }
-
-            return false;
-          }),
-          take(1),
-        ),
-      ),
-      new Promise<void>((resolve) =>
-        setTimeout(() => {
-          timedOut = true;
-          resolve();
-        }, 1500),
-      ),
-    ]);
-
-    if (setupReached) {
-      console.log("[EBvault 2FA SETUP] setup route reached by guard redirect");
-      return true;
-    }
-
-    if (timedOut) {
-      console.log("[EBvault 2FA SETUP] original protected navigation did not reach setup; using fallback setup navigation", {
-        currentUrl: this.router.url,
-      });
-    }
-
-    return false;
-  }
-
-  private async waitForInFlightNavigationToSettleBeforeSetupRedirect(): Promise<void> {
+  private currentNavigationTargetUrl(): string | null {
     const router = this.router as Router & { getCurrentNavigation?: () => unknown };
-    const hasCurrentNavigation =
-      typeof router.getCurrentNavigation === "function" && !!router.getCurrentNavigation();
-
-    if (!hasCurrentNavigation) {
-      return;
+    if (typeof router.getCurrentNavigation !== "function") {
+      return null;
     }
 
-    console.log("[EBvault 2FA SETUP] waiting for current protected navigation to settle before setup redirect", {
-      currentUrl: this.router.url,
-      hasCurrentNavigation,
-    });
-
-    let timedOut = false;
-    await Promise.race([
-      firstValueFrom(
-        this.router.events.pipe(
-          filter((event) => {
-            const eventName = getRouterEventName(event);
-            return (
-              eventName === "NavigationEnd" ||
-              eventName === "NavigationCancel" ||
-              eventName === "NavigationError"
-            );
-          }),
-          take(1),
-        ),
-      ),
-      new Promise<void>((resolve) =>
-        setTimeout(() => {
-          timedOut = true;
-          resolve();
-        }, 500),
-      ),
-    ]);
-
-    if (timedOut) {
-      console.log("[EBvault 2FA SETUP] setup redirect wait timed out; continuing", {
-        currentUrl: this.router.url,
-      });
+    const navigation = router.getCurrentNavigation();
+    if (navigation == null || typeof navigation !== "object") {
+      return null;
     }
+
+    const safeNavigation = navigation as Record<string, unknown>;
+    const target =
+      safeNavigation["finalUrl"] ?? safeNavigation["extractedUrl"] ?? safeNavigation["initialUrl"];
+    return target == null ? null : target.toString();
   }
 
   /** Wait until the mandatory setup route is active so the setup component can mount. */
