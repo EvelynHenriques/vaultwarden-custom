@@ -246,6 +246,9 @@ export class MandatoryAuthenticatorEnforcementService {
     }
 
     const detail = getRouterEventDetail(event);
+    if (eventName === "RoutesRecognized") {
+      console.log("[EBvault ROUTER MATCH]", getRouterMatchDetail(event));
+    }
     if (eventName === "NavigationCancel") {
       console.log("[EBvault 2FA LOGIN] router navigation cancelled", detail);
     } else if (eventName === "NavigationError") {
@@ -482,6 +485,26 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
+    const state = getMandatory2faState();
+    if (
+      isMandatoryAuthFlowInProgress() &&
+      isPreLoginAuthenticationRoute(currentPath) &&
+      state.currentAuthFlowPassedTotp &&
+      !state.mandatorySetupRequired &&
+      !state.mandatoryGateReleased
+    ) {
+      mandatory2faLog("setup navigation skipped during pending TOTP login verification", {
+        currentRoute: currentPath,
+        state,
+      });
+      mandatory2faNavLog("navigateToMandatorySetupIfNeeded/skippedPendingTotpLogin", {
+        currentUrl: this.router.url,
+        requestedUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
+        finalUrl: "skipped-pending-totp-login",
+      });
+      return;
+    }
+
     mandatory2faLog("current route", currentPath);
     mandatory2faLog("target route", MANDATORY_TWO_FACTOR_SETUP_URL);
     mandatory2faLog("route blocked", {
@@ -540,4 +563,69 @@ function getRouterEventDetail(event: unknown): Record<string, unknown> {
     reason: safeEvent["reason"],
     error: safeEvent["error"],
   };
+}
+
+function getRouterMatchDetail(event: unknown): Record<string, unknown> {
+  const safeEvent = event != null && typeof event === "object" ? (event as Record<string, unknown>) : {};
+  const state = safeEvent["state"];
+  const root = state != null && typeof state === "object" ? (state as Record<string, unknown>)["root"] : null;
+  const levels = collectRouteSnapshotLevels(root);
+
+  return {
+    url: safeEvent["url"],
+    urlAfterRedirects: safeEvent["urlAfterRedirects"],
+    matchedPaths: levels.map((level) => level.path),
+    canActivateByLevel: levels.map((level) => level.canActivate),
+    canActivateChildByLevel: levels.map((level) => level.canActivateChild),
+  };
+}
+
+function collectRouteSnapshotLevels(root: unknown): Array<{
+  path: unknown;
+  canActivate: string[];
+  canActivateChild: string[];
+}> {
+  const levels: Array<{
+    path: unknown;
+    canActivate: string[];
+    canActivateChild: string[];
+  }> = [];
+
+  let current = root;
+  while (current != null && typeof current === "object") {
+    const snapshot = current as Record<string, unknown>;
+    const routeConfig =
+      snapshot["routeConfig"] != null && typeof snapshot["routeConfig"] === "object"
+        ? (snapshot["routeConfig"] as Record<string, unknown>)
+        : {};
+    levels.push({
+      path: routeConfig["path"] ?? "",
+      canActivate: describeGuardArray(routeConfig["canActivate"]),
+      canActivateChild: describeGuardArray(routeConfig["canActivateChild"]),
+    });
+
+    const firstChild = snapshot["firstChild"];
+    if (firstChild == null || typeof firstChild !== "object") {
+      break;
+    }
+    current = firstChild;
+  }
+
+  return levels;
+}
+
+function describeGuardArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((guard) => {
+    if (typeof guard === "function") {
+      return guard.name || "(anonymous guard)";
+    }
+    if (guard != null && typeof guard === "object") {
+      return (guard as { constructor?: { name?: string } }).constructor?.name ?? "object guard";
+    }
+    return String(guard);
+  });
 }

@@ -145,15 +145,35 @@ async function evaluateMandatoryAuthenticatorAccess(url: string): Promise<boolea
 }
 
 export const mandatoryAuthenticatorGuard: CanActivateChildFn = async (_route, state) => {
-  return traceMandatoryGuard("mandatoryAuthenticatorGuard", state.url, () =>
+  const router = inject(Router) as Router;
+  console.log("[EBvault OUTER GUARD] mandatoryAuthenticatorGuard entered", { url: state.url });
+  logRouterDebug("mandatoryAuthenticatorGuard entered", router, state.url);
+  const result = await traceMandatoryGuard("mandatoryAuthenticatorGuard", state.url, () =>
     evaluateMandatoryAuthenticatorAccess(state.url),
   );
+  console.log("[EBvault OUTER GUARD] mandatoryAuthenticatorGuard returning to Angular", {
+    url: state.url,
+    ...describeGuardResult(result),
+  });
+  logRouterDebug("mandatoryAuthenticatorGuard returning", router, state.url, result);
+  return result;
 };
 
 export const mandatoryAuthenticatorActivate: CanActivateFn = async (_route, state) => {
-  return traceMandatoryGuard("mandatoryAuthenticatorActivate", state.url, () =>
+  const router = inject(Router) as Router;
+  console.log("[EBvault OUTER GUARD] mandatoryAuthenticatorActivate entered", {
+    url: state.url,
+  });
+  logRouterDebug("mandatoryAuthenticatorActivate entered", router, state.url);
+  const result = await traceMandatoryGuard("mandatoryAuthenticatorActivate", state.url, () =>
     evaluateMandatoryAuthenticatorAccess(state.url),
   );
+  console.log("[EBvault OUTER GUARD] mandatoryAuthenticatorActivate returning to Angular", {
+    url: state.url,
+    ...describeGuardResult(result),
+  });
+  logRouterDebug("mandatoryAuthenticatorActivate returning", router, state.url, result);
+  return result;
 };
 
 export { MANDATORY_TWO_FACTOR_SETUP_URL };
@@ -182,4 +202,36 @@ function allowTrue(reason: string, route: string): true {
     reason,
   });
   return true;
+}
+
+function describeGuardResult(result: boolean | UrlTree): Record<string, unknown> {
+  if (result === true) {
+    return { resultType: "true", resultString: "true" };
+  }
+  if (result === false) {
+    return { resultType: "false", resultString: "false" };
+  }
+
+  return {
+    resultType: result?.constructor?.name ?? "UrlTree",
+    resultString: result?.toString?.(),
+  };
+}
+
+function logRouterDebug(
+  source: string,
+  router: Router,
+  stateUrl: string,
+  result?: boolean | UrlTree,
+): void {
+  const windowRef = typeof window === "undefined" ? null : window;
+  console.log("[EBvault ROUTER DEBUG]", {
+    source,
+    routerUrl: router.url,
+    stateUrl,
+    windowLocationHref: windowRef?.location?.href,
+    windowLocationHash: windowRef?.location?.hash,
+    generatedUrlTreeString:
+      result != null && result !== true && result !== false ? result.toString?.() : undefined,
+  });
 }

@@ -681,7 +681,9 @@ export async function resolveMandatoryAuthenticatorAccess(
       requestedUrl: url,
       finalUrl: "/login",
     });
-    return router.createUrlTree(["/login"]);
+    const tree = router.createUrlTree(["/login"]);
+    logGeneratedUrlTree("resolveMandatoryAuthenticatorAccess/fullLoginRequired", router, tree);
+    return tree;
   }
 
   if (phase === "pending") {
@@ -709,7 +711,9 @@ export function createMandatorySetupUrlTree(router: Router): UrlTree {
     requestedUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
     finalUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
   });
-  return router.createUrlTree([MANDATORY_TWO_FACTOR_SETUP_URL]);
+  const tree = router.createUrlTree([MANDATORY_TWO_FACTOR_SETUP_URL]);
+  logGeneratedUrlTree("createMandatorySetupUrlTree", router, tree);
+  return tree;
 }
 
 export async function getMandatoryAuthenticatorRedirect(
@@ -733,7 +737,9 @@ export async function getMandatoryAuthenticatorRedirect(
       requestedUrl: "/login",
       finalUrl: "/login",
     });
-    return router.createUrlTree(["/login"]);
+    const tree = router.createUrlTree(["/login"]);
+    logGeneratedUrlTree("getMandatoryAuthenticatorRedirect/fullLoginRequired", router, tree);
+    return tree;
   }
 
   if (phase === "pending") {
@@ -742,6 +748,21 @@ export async function getMandatoryAuthenticatorRedirect(
   }
 
   return createMandatorySetupUrlTree(router);
+}
+
+function logGeneratedUrlTree(source: string, router: Router, tree: UrlTree): void {
+  if (!MANDATORY_2FA_DEBUG_ENABLED || typeof console === "undefined" || !console.log) {
+    return;
+  }
+
+  const windowRef = typeof window === "undefined" ? null : window;
+  console.log("[EBvault ROUTER DEBUG] generated UrlTree", {
+    source,
+    routerUrl: router.url,
+    windowLocationHref: windowRef?.location?.href,
+    windowLocationHash: windowRef?.location?.hash,
+    generatedUrlTreeString: tree.toString?.(),
+  });
 }
 
 export function shouldHideAuthenticatedContent(url: string): boolean {
