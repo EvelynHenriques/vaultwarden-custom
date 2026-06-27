@@ -32,6 +32,10 @@ export function mandatory2faWarn(message: string, detail?: unknown): void {
 
 /** Gate phases — single source of truth for mandatory 2FA session state. */
 export type MandatoryGatePhase = "idle" | "pending" | "blocked" | "released";
+export type Mandatory2faMode = "off" | "observe" | "enforce";
+
+const MODE_STORAGE_KEY = "EBVAULT_2FA_MODE";
+const TOTP_FLOW_GLOBAL_KEY = "EBVAULT_CURRENT_AUTH_FLOW_PASSED_TOTP";
 
 let gatePhase: MandatoryGatePhase = "idle";
 let statusCheckPromise: Promise<MandatoryGatePhase> | null = null;
@@ -47,6 +51,19 @@ export const MANDATORY_AUTHENTICATOR_SETUP_MESSAGE =
 
 export const MANDATORY_AUTHENTICATOR_SETUP_LOG_MESSAGE =
   "User must configure Authenticator 2FA before using this endpoint";
+
+export function getMandatory2faMode(): Mandatory2faMode {
+  const value = readMandatory2faModeOverride();
+  return value ?? "enforce";
+}
+
+export function isMandatory2faEnforcementEnabled(): boolean {
+  return getMandatory2faMode() === "enforce";
+}
+
+export function isMandatory2faObserveOnly(): boolean {
+  return getMandatory2faMode() === "observe";
+}
 
 function log(message: string, detail?: unknown): void {
   mandatory2faLog(message, detail);
@@ -109,6 +126,7 @@ export function mandatory2faStateLog(
 
 export function markCurrentAuthFlowPassedTotp(source: string): void {
   currentAuthFlowPassedTotp = true;
+  setCurrentAuthFlowPassedTotpGlobal(true);
   console.log("[EBvault 2FA LOGIN] /identity/connect/token 2FA success", { source });
   log(`current auth flow passed TOTP (${source})`);
   mandatory2faStateLog(source);
@@ -125,6 +143,7 @@ export function resetCurrentAuthFlowTotp(source: string): void {
     log(`current auth flow TOTP reset (${source})`);
   }
   currentAuthFlowPassedTotp = false;
+  setCurrentAuthFlowPassedTotpGlobal(false);
   mandatoryGateReleased = false;
   syncGatePhaseFromState();
   mandatory2faStateLog(source);
@@ -190,6 +209,7 @@ export function isMandatoryLockSuspended(): boolean {
 export function resetMandatoryAuthenticatorSetupState(): void {
   hasAuthenticatorConfigured = false;
   currentAuthFlowPassedTotp = false;
+  setCurrentAuthFlowPassedTotpGlobal(false);
   mandatorySetupRequired = false;
   mandatoryGateReleased = false;
   gatePhase = "idle";
@@ -201,6 +221,7 @@ export function resetMandatoryAuthenticatorSetupState(): void {
 export function markMandatoryAuthenticatorSetupComplete(): void {
   hasAuthenticatorConfigured = true;
   currentAuthFlowPassedTotp = true;
+  setCurrentAuthFlowPassedTotpGlobal(true);
   mandatorySetupRequired = false;
   mandatoryGateReleased = true;
   gatePhase = "released";
@@ -512,6 +533,10 @@ export function isIdentityServerRequest(request: Request): boolean {
 }
 
 export function shouldBlockMandatoryVaultApiRequest(request: Request): boolean {
+  if (!isMandatory2faEnforcementEnabled()) {
+    return false;
+  }
+
   if (isIdentityServerRequest(request)) {
     return false;
   }
@@ -654,6 +679,13 @@ export async function resolveMandatoryAuthenticatorAccess(
   twoFactorService: TwoFactorService,
   url?: string,
 ): Promise<boolean | UrlTree> {
+  if (!isMandatory2faEnforcementEnabled()) {
+    if (isMandatory2faObserveOnly()) {
+      log("observe mode: route allowed without enforcement", { url });
+    }
+    return true;
+  }
+
   if (isMandatoryLockSuspended()) {
     return true;
   }
@@ -714,6 +746,49 @@ export function createMandatorySetupUrlTree(router: Router): UrlTree {
   const tree = router.createUrlTree([MANDATORY_TWO_FACTOR_SETUP_URL]);
   logGeneratedUrlTree("createMandatorySetupUrlTree", router, tree);
   return tree;
+}
+
+function readMandatory2faModeOverride(): Mandatory2faMode | null {
+  const candidate = readRawMandatory2faModeOverride();
+  if (candidate === "off" || candidate === "observe" || candidate === "enforce") {
+    return candidate;
+  }
+
+  return null;
+}
+
+function readRawMandatory2faModeOverride(): string | null {
+  const globalValue = readGlobalString("EBVAULT_2FA_MODE");
+  if (globalValue) {
+    return globalValue.toLowerCase();
+  }
+
+  try {
+    if (typeof window !== "undefined") {
+      return window.localStorage?.getItem(MODE_STORAGE_KEY)?.toLowerCase() ?? null;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function readGlobalString(key: string): string | null {
+  try {
+    const value = (globalThis as Record<string, unknown>)[key];
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function setCurrentAuthFlowPassedTotpGlobal(value: boolean): void {
+  try {
+    (globalThis as Record<string, unknown>)[TOTP_FLOW_GLOBAL_KEY] = value;
+  } catch {
+    // Ignore non-browser or locked-down globals; the in-memory policy state remains authoritative.
+  }
 }
 
 export async function getMandatoryAuthenticatorRedirect(

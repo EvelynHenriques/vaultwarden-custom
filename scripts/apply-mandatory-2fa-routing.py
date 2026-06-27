@@ -48,13 +48,30 @@ def ensure_import(text: str) -> str:
 
 def fix_user_layout_guard(text: str) -> str:
     """Repair incorrect parent canActivate using mandatoryAuthenticatorGuard."""
+    user_layout_pattern = re.compile(
+        r'(component: UserLayoutComponent,\n\s*)'
+        r'canActivate: \[[^\]]*\],\n'
+        r'(?:\s*canActivateChild: \[mandatoryAuthenticatorGuard\],\n)?'
+        r'(?:\s*runGuardsAndResolvers: "always",\n)?'
+    )
+    text = user_layout_pattern.sub(
+        r'\1canActivate: [deepLinkGuard(), authGuard],'
+        "\n    canActivateChild: [mandatoryAuthenticatorGuard],"
+        '\n    runGuardsAndResolvers: "always",\n',
+        text,
+        count=1,
+    )
+
     wrong_patterns = [
         "canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorGuard]",
         "canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorActivate, mandatoryAuthenticatorGuard]",
+        "canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorActivate]",
     ]
-    correct = """canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorActivate],
-    canActivateChild: [mandatoryAuthenticatorGuard],
-    runGuardsAndResolvers: "always\""""
+    correct = (
+        'canActivate: [deepLinkGuard(), authGuard],\n'
+        '    canActivateChild: [mandatoryAuthenticatorGuard],\n'
+        '    runGuardsAndResolvers: "always",'
+    )
     for wrong in wrong_patterns:
         if wrong in text:
             text = text.replace(wrong, correct, 1)
@@ -63,12 +80,12 @@ def fix_user_layout_guard(text: str) -> str:
     if "component: UserLayoutComponent," in text and "canActivateChild: [mandatoryAuthenticatorGuard]" not in text:
         text = text.replace(
             "component: UserLayoutComponent,\n    canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorActivate],",
-            "component: UserLayoutComponent,\n    canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorActivate],\n    canActivateChild: [mandatoryAuthenticatorGuard],\n    runGuardsAndResolvers: \"always\",",
+            "component: UserLayoutComponent,\n    canActivate: [deepLinkGuard(), authGuard],\n    canActivateChild: [mandatoryAuthenticatorGuard],\n    runGuardsAndResolvers: \"always\",",
             1,
         )
         text = text.replace(
             "component: UserLayoutComponent,\n    canActivate: [deepLinkGuard(), authGuard],",
-            "component: UserLayoutComponent,\n    canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorActivate],\n    canActivateChild: [mandatoryAuthenticatorGuard],\n    runGuardsAndResolvers: \"always\",",
+            "component: UserLayoutComponent,\n    canActivate: [deepLinkGuard(), authGuard],\n    canActivateChild: [mandatoryAuthenticatorGuard],\n    runGuardsAndResolvers: \"always\",",
             1,
         )
     return text
@@ -164,32 +181,24 @@ def apply_mandatory_routing(path: Path) -> bool:
 
     simple = [
         (
-            "canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard]",
             "canActivate: [mandatoryAuthenticatorActivate, setupExtensionRedirectGuard]",
+            "canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard]",
         ),
         (
             "canActivate: [mandatoryAuthenticatorActivate, premiumInterestRedirectGuard, setupExtensionRedirectGuard]",
-            "canActivate: [mandatoryAuthenticatorActivate, setupExtensionRedirectGuard]",
+            "canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard]",
         ),
         (
-            "canActivate: [\n          organizationPolicyGuard",
-            "canActivate: [\n          mandatoryAuthenticatorActivate,\n          organizationPolicyGuard",
-        ),
-        (
-            'path: "create-organization",\n        component: CreateOrganizationComponent',
-            'path: "create-organization",\n        canActivate: [mandatoryAuthenticatorActivate],\n        component: CreateOrganizationComponent',
-        ),
-        (
-            'path: "settings",\n        children: [',
             'path: "settings",\n        canActivateChild: [mandatoryAuthenticatorGuard],\n        children: [',
+            'path: "settings",\n        children: [',
         ),
         (
-            'canActivate: [authGuard],\n        children: [\n          { path: "", pathMatch: "full", redirectTo: "generator" }',
             'canActivate: [mandatoryAuthenticatorActivate, authGuard],\n        children: [\n          { path: "", pathMatch: "full", redirectTo: "generator" }',
+            'canActivate: [authGuard],\n        children: [\n          { path: "", pathMatch: "full", redirectTo: "generator" }',
         ),
         (
-            'path: "reports",\n        loadChildren:',
             'path: "reports",\n        canActivate: [mandatoryAuthenticatorActivate],\n        loadChildren:',
+            'path: "reports",\n        loadChildren:',
         ),
     ]
 
@@ -214,10 +223,10 @@ def verify_mandatory_routing(text: str, path: Path) -> None:
         ("mandatoryAuthenticatorActivate import", "mandatoryAuthenticatorActivate"),
         ("UserLayout canActivateChild", "canActivateChild: [mandatoryAuthenticatorGuard]"),
         ("UserLayout runGuardsAndResolvers", 'runGuardsAndResolvers: "always"'),
+        ("UserLayout upstream canActivate", "canActivate: [deepLinkGuard(), authGuard]"),
         ("setup-extension guard", "blockSetupExtensionUntilMandatory2faGuard"),
         ("blockSetupExtension import", "blockSetupExtensionUntilMandatory2faGuard"),
-        ("vault mandatory guard", "canActivate: [mandatoryAuthenticatorActivate, setupExtensionRedirectGuard]"),
-        ("settings child guard", 'path: "settings",\n        canActivateChild: [mandatoryAuthenticatorGuard]'),
+        ("vault upstream guards preserved", "canActivate: [premiumInterestRedirectGuard, setupExtensionRedirectGuard]"),
         ("organizations child guard", 'path: "organizations",\n    canActivate: [authGuard, mandatoryAuthenticatorActivate],\n    canActivateChild: [mandatoryAuthenticatorGuard]'),
     ]
     missing = [label for label, needle in checks if needle not in text]
@@ -226,6 +235,12 @@ def verify_mandatory_routing(text: str, path: Path) -> None:
 
     if "canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorGuard]" in text:
         raise RuntimeError(f"{path}: UserLayout still uses mandatoryAuthenticatorGuard on canActivate (wrong)")
+    if "canActivate: [deepLinkGuard(), authGuard, mandatoryAuthenticatorActivate]" in text:
+        raise RuntimeError(f"{path}: UserLayout still runs mandatory guard before shell activation")
+    if "canActivate: [mandatoryAuthenticatorActivate, setupExtensionRedirectGuard]" in text:
+        raise RuntimeError(f"{path}: vault route still runs mandatory guard before setup-extension guard")
+    if 'path: "settings",\n        canActivateChild: [mandatoryAuthenticatorGuard]' in text:
+        raise RuntimeError(f"{path}: settings route has duplicate mandatory child guard")
 
     setup_match = re.search(
         r'path: "setup-extension",\n(?P<body>[\s\S]*?)(?=\n\s*\},)',

@@ -3,7 +3,6 @@ import { RouterModule, Routes } from "@angular/router";
 
 import { DeviceManagementComponent } from "@bitwarden/angular/auth/device-management/device-management.component";
 
-import { mandatoryAuthenticatorGuard } from "../../../vault/guards/mandatory-authenticator.guard";
 import { SessionTimeoutComponent } from "../../../key-management/session-timeout/session-timeout.component";
 import { TwoFactorSetupComponent } from "../two-factor/two-factor-setup.component";
 
@@ -15,8 +14,6 @@ const routes: Routes = [
   {
     path: "",
     component: SecurityComponent,
-    canActivateChild: [mandatoryAuthenticatorGuard],
-    runGuardsAndResolvers: "always",
     data: { titleId: "security" },
     children: [
       { path: "", pathMatch: "full", redirectTo: "two-factor" },

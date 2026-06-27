@@ -1,21 +1,19 @@
 import { inject } from "@angular/core";
 import { CanActivateChildFn, CanActivateFn, Router, UrlTree } from "@angular/router";
 
-import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
-
-import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
-import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
-import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
-
-import {
-  buildMandatoryGuardContext,
-  logMandatoryGuardDecision,
-} from "./mandatory-authenticator-account.util";
 import {
   createMandatorySetupUrlTree,
+  getMandatory2faMode,
   getMandatory2faState,
+  getMandatoryGatePhase,
+  isLogoutNavigationTarget,
+  isMandatory2faEnforcementEnabled,
+  isMandatoryLockExemptNavigation,
+  isMandatoryLockSuspended,
+  isMandatorySetupAllowedUrl,
   MANDATORY_TWO_FACTOR_SETUP_URL,
-  resolveMandatoryAuthenticatorAccess,
+  mandatory2faLog,
+  mandatory2faNavLog,
 } from "./mandatory-authenticator.policy";
 
 export {
@@ -24,184 +22,121 @@ export {
   resetMandatoryAuthenticatorSetupState,
 } from "./mandatory-authenticator.policy";
 
-async function evaluateMandatoryAuthenticatorAccess(url: string): Promise<boolean | UrlTree> {
-  const accountService = inject(AccountService) as AccountService;
-  const authService = inject(AuthService) as AuthService;
+function evaluateMandatoryAuthenticatorAccess(url: string): boolean | UrlTree {
   const router = inject(Router) as Router;
-  const twoFactorService = inject(TwoFactorService) as TwoFactorService;
+  const state = getMandatory2faState();
+  const gatePhase = getMandatoryGatePhase();
+  const mode = getMandatory2faMode();
 
-  const ctx = await buildMandatoryGuardContext(accountService, authService, url);
+  logGuardState("entered", router, url);
 
-  if (ctx.lockSuspended || ctx.isLogoutRoute) {
-    logMandatoryGuardDecision("allow - logout/disconnect or lock suspended", ctx);
-    return allowTrue("logout/disconnect or lock suspended", ctx.path);
+  if (!isMandatory2faEnforcementEnabled()) {
+    mandatory2faLog(`${mode} mode: mandatory Authenticator guard allows route`, { url });
+    return allowTrue(router, url, "mode disabled or observe-only");
   }
 
-  if (ctx.isMandatorySetupRoute) {
-    if (!ctx.hasAccount || !ctx.userId) {
-      logMandatoryGuardDecision("allow - setup route before account is ready", ctx);
-      return allowTrue("mandatory setup route before account is ready", ctx.path);
-    }
-
-    if (ctx.authStatus === AuthenticationStatus.LoggedOut) {
-      logMandatoryGuardDecision("allow - logged out setup route transition", ctx);
-      return allowTrue("logged out setup route transition", ctx.path);
-    }
-
-    const state = getMandatory2faState();
-    if (
-      state.currentAuthFlowPassedTotp &&
-      !state.mandatorySetupRequired &&
-      !state.mandatoryGateReleased
-    ) {
-      console.log("[EBvault 2FA] gate pending - no setup route decision yet", {
-        route: ctx.path,
-        hasAuthenticatorConfigured: state.hasAuthenticatorConfigured,
-        currentAuthFlowPassedTotp: state.currentAuthFlowPassedTotp,
-        mandatorySetupRequired: state.mandatorySetupRequired,
-        mandatoryGateReleased: state.mandatoryGateReleased,
-      });
-      logMandatoryGuardDecision(
-        "cancel - setup route requested while TOTP login gate pending",
-        ctx,
-        state,
-      );
-      console.log("[EBvault GUARD TRACE] returning false now for pending setup route", {
-        route: ctx.path,
-      });
-      return false;
-    }
-
-    console.log("[EBvault 2FA] allow mandatory setup route", {
-      route: ctx.path,
-      hasAccount: ctx.hasAccount,
-      hasAuthenticatorConfigured: state.hasAuthenticatorConfigured,
-      mandatorySetupRequired: state.mandatorySetupRequired,
-    });
-    logMandatoryGuardDecision("allow - mandatory setup route", ctx, state);
-    return allowTrue("mandatory setup route", ctx.path);
+  if (
+    isMandatoryLockSuspended() ||
+    isLogoutNavigationTarget(url) ||
+    isMandatoryLockExemptNavigation(url)
+  ) {
+    return allowTrue(router, url, "logout/public/pre-login route");
   }
 
-  if (ctx.isPublicRoute) {
-    logMandatoryGuardDecision("allow - public/auth route (no account required)", ctx);
-    return allowTrue("public/auth route", ctx.path);
+  if (isMandatorySetupAllowedUrl(url)) {
+    return allowTrue(router, url, "mandatory setup route");
   }
 
-  if (!ctx.hasAccount || !ctx.userId) {
-    logMandatoryGuardDecision("allow - no account yet (unauthenticated transition)", ctx);
-    return allowTrue("no account yet", ctx.path);
+  if (state.mandatoryGateReleased) {
+    return allowTrue(router, url, "gate released");
   }
 
-  if (ctx.authStatus === AuthenticationStatus.LoggedOut) {
-    logMandatoryGuardDecision("allow - logged out", ctx);
-    return allowTrue("logged out", ctx.path);
-  }
-
-  if (ctx.authStatus === AuthenticationStatus.Locked) {
-    logMandatoryGuardDecision("allow - vault locked (unlock / login 2FA flow)", ctx);
-    return allowTrue("vault locked", ctx.path);
-  }
-
-  if (ctx.authStatus !== AuthenticationStatus.Unlocked) {
-    logMandatoryGuardDecision("allow - auth status not Unlocked yet", ctx, {
-      authStatus: ctx.authStatus,
-    });
-    return allowTrue("auth status not unlocked yet", ctx.path);
-  }
-
-  try {
-    const result = await resolveMandatoryAuthenticatorAccess(router, twoFactorService, url);
-    logMandatoryGuardDecision(
-      result === true ? "allow - vault access granted" : "redirect/setup",
-      ctx,
-      { result: typeof result === "boolean" ? result : MANDATORY_TWO_FACTOR_SETUP_URL },
-    );
-
-    if (result === true) {
-      return allowTrue("vault route", ctx.path);
-    }
-    if (result === false) {
-      console.log("[EBvault GUARD TRACE] returning false now for route", { route: ctx.path });
-      return false;
-    }
-
-    console.log("[EBvault GUARD TRACE] about to return UrlTree", {
-      route: ctx.path,
-      result: MANDATORY_TWO_FACTOR_SETUP_URL,
-    });
-    return result;
-  } catch (error) {
-    logMandatoryGuardDecision("redirect - guard error during 2FA check", ctx, {
-      error: String(error),
-    });
-    const tree = createMandatorySetupUrlTree(router);
-    console.log("[EBvault GUARD TRACE] about to return UrlTree", {
-      route: ctx.path,
-      result: MANDATORY_TWO_FACTOR_SETUP_URL,
-      reason: "guard error",
-    });
+  if (state.hasAuthenticatorConfigured && !state.currentAuthFlowPassedTotp) {
+    mandatory2faLog("route blocked - full login with TOTP required", { url });
+    const tree = router.createUrlTree(["/login"]);
+    logGuardReturn(router, url, tree, "full login required");
     return tree;
   }
+
+  if (state.mandatorySetupRequired) {
+    mandatory2faLog("route blocked - redirect to mandatory 2FA setup", { url });
+    const tree = createMandatorySetupUrlTree(router);
+    logGuardReturn(router, url, tree, MANDATORY_TWO_FACTOR_SETUP_URL);
+    return tree;
+  }
+
+  // Pending/idle must not do async work in the guard. Let the original Web Vault navigation
+  // settle; MandatoryAuthenticatorEnforcementService will verify /api/two-factor and redirect
+  // only after account/session state is stable.
+  mandatory2faLog("gate pending/idle - guard allows original navigation to settle", {
+    url,
+    gatePhase,
+    state,
+  });
+  return allowTrue(router, url, "pending/idle");
 }
 
-export const mandatoryAuthenticatorGuard: CanActivateChildFn = async (_route, state) => {
-  const router = inject(Router) as Router;
+export const mandatoryAuthenticatorGuard: CanActivateChildFn = (_route, state) => {
   console.log("[EBvault OUTER GUARD] mandatoryAuthenticatorGuard entered", { url: state.url });
-  logRouterDebug("mandatoryAuthenticatorGuard entered", router, state.url);
-  const result = await traceMandatoryGuard("mandatoryAuthenticatorGuard", state.url, () =>
-    evaluateMandatoryAuthenticatorAccess(state.url),
-  );
+  const result = evaluateMandatoryAuthenticatorAccess(state.url);
   console.log("[EBvault OUTER GUARD] mandatoryAuthenticatorGuard returning to Angular", {
     url: state.url,
     ...describeGuardResult(result),
   });
-  logRouterDebug("mandatoryAuthenticatorGuard returning", router, state.url, result);
   return result;
 };
 
-export const mandatoryAuthenticatorActivate: CanActivateFn = async (_route, state) => {
-  const router = inject(Router) as Router;
+export const mandatoryAuthenticatorActivate: CanActivateFn = (_route, state) => {
   console.log("[EBvault OUTER GUARD] mandatoryAuthenticatorActivate entered", {
     url: state.url,
   });
-  logRouterDebug("mandatoryAuthenticatorActivate entered", router, state.url);
-  const result = await traceMandatoryGuard("mandatoryAuthenticatorActivate", state.url, () =>
-    evaluateMandatoryAuthenticatorAccess(state.url),
-  );
+  const result = evaluateMandatoryAuthenticatorAccess(state.url);
   console.log("[EBvault OUTER GUARD] mandatoryAuthenticatorActivate returning to Angular", {
     url: state.url,
     ...describeGuardResult(result),
   });
-  logRouterDebug("mandatoryAuthenticatorActivate returning", router, state.url, result);
   return result;
 };
 
 export { MANDATORY_TWO_FACTOR_SETUP_URL };
 
-async function traceMandatoryGuard(
-  name: string,
-  url: string,
-  run: () => Promise<boolean | UrlTree>,
-): Promise<boolean | UrlTree> {
-  console.log("[EBvault GUARD TRACE] guard started:", name, url);
-  try {
-    const result = await run();
-    console.log("[EBvault GUARD TRACE] guard completed:", name, url, {
-      result: result === true ? true : result === false ? false : "UrlTree",
-    });
-    return result;
-  } catch (error) {
-    console.log("[EBvault GUARD TRACE] guard failed:", name, url, { error });
-    throw error;
-  }
+function allowTrue(router: Router, url: string, reason: string): true {
+  logGuardReturn(router, url, true, reason);
+  return true;
 }
 
-function allowTrue(reason: string, route: string): true {
-  console.log("[EBvault GUARD TRACE] returning true now", {
-    route,
-    reason,
+function logGuardState(source: string, router: Router, stateUrl: string): void {
+  const state = getMandatory2faState();
+  const windowRef = typeof window === "undefined" ? null : window;
+  console.log("[EBvault ROUTER DEBUG]", {
+    source,
+    routerUrl: router.url,
+    stateUrl,
+    windowLocationHref: windowRef?.location?.href,
+    windowLocationHash: windowRef?.location?.hash,
+    gatePhase: getMandatoryGatePhase(),
+    mode: getMandatory2faMode(),
+    ...state,
   });
-  return true;
+}
+
+function logGuardReturn(
+  router: Router,
+  url: string,
+  result: boolean | UrlTree,
+  reason: string,
+): void {
+  const detail = {
+    currentUrl: router.url,
+    requestedUrl: url,
+    finalUrl: result === true ? url : result.toString?.(),
+  };
+  mandatory2faNavLog(`mandatoryAuthenticatorGuard/${reason}`, detail);
+  console.log("[EBvault GUARD TRACE] returning to Angular", {
+    url,
+    reason,
+    ...describeGuardResult(result),
+  });
 }
 
 function describeGuardResult(result: boolean | UrlTree): Record<string, unknown> {
@@ -216,22 +151,4 @@ function describeGuardResult(result: boolean | UrlTree): Record<string, unknown>
     resultType: result?.constructor?.name ?? "UrlTree",
     resultString: result?.toString?.(),
   };
-}
-
-function logRouterDebug(
-  source: string,
-  router: Router,
-  stateUrl: string,
-  result?: boolean | UrlTree,
-): void {
-  const windowRef = typeof window === "undefined" ? null : window;
-  console.log("[EBvault ROUTER DEBUG]", {
-    source,
-    routerUrl: router.url,
-    stateUrl,
-    windowLocationHref: windowRef?.location?.href,
-    windowLocationHash: windowRef?.location?.hash,
-    generatedUrlTreeString:
-      result != null && result !== true && result !== false ? result.toString?.() : undefined,
-  });
 }

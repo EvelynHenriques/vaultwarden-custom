@@ -29,8 +29,16 @@ REGEN_BLOCK = """    console.log("[EBvault LOGIN] before key regeneration");
 PATCHED_PREFIX = f"""{RUN_SIGNATURE}
     console.log("[EBvault LOGIN] DefaultLoginSuccessHandlerService.run started");
     console.log("[EBvault LOGIN] auth state stable");
-    // {MARKER}: avoid issuing /api/sync before EBvault confirms the mandatory gate.
-    console.log("[EBvault 2FA] sync deferred without throwing during login bootstrap");
+    // {MARKER}: keep upstream sync for real TOTP logins, but avoid /api/sync before setup.
+    const ebvaultCurrentFlowPassedTotp =
+      (globalThis as {{ EBVAULT_CURRENT_AUTH_FLOW_PASSED_TOTP?: boolean }})
+        .EBVAULT_CURRENT_AUTH_FLOW_PASSED_TOTP === true;
+    if (ebvaultCurrentFlowPassedTotp) {{
+      await this.syncService.fullSync(true, {{ skipTokenRefresh: true }});
+      console.log("[EBvault LOGIN] upstream login-time fullSync completed after TOTP");
+    }} else {{
+      console.log("[EBvault 2FA] sync deferred without throwing during login bootstrap");
+    }}
     console.log("[EBvault LOGIN] original post-login bootstrap completed");
 {REGEN_BLOCK}"""
 

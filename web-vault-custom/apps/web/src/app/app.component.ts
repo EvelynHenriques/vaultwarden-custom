@@ -7,6 +7,7 @@ import { NavigationEnd, Router } from "@angular/router";
 import { Subject, filter, firstValueFrom, map, timeout } from "rxjs";
 
 import { DeviceTrustToastService } from "@bitwarden/angular/auth/services/device-trust-toast.service.abstraction";
+import { LockService } from "@bitwarden/auth/common";
 import { DocumentLangSetter } from "@bitwarden/angular/platform/i18n";
 import { InternalOrganizationServiceAbstraction } from "@bitwarden/common/admin-console/abstractions/organization/organization.service.abstraction";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
@@ -32,6 +33,7 @@ import { MandatoryAuthenticatorEnforcementService } from "./vault/guards/mandato
 import { MandatoryAuthenticatorLockService } from "./vault/guards/mandatory-authenticator-lock.service";
 import {
   isMandatoryAuthFlowInProgress,
+  isMandatory2faEnforcementEnabled,
   mandatory2faLog,
   mandatory2faNavLog,
   mandatory2faWarn,
@@ -85,6 +87,7 @@ export class AppComponent implements OnDestroy, OnInit {
     private readonly mandatoryAuthenticatorEnforcementService: MandatoryAuthenticatorEnforcementService,
     private readonly mandatoryAuthenticatorLockService: MandatoryAuthenticatorLockService,
     private readonly titleService: Title,
+    private readonly lockService: LockService,
   ) {
     this.deviceTrustToastService.setupListeners$.pipe(takeUntilDestroyed()).subscribe();
 
@@ -152,6 +155,11 @@ export class AppComponent implements OnDestroy, OnInit {
             await this.logOut(message.redirect);
             break;
           case "lockVault": {
+            if (!isMandatory2faEnforcementEnabled()) {
+              const userId = await firstValueFrom(this.accountService.activeAccount$.pipe(getUserId));
+              await this.lockService.lock(userId);
+              break;
+            }
             if (isMandatoryAuthFlowInProgress()) {
               mandatory2faLog("lockVault ignored during active login/2FA flow", message);
               break;
@@ -162,6 +170,11 @@ export class AppComponent implements OnDestroy, OnInit {
             break;
           }
           case "locked":
+            if (!isMandatory2faEnforcementEnabled()) {
+              await this.router.navigate(["/"]);
+              await this.processReloadService.startProcessReload();
+              break;
+            }
             if (isMandatoryAuthFlowInProgress()) {
               mandatory2faLog("locked ignored during active login/2FA flow", message);
               break;

@@ -24,7 +24,10 @@ import {
   finishMandatoryAuthFlow,
   getMandatory2faState,
   getMandatoryGatePhase,
+  getMandatory2faMode,
   isMandatoryAuthFlowInProgress,
+  isMandatory2faEnforcementEnabled,
+  isMandatory2faObserveOnly,
   isMandatoryLockSuspended,
   isMandatorySetupAllowedUrl,
   isPreLoginAuthenticationRoute,
@@ -70,6 +73,7 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
     this.started = true;
+    mandatory2faLog(`mandatory 2FA mode = ${getMandatory2faMode()}`);
 
     if (typeof this.apiService.addMiddleware === "function") {
       registerMandatoryAuthenticatorApiMiddleware((middleware) =>
@@ -80,7 +84,14 @@ export class MandatoryAuthenticatorEnforcementService {
       mandatory2faLog("app startup / middleware NOT available on ApiService");
     }
 
-    this.lockService.initializeUi();
+    if (!isMandatory2faEnforcementEnabled() && !isMandatory2faObserveOnly()) {
+      mandatory2faLog("mandatory 2FA enforcement disabled; original Web Vault lifecycle is untouched");
+      return;
+    }
+
+    if (isMandatory2faEnforcementEnabled()) {
+      this.lockService.initializeUi();
+    }
     this.attachAuthRouteListener();
 
     this.accountService.activeAccount$
@@ -107,6 +118,15 @@ export class MandatoryAuthenticatorEnforcementService {
         }),
       )
       .subscribe((status) => {
+        if (!isMandatory2faEnforcementEnabled()) {
+          if (status === AuthenticationStatus.Unlocked && isMandatory2faObserveOnly()) {
+            mandatory2faLog("observe mode: unlocked session detected; resolving mandatory 2FA state");
+            enterPostLoginVerificationState();
+            this.scheduleGateResolution();
+          }
+          return;
+        }
+
         if (isMandatoryAuthFlowInProgress() && isPreLoginAuthenticationRoute(this.router.url)) {
           mandatory2faLog("auth status observed during active login/2FA flow; deferring custom handling", {
             status,
@@ -273,10 +293,16 @@ export class MandatoryAuthenticatorEnforcementService {
   }
 
   shouldHideAuthenticatedContent(url: string): boolean {
+    if (!isMandatory2faEnforcementEnabled()) {
+      return false;
+    }
     return shouldHideAuthenticatedContent(url);
   }
 
   isMandatorySetupPending(): boolean {
+    if (!isMandatory2faEnforcementEnabled()) {
+      return false;
+    }
     const phase = getMandatoryGatePhase();
     return phase === "pending" || phase === "blocked";
   }
@@ -286,6 +312,10 @@ export class MandatoryAuthenticatorEnforcementService {
    * Returns true only when Authenticator 2FA is confirmed configured.
    */
   async waitForMandatoryGate(): Promise<boolean> {
+    if (!isMandatory2faEnforcementEnabled()) {
+      return true;
+    }
+
     try {
       await Promise.race([
         this.ensureGateResolved(),
@@ -306,6 +336,10 @@ export class MandatoryAuthenticatorEnforcementService {
    * Returns false for generic auth failures outside mandatory gate scope.
    */
   async handleAuthFailure(signal?: Record<string, unknown>): Promise<boolean> {
+    if (!isMandatory2faEnforcementEnabled()) {
+      return false;
+    }
+
     if (isMandatoryLockSuspended()) {
       return false;
     }
@@ -346,6 +380,10 @@ export class MandatoryAuthenticatorEnforcementService {
   }
 
   async openMandatorySetupAfterGate(): Promise<void> {
+    if (!isMandatory2faEnforcementEnabled()) {
+      return;
+    }
+
     await this.navigateToMandatorySetupIfNeeded();
     await this.waitForSetupRouteActivation();
     mandatory2faLog("opening mandatory setup dialog");
@@ -389,6 +427,15 @@ export class MandatoryAuthenticatorEnforcementService {
     enterPostLoginVerificationState();
 
     const phase = await resolveMandatoryAuthenticatorGate(this.twoFactorService);
+
+    if (!isMandatory2faEnforcementEnabled()) {
+      mandatory2faLog(`${getMandatory2faMode()} mode: gate resolved without routing enforcement`, {
+        phase,
+        state: getMandatory2faState(),
+      });
+      return;
+    }
+
     this.lockService.syncDomLockClass();
 
     if (phase === "released") {
@@ -431,6 +478,10 @@ export class MandatoryAuthenticatorEnforcementService {
 
   /** Fail-safe: never release vault when 2FA state is unknown or unresolved. */
   private applyFailSafeRestrictedState(): void {
+    if (!isMandatory2faEnforcementEnabled()) {
+      return;
+    }
+
     failSafeUnresolvedGate();
     this.lockService.syncDomLockClass();
     this.pauseServerNotifications();
