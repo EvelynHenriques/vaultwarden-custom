@@ -703,7 +703,7 @@ export class MandatoryAuthenticatorEnforcementService {
       return null;
     }
 
-    const safeNavigation = navigation as Record<string, unknown>;
+    const safeNavigation = navigation as unknown as Record<string, unknown>;
     const target =
       safeNavigation["finalUrl"] ?? safeNavigation["extractedUrl"] ?? safeNavigation["initialUrl"];
     return target == null ? null : target.toString();
