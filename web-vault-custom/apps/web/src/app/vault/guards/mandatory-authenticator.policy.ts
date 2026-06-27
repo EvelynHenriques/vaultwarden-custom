@@ -621,6 +621,7 @@ async function fetchMandatoryAuthenticatorStatus(
     }
 
     log("decision = missing authenticator");
+    console.log("[EBvault 2FA SETUP] mandatory setup required");
     syncGatePhaseFromState();
     log("gate state = blocked");
     mandatory2faStateLog("fetchMandatoryAuthenticatorStatus");

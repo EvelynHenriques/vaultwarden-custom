@@ -173,6 +173,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
     console.log("[EBvault 2FA SETUP] required API allowed");
 
     if (authenticatorEnabled) {
+      console.log("[EBvault 2FA SETUP] Authenticator configured, releasing gate");
       markMandatoryAuthenticatorSetupComplete();
       this.lockService.syncDomLockClass();
       this.resumeServerNotificationsBestEffort("setup load detected Authenticator already enabled");
@@ -403,6 +404,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
       }
     });
     if (enabled && type === TwoFactorProviderType.Authenticator) {
+      console.log("[EBvault 2FA SETUP] Authenticator configured, releasing gate");
       markMandatoryAuthenticatorSetupComplete();
       this.lockService.syncDomLockClass();
       mandatory2faLog("Authenticator setup completed; mandatory gate released");

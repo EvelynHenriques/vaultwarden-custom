@@ -65,9 +65,23 @@ function evaluateMandatoryAuthenticatorAccess(url: string): boolean | UrlTree {
     return tree;
   }
 
-  // Pending/idle must not do async work in the guard. Let the original Web Vault navigation
-  // settle; MandatoryAuthenticatorEnforcementService will verify /api/two-factor and redirect
-  // only after account/session state is stable.
+  if (gatePhase === "pending" && !state.currentAuthFlowPassedTotp) {
+    console.log("[EBvault 2FA SETUP] blocked navigation away from setup until Authenticator is configured", {
+      url,
+      gatePhase,
+      state,
+    });
+    mandatory2faLog("gate pending - protected navigation paused until /api/two-factor resolves", {
+      url,
+      gatePhase,
+      state,
+    });
+    logGuardReturn(router, url, false, "pending no-TOTP verification");
+    return false;
+  }
+
+  // Pending with currentAuthFlowPassedTotp=true is the frozen golden path:
+  // let original Web Vault login navigation complete.
   mandatory2faLog("gate pending/idle - guard allows original navigation to settle", {
     url,
     gatePhase,

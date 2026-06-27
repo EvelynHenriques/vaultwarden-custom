@@ -162,6 +162,10 @@ export class MandatoryAuthenticatorEnforcementService {
         if (status === AuthenticationStatus.Unlocked) {
           mandatory2faLog("token login success");
           console.log("[EBvault 2FA SETUP] restricted session created");
+          const state = getMandatory2faState();
+          if (!state.currentAuthFlowPassedTotp) {
+            console.log("[EBvault 2FA SETUP] no-TOTP post-login verification started");
+          }
           console.log("[EBvault 2FA LOGIN] auth state saved");
           mandatory2faLog("post-login continuation started after successful authentication");
           mandatory2faLog("login or unlock success");
@@ -241,6 +245,7 @@ export class MandatoryAuthenticatorEnforcementService {
           console.log("[EBvault LOGIN] current url /vault");
         }
         if (isMandatorySetupAllowedUrl(finalUrl)) {
+          console.log("[EBvault 2FA SETUP] setup route NavigationEnd");
           console.log("[EBvault 2FA SETUP] navigation completed true");
           console.log("[EBvault 2FA SETUP] current url /settings/security/two-factor");
         }
@@ -473,6 +478,9 @@ export class MandatoryAuthenticatorEnforcementService {
     mandatory2faLog("mandatory authenticator status detected: not configured");
     this.pauseServerNotifications();
     mandatory2faLog("selected navigation target: security two-factor setup");
+    console.log("[EBvault 2FA SETUP] replacing protected destination with /settings/security/two-factor", {
+      currentUrl: this.router.url,
+    });
     await this.navigateToMandatorySetupIfNeeded();
   }
 
@@ -566,6 +574,10 @@ export class MandatoryAuthenticatorEnforcementService {
       currentUrl: this.router.url,
       requestedUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
       finalUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
+    });
+    console.log("[EBvault 2FA SETUP] replacing protected destination with /settings/security/two-factor", {
+      currentUrl: this.router.url,
+      targetUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
     });
     await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
   }
