@@ -25,7 +25,6 @@ import {
   getMandatory2faState,
   getMandatoryGatePhase,
   isMandatoryAuthFlowInProgress,
-  isMandatoryLockExemptNavigation,
   isMandatoryLockSuspended,
   isMandatorySetupAllowedUrl,
   isPreLoginAuthenticationRoute,
@@ -328,7 +327,11 @@ export class MandatoryAuthenticatorEnforcementService {
       mandatory2faLog("mandatory authenticator status detected: configured");
       await this.resumeServerNotifications();
       mandatory2faLog("selected navigation target: vault");
-      await this.navigateToVaultAfterReleaseIfNeeded();
+      mandatory2faNavLog("runGateResolution/released", {
+        currentUrl: this.router.url,
+        requestedUrl: "/vault",
+        finalUrl: "original-login-flow",
+      });
       return;
     }
 
@@ -420,33 +423,6 @@ export class MandatoryAuthenticatorEnforcementService {
       finalUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
     });
     await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
-  }
-
-  private async navigateToVaultAfterReleaseIfNeeded(): Promise<void> {
-    const currentPath = normalizeMandatorySetupPath(this.router.url);
-    if (isMandatoryAuthFlowInProgress()) {
-      mandatory2faNavLog("navigateToVaultAfterReleaseIfNeeded/deferred", {
-        currentUrl: this.router.url,
-        requestedUrl: "/vault",
-        finalUrl: this.router.url,
-      });
-      return;
-    }
-
-    if (
-      currentPath === "/" ||
-      isMandatorySetupAllowedUrl(currentPath) ||
-      isMandatoryLockExemptNavigation(currentPath)
-    ) {
-      mandatory2faLog("current route", currentPath);
-      mandatory2faLog("target route", "/vault");
-      mandatory2faNavLog("navigateToVaultAfterReleaseIfNeeded", {
-        currentUrl: this.router.url,
-        requestedUrl: "/vault",
-        finalUrl: "/vault",
-      });
-      await this.router.navigate(["/vault"], { replaceUrl: true });
-    }
   }
 
   /** Wait until the mandatory setup route is active so the setup component can mount. */

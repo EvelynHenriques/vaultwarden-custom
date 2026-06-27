@@ -30,6 +30,7 @@ def main() -> int:
     org_routing = clients_dir / "apps/web/src/app/admin-console/organizations/organization-routing.module.ts"
 
     print("Applying EBvault source patches (Python, idempotent)...")
+    run_step("disable server notifications", "apply-disable-server-notifications-patch.py", str(clients_dir))
     run_step("index favicon/title", "apply-index-favicon.py", str(clients_dir))
     run_step("mandatory 2FA routing", "apply-mandatory-2fa-routing.py", str(oss_routing))
     run_step("mandatory 2FA API errors", "apply-mandatory-2fa-api-patch.py", str(clients_dir))
