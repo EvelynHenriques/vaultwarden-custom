@@ -32,6 +32,7 @@ def main() -> int:
     print("Applying EBvault source patches (Python, idempotent)...")
     run_step("disable server notifications", "apply-disable-server-notifications-patch.py", str(clients_dir))
     run_step("index favicon/title", "apply-index-favicon.py", str(clients_dir))
+    run_step("registration login redirect", "apply-registration-login-redirect-patch.py", str(clients_dir))
     run_step("mandatory 2FA routing", "apply-mandatory-2fa-routing.py", str(oss_routing))
     run_step("mandatory 2FA API errors", "apply-mandatory-2fa-api-patch.py", str(clients_dir))
     run_step("login 2FA submit UX", "apply-mandatory-2fa-login-two-factor-patch.py", str(clients_dir))

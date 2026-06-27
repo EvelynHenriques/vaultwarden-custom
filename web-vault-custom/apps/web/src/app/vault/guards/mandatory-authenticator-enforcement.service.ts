@@ -637,28 +637,130 @@ export class MandatoryAuthenticatorEnforcementService {
       targetUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
     });
     console.log("[EBvault 2FA SETUP] navigating to /settings/security/two-factor");
-    await this.waitForProtectedLoginNavigationToSettleBeforeSetupRedirect(currentPath);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl: true });
-  }
-
-  private async waitForProtectedLoginNavigationToSettleBeforeSetupRedirect(
-    currentPath: string,
-  ): Promise<void> {
-    const router = this.router as Router & { getCurrentNavigation?: () => unknown };
-    const hasCurrentNavigation =
-      typeof router.getCurrentNavigation === "function" && !!router.getCurrentNavigation();
-    const waitingForOriginalLoginNavigation =
-      isMandatoryAuthFlowInProgress() && isPreLoginAuthenticationRoute(currentPath);
-
-    if (!hasCurrentNavigation && !waitingForOriginalLoginNavigation) {
+    const setupReachedByGuardRedirect =
+      await this.waitForOriginalLoginNavigationToReachSetup(currentPath);
+    if (setupReachedByGuardRedirect) {
       return;
     }
 
-    console.log("[EBvault 2FA SETUP] waiting for protected navigation to settle before setup redirect", {
+    await this.waitForInFlightNavigationToSettleBeforeSetupRedirect();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    if (this.shouldSkipMandatorySetupNavigation()) {
+      return;
+    }
+
+    await this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl: true });
+  }
+
+  private shouldSkipMandatorySetupNavigation(): boolean {
+    const latestPath = normalizeMandatorySetupPath(this.router.url);
+    if (isMandatorySetupAllowedUrl(latestPath)) {
+      mandatory2faLog("current route already mandatory setup route", { currentRoute: latestPath });
+      return true;
+    }
+
+    const latestState = getMandatory2faState();
+    if (
+      latestState.mandatoryGateReleased ||
+      (latestState.hasAuthenticatorConfigured &&
+        latestState.currentAuthFlowPassedTotp &&
+        !latestState.mandatorySetupRequired)
+    ) {
+      console.log(
+        "[EBvault 2FA] setup navigation skipped: Authenticator already configured and current TOTP flow passed",
+        {
+          currentUrl: this.router.url,
+          state: latestState,
+        },
+      );
+      mandatory2faNavLog("navigateToMandatorySetupIfNeeded/skippedReleasedGate", {
+        currentUrl: this.router.url,
+        requestedUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
+        finalUrl: "skipped-released-gate",
+      });
+      return true;
+    }
+
+    if (!latestState.mandatorySetupRequired) {
+      mandatory2faLog("setup navigation skipped because mandatory setup is no longer required", {
+        currentUrl: this.router.url,
+        state: latestState,
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  private async waitForOriginalLoginNavigationToReachSetup(currentPath: string): Promise<boolean> {
+    if (!isMandatoryAuthFlowInProgress() || !isPreLoginAuthenticationRoute(currentPath)) {
+      return false;
+    }
+
+    console.log("[EBvault 2FA SETUP] waiting for original protected login navigation to redirect to setup", {
+      currentUrl: this.router.url,
+    });
+
+    let setupReached = isMandatorySetupAllowedUrl(this.router.url);
+    let timedOut = false;
+    await Promise.race([
+      firstValueFrom(
+        this.router.events.pipe(
+          filter((event) => {
+            const eventName = getRouterEventName(event);
+            if (eventName === "NavigationError") {
+              return true;
+            }
+
+            const detail = getRouterEventDetail(event);
+            const eventUrl = normalizeMandatorySetupPath(
+              String(detail["urlAfterRedirects"] ?? detail["url"] ?? this.router.url),
+            );
+            if (eventName === "NavigationEnd" && isMandatorySetupAllowedUrl(eventUrl)) {
+              setupReached = true;
+              return true;
+            }
+
+            return false;
+          }),
+          take(1),
+        ),
+      ),
+      new Promise<void>((resolve) =>
+        setTimeout(() => {
+          timedOut = true;
+          resolve();
+        }, 1500),
+      ),
+    ]);
+
+    if (setupReached) {
+      console.log("[EBvault 2FA SETUP] setup route reached by guard redirect");
+      return true;
+    }
+
+    if (timedOut) {
+      console.log("[EBvault 2FA SETUP] original protected navigation did not reach setup; using fallback setup navigation", {
+        currentUrl: this.router.url,
+      });
+    }
+
+    return false;
+  }
+
+  private async waitForInFlightNavigationToSettleBeforeSetupRedirect(): Promise<void> {
+    const router = this.router as Router & { getCurrentNavigation?: () => unknown };
+    const hasCurrentNavigation =
+      typeof router.getCurrentNavigation === "function" && !!router.getCurrentNavigation();
+
+    if (!hasCurrentNavigation) {
+      return;
+    }
+
+    console.log("[EBvault 2FA SETUP] waiting for current protected navigation to settle before setup redirect", {
       currentUrl: this.router.url,
       hasCurrentNavigation,
-      waitingForOriginalLoginNavigation,
     });
 
     let timedOut = false;
@@ -680,7 +782,7 @@ export class MandatoryAuthenticatorEnforcementService {
         setTimeout(() => {
           timedOut = true;
           resolve();
-        }, waitingForOriginalLoginNavigation ? 1000 : 500),
+        }, 500),
       ),
     ]);
 
