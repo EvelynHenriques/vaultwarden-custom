@@ -1,33 +1,27 @@
 #!/usr/bin/env python3
-"""Defer post-login bootstrap so mandatory 2FA gate can run before vault sync."""
+"""Keep the upstream login-success lifecycle, but do not let pre-gate sync abort it."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-MARKER = "EBvault defer post-login fullSync to mandatory 2FA gate"
-BOOTSTRAP_MARKER = "EBvault defer post-login bootstrap to mandatory 2FA gate"
+MARKER = "EBvault guard login-time fullSync during mandatory 2FA gate"
+LEGACY_FULLSYNC_MARKER = "EBvault defer post-login fullSync to mandatory 2FA gate"
+LEGACY_BOOTSTRAP_MARKER = "EBvault defer post-login bootstrap to mandatory 2FA gate"
 
-ORIGINAL = """  async run(userId: UserId, masterPassword: string | null): Promise<void> {
-    await this.syncService.fullSync(true, { skipTokenRefresh: true });
+RUN_SIGNATURE = "  async run(userId: UserId, masterPassword: string | null): Promise<void> {"
+ORIGINAL_PREFIX = f"""{RUN_SIGNATURE}
+    await this.syncService.fullSync(true, {{ skipTokenRefresh: true }});
     await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
 
-OLD_PATCHED = f"""  async run(userId: UserId, masterPassword: string | null): Promise<void> {{
-    try {{
-      await this.syncService.fullSync(true, {{ skipTokenRefresh: true }});
-    }} catch (error) {{
-      // {MARKER}: UserLayout runs fullSync after mandatory 2FA gate on self-host.
-      // Login navigation must not fail when sync is blocked or deferred.
-      this.logService.debug("Deferred post-login fullSync to mandatory 2FA gate", error);
-    }}
-    await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
-
-TRY_CATCH_PATCHED = f"""  async run(userId: UserId, masterPassword: string | null): Promise<void> {{
+PATCHED_PREFIX = f"""{RUN_SIGNATURE}
+    console.log("[EBvault LOGIN] DefaultLoginSuccessHandlerService.run started");
+    console.log("[EBvault LOGIN] auth state stable");
     try {{
       await this.syncService.fullSync(true, {{ skipTokenRefresh: true }});
     }} catch (error: unknown) {{
-      // {MARKER}: UserLayout runs fullSync after mandatory 2FA gate on self-host.
+      // {MARKER}: /api/sync is intentionally blocked until Authenticator setup is complete.
       const errorMessage =
         typeof error === "object" && error != null && "message" in error
           ? String((error as {{ message?: string }}).message ?? "")
@@ -36,91 +30,142 @@ TRY_CATCH_PATCHED = f"""  async run(userId: UserId, masterPassword: string | nul
         errorMessage.includes("Authenticator app setup is required") ||
         errorMessage.includes("User must configure Authenticator 2FA");
       if (isExpectedMandatoryDefer) {{
-        this.logService.debug(
-          "[EBvault] Post-login fullSync deferred until mandatory 2FA gate resolves (expected).",
+        console.log(
+          "[EBvault LOGIN] login-time fullSync deferred until mandatory Authenticator gate releases",
         );
       }} else {{
-        this.logService.warning(
-          "[EBvault] Post-login fullSync failed; UserLayout will retry after mandatory 2FA gate.",
+        console.warn(
+          "[EBvault LOGIN] login-time fullSync failed; continuing upstream login success handler",
           error,
         );
       }}
     }}
+    console.log("[EBvault LOGIN] original post-login bootstrap completed");
     await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
 
-PATCHED = f"""  async run(userId: UserId, masterPassword: string | null): Promise<void> {{
-    void userId;
-    void masterPassword;
+COMPLETION_LOG = '    console.log("[EBvault LOGIN] DefaultLoginSuccessHandlerService.run completed");'
 
-    // {BOOTSTRAP_MARKER}: UserLayout runs fullSync after mandatory Authenticator 2FA gate resolves.
-    // Calling /api/sync or key-regeneration bootstrap here races the gate and can hang users
-    // without Authenticator 2FA before the mandatory setup route can open.
-    this.logService.debug(
-      "[EBvault] Post-login bootstrap skipped; UserLayout syncs after mandatory 2FA gate.",
-    );
-    return;"""
+
+def find_matching_brace(text: str, open_brace_index: int) -> int:
+    depth = 0
+    for index in range(open_brace_index, len(text)):
+        char = text[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return index
+    raise RuntimeError("could not find end of DefaultLoginSuccessHandlerService.run")
+
+
+def get_run_method_bounds(text: str) -> tuple[int, int]:
+    start = text.find(RUN_SIGNATURE)
+    if start == -1:
+        raise RuntimeError(
+            "could not find DefaultLoginSuccessHandlerService.run signature — "
+            "Bitwarden clients version may have changed"
+        )
+
+    open_brace = text.find("{", start)
+    if open_brace == -1:
+        raise RuntimeError("could not find DefaultLoginSuccessHandlerService.run opening brace")
+
+    end = find_matching_brace(text, open_brace)
+    return start, end + 1
+
+
+def remove_legacy_early_return(run_method: str) -> str:
+    if LEGACY_BOOTSTRAP_MARKER not in run_method:
+        return run_method
+
+    return_index = run_method.find("    return;")
+    if return_index == -1:
+        raise RuntimeError("legacy EBvault bootstrap skip marker found but return statement was not found")
+
+    after_return = run_method.find("\n", return_index)
+    if after_return == -1:
+        raise RuntimeError("legacy EBvault bootstrap skip return is malformed")
+
+    patched_body = PATCHED_PREFIX.replace(RUN_SIGNATURE + "\n", "")
+    return RUN_SIGNATURE + "\n" + patched_body + run_method[after_return + 1 :]
+
+
+def patch_run_method(text: str) -> str:
+    if MARKER in text and LEGACY_BOOTSTRAP_MARKER not in text:
+        start, end = get_run_method_bounds(text)
+        run_method = ensure_completion_log(text[start:end])
+        return text[:start] + run_method + text[end:]
+
+    if ORIGINAL_PREFIX in text:
+        text = text.replace(ORIGINAL_PREFIX, PATCHED_PREFIX, 1)
+        start, end = get_run_method_bounds(text)
+        run_method = ensure_completion_log(text[start:end])
+        return text[:start] + run_method + text[end:]
+
+    start, end = get_run_method_bounds(text)
+    original_run_method = text[start:end]
+    run_method = remove_legacy_early_return(original_run_method)
+    if run_method != original_run_method:
+        run_method = ensure_completion_log(run_method)
+        return text[:start] + run_method + text[end:]
+
+    legacy_prefixes = []
+    legacy_try_start = run_method.find(f"    try {{\n      await this.syncService.fullSync")
+    legacy_regen = "    await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"
+    if legacy_try_start != -1 and LEGACY_FULLSYNC_MARKER in run_method:
+        legacy_regen_index = run_method.find(legacy_regen, legacy_try_start)
+        if legacy_regen_index == -1:
+            raise RuntimeError("legacy fullSync patch found but regeneration anchor was not found")
+        legacy_prefixes.append((legacy_try_start, legacy_regen_index + len(legacy_regen)))
+
+    if legacy_prefixes:
+        prefix_start, prefix_end = legacy_prefixes[0]
+        patched_method = (
+            run_method[:prefix_start]
+            + PATCHED_PREFIX.replace(RUN_SIGNATURE + "\n", "")
+            + run_method[prefix_end:]
+        )
+        patched_method = ensure_completion_log(patched_method)
+        return text[:start] + patched_method + text[end:]
+
+    if MARKER in run_method:
+        patched_method = ensure_completion_log(run_method)
+        return text[:start] + patched_method + text[end:]
+
+    raise RuntimeError(
+        "could not find DefaultLoginSuccessHandlerService.run fullSync block to patch — "
+        "Bitwarden clients version may have changed"
+    )
+
+
+def ensure_completion_log(run_method: str) -> str:
+    if COMPLETION_LOG in run_method:
+        return run_method
+
+    closing_brace_index = run_method.rfind("\n  }")
+    if closing_brace_index == -1:
+        raise RuntimeError("could not find DefaultLoginSuccessHandlerService.run closing brace")
+
+    return run_method[:closing_brace_index] + "\n" + COMPLETION_LOG + run_method[closing_brace_index:]
 
 
 def apply_defer_login_sync_patch(path: Path) -> bool:
     text = path.read_text(encoding="utf-8")
-    original = text
+    patched = patch_run_method(text)
 
-    if BOOTSTRAP_MARKER in text and "Post-login bootstrap skipped" in text:
-        print(f"  defer login bootstrap patch already applied in {path.name}")
+    if patched == text:
+        print(f"  login success handler already preserves upstream lifecycle in {path.name}")
         return False
 
-    if MARKER in text and "fullSync skipped" in text:
-        start = text.find("  async run(userId: UserId, masterPassword: string | null): Promise<void> {")
-        if start == -1:
-            raise RuntimeError(f"{path}: could not find patched run method to upgrade")
-        next_method = text.find("\n  private", start)
-        if next_method == -1:
-            next_method = text.find("\n}", start)
-        if next_method == -1:
-            raise RuntimeError(f"{path}: could not locate end of patched run method")
-        text = text[:start] + PATCHED + "\n  }" + text[next_method:]
-        path.write_text(text, encoding="utf-8")
-        print(f"  upgraded post-login bootstrap to skip pre-gate sync/key regeneration in {path.name}")
-        return True
+    if LEGACY_BOOTSTRAP_MARKER in patched:
+        raise RuntimeError(f"{path}: legacy early-return login bootstrap patch was not fully removed")
+    if 'void userId;' in patched or 'void masterPassword;' in patched:
+        raise RuntimeError(f"{path}: login success handler still contains early-return bootstrap remnants")
 
-    if MARKER in text and "Post-login bootstrap skipped" in text:
-        print(f"  defer login sync patch already applied in {path.name}")
-        return False
-
-    if MARKER in text and TRY_CATCH_PATCHED in text:
-        text = text.replace(TRY_CATCH_PATCHED, PATCHED, 1)
-        path.write_text(text, encoding="utf-8")
-        print(f"  upgraded post-login fullSync to skip (no login-time /api/sync) in {path.name}")
-        return True
-
-    if MARKER in text and OLD_PATCHED in text:
-        text = text.replace(OLD_PATCHED, PATCHED, 1)
-        path.write_text(text, encoding="utf-8")
-        print(f"  upgraded post-login fullSync to skip (no login-time /api/sync) in {path.name}")
-        return True
-
-    if MARKER in text:
-        text = text.replace(
-            f"    // {MARKER}: UserLayout runs fullSync after mandatory 2FA gate on self-host.",
-            f"    // {MARKER}: UserLayout runs fullSync after mandatory Authenticator 2FA gate resolves.",
-            1,
-        )
-        if "fullSync skipped" not in text:
-            raise RuntimeError(
-                f"{path}: unknown defer-login-sync patch variant — manual update required"
-            )
-        return False
-
-    if ORIGINAL not in text:
-        raise RuntimeError(
-            f"{path}: could not find DefaultLoginSuccessHandlerService.run fullSync block — "
-            "Bitwarden clients version may have changed"
-        )
-
-    text = text.replace(ORIGINAL, PATCHED, 1)
-    path.write_text(text, encoding="utf-8")
-    print(f"  updated post-login fullSync handling in {path.name}")
-    return text != original
+    path.write_text(patched, encoding="utf-8")
+    print(f"  updated login success handler to preserve upstream post-login lifecycle in {path.name}")
+    return True
 
 
 def main() -> int:
