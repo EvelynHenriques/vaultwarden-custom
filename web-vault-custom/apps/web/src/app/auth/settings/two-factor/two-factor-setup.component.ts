@@ -102,6 +102,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit() {
+    console.log("[EBvault 2FA SETUP] setup component loaded");
     for (const key in TwoFactorProviders) {
       // eslint-disable-next-line
       if (!TwoFactorProviders.hasOwnProperty(key)) {
@@ -155,6 +156,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
   async load() {
     this.loading = true;
     const providerList = await this.getTwoFactorProviders();
+    console.log("[EBvault 2FA SETUP] /api/two-factor returned", providerList);
     providerList.data.forEach((p) => {
       this.providers.forEach((p2) => {
         if (p.type === p2.type) {
@@ -167,6 +169,8 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
 
     const gateBlocked = getMandatoryGatePhase() === "blocked";
     const authenticatorEnabled = this.hasEnabledAuthenticatorProvider();
+    console.log("[EBvault 2FA SETUP] setup required", gateBlocked && !authenticatorEnabled);
+    console.log("[EBvault 2FA SETUP] required API allowed");
 
     if (authenticatorEnabled) {
       markMandatoryAuthenticatorSetupComplete();

@@ -140,10 +140,6 @@ export class AppComponent implements OnDestroy, OnInit {
             this.router.navigate(["/"]);
             break;
           case "logout":
-            if (isMandatoryAuthFlowInProgress()) {
-              mandatory2faLog("logout ignored during active login/2FA flow", message);
-              break;
-            }
             // Only invalidAccessToken from mandatory-setup race — never suppress other logout reasons.
             if (
               message?.logoutReason === "invalidAccessToken" &&

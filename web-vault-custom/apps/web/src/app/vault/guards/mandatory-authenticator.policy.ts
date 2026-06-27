@@ -109,6 +109,7 @@ export function mandatory2faStateLog(
 
 export function markCurrentAuthFlowPassedTotp(source: string): void {
   currentAuthFlowPassedTotp = true;
+  console.log("[EBvault 2FA LOGIN] /identity/connect/token 2FA success", { source });
   log(`current auth flow passed TOTP (${source})`);
   mandatory2faStateLog(source);
   if (hasAuthenticatorConfigured) {
@@ -559,6 +560,9 @@ async function fetchMandatoryAuthenticatorStatus(
     hasAuthenticatorConfigured = hasEnabledAuthenticator;
     mandatorySetupRequired = !hasEnabledAuthenticator;
     mandatoryGateReleased = hasEnabledAuthenticator && currentAuthFlowPassedTotp;
+    if (!hasEnabledAuthenticator) {
+      console.log("[EBvault 2FA SETUP] /api/two-factor returned empty");
+    }
 
     log("hasAuthenticatorConfigured", hasAuthenticatorConfigured);
     log("currentAuthFlowPassedTotp", currentAuthFlowPassedTotp);
