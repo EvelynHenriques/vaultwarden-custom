@@ -536,6 +536,10 @@ export function shouldBlockMandatoryVaultApiRequest(request: Request): boolean {
       return false;
     }
     if (apiPath === "/sync" || apiPath.startsWith("/sync")) {
+      if (currentAuthFlowPassedTotp) {
+        log("sync allowed during current TOTP login flow");
+        return false;
+      }
       log(`/api/sync attempted while mandatory gate is ${gatePhase} — blocked locally`);
     }
     log(`API blocked locally: ${apiPath}`);
@@ -573,6 +577,7 @@ async function fetchMandatoryAuthenticatorStatus(
       hasEnabledAuthenticator,
       currentAuthFlowPassedTotp,
     });
+    log("/api/two-factor resolved before navigation decision");
 
     if (mandatoryGateReleased) {
       syncGatePhaseFromState();
@@ -680,7 +685,13 @@ export async function resolveMandatoryAuthenticatorAccess(
   }
 
   if (phase === "pending") {
-    failSafeUnresolvedGate();
+    log("gate pending - no navigation decision yet");
+    mandatory2faNavLog("resolveMandatoryAuthenticatorAccess/pending", {
+      currentUrl: router.url,
+      requestedUrl: url,
+      finalUrl: "navigation-cancelled",
+    });
+    return false;
   }
 
   log("route blocked — redirect to mandatory 2FA setup", { url });
@@ -712,6 +723,7 @@ export async function getMandatoryAuthenticatorRedirect(
   const phase = await resolveMandatoryAuthenticatorGate(twoFactorService);
 
   if (phase === "released") {
+    log("setup navigation skipped because authenticator is configured");
     return null;
   }
 
@@ -722,6 +734,11 @@ export async function getMandatoryAuthenticatorRedirect(
       finalUrl: "/login",
     });
     return router.createUrlTree(["/login"]);
+  }
+
+  if (phase === "pending") {
+    log("gate pending - no navigation decision yet");
+    return null;
   }
 
   return createMandatorySetupUrlTree(router);

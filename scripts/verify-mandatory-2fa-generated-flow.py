@@ -16,6 +16,7 @@ CHECKS = (
     "void userId",
     "void masterPassword",
     "login-time fullSync deferred",
+    "sync deferred without throwing during login bootstrap",
 )
 
 LOGIN_HANDLER = (

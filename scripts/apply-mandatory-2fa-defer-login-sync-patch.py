@@ -6,7 +6,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-MARKER = "EBvault guard login-time fullSync during mandatory 2FA gate"
+MARKER = "EBvault defer login-time fullSync during mandatory 2FA gate"
+PREVIOUS_GUARD_MARKER = "EBvault guard login-time fullSync during mandatory 2FA gate"
 LEGACY_FULLSYNC_MARKER = "EBvault defer post-login fullSync to mandatory 2FA gate"
 LEGACY_BOOTSTRAP_MARKER = "EBvault defer post-login bootstrap to mandatory 2FA gate"
 
@@ -18,28 +19,8 @@ ORIGINAL_PREFIX = f"""{RUN_SIGNATURE}
 PATCHED_PREFIX = f"""{RUN_SIGNATURE}
     console.log("[EBvault LOGIN] DefaultLoginSuccessHandlerService.run started");
     console.log("[EBvault LOGIN] auth state stable");
-    try {{
-      await this.syncService.fullSync(true, {{ skipTokenRefresh: true }});
-    }} catch (error: unknown) {{
-      // {MARKER}: /api/sync is intentionally blocked until Authenticator setup is complete.
-      const errorMessage =
-        typeof error === "object" && error != null && "message" in error
-          ? String((error as {{ message?: string }}).message ?? "")
-          : String(error ?? "");
-      const isExpectedMandatoryDefer =
-        errorMessage.includes("Authenticator app setup is required") ||
-        errorMessage.includes("User must configure Authenticator 2FA");
-      if (isExpectedMandatoryDefer) {{
-        console.log(
-          "[EBvault LOGIN] login-time fullSync deferred until mandatory Authenticator gate releases",
-        );
-      }} else {{
-        console.warn(
-          "[EBvault LOGIN] login-time fullSync failed; continuing upstream login success handler",
-          error,
-        );
-      }}
-    }}
+    // {MARKER}: avoid issuing /api/sync before EBvault confirms the mandatory gate.
+    console.log("[EBvault 2FA] sync deferred without throwing during login bootstrap");
     console.log("[EBvault LOGIN] original post-login bootstrap completed");
     await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
 
@@ -111,9 +92,11 @@ def patch_run_method(text: str) -> str:
         return text[:start] + run_method + text[end:]
 
     legacy_prefixes = []
-    legacy_try_start = run_method.find(f"    try {{\n      await this.syncService.fullSync")
+    legacy_try_start = run_method.find("    try {\n      await this.syncService.fullSync")
     legacy_regen = "    await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"
-    if legacy_try_start != -1 and LEGACY_FULLSYNC_MARKER in run_method:
+    if legacy_try_start != -1 and (
+        LEGACY_FULLSYNC_MARKER in run_method or PREVIOUS_GUARD_MARKER in run_method
+    ):
         legacy_regen_index = run_method.find(legacy_regen, legacy_try_start)
         if legacy_regen_index == -1:
             raise RuntimeError("legacy fullSync patch found but regeneration anchor was not found")

@@ -285,6 +285,15 @@ export class MandatoryAuthenticatorEnforcementService {
       signal,
     });
 
+    if (phase === "pending") {
+      mandatory2faLog("gate pending - no navigation decision yet");
+      await this.ensureGateResolved();
+      if (isVaultAccessAllowedByGate()) {
+        mandatory2faLog("setup navigation skipped because authenticator is configured");
+        return true;
+      }
+    }
+
     const userId = await this.waitForActiveUnlockedAccount();
     if (!userId) {
       mandatory2faWarn("mandatory auth failure but no unlocked account yet — applying fail-safe");
@@ -370,6 +379,11 @@ export class MandatoryAuthenticatorEnforcementService {
         finalUrl: "/login",
       });
       await this.router.navigate(["/login"], { replaceUrl: true });
+      return;
+    }
+
+    if (phase === "pending") {
+      mandatory2faLog("gate pending - no navigation decision yet");
       return;
     }
 
