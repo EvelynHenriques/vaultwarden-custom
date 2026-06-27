@@ -160,12 +160,7 @@ export class MandatoryAuthenticatorEnforcementService {
       if (event instanceof NavigationStart) {
         const requestedPath = normalizeMandatorySetupPath(event.url);
         if (isMandatoryAuthFlowInProgress() && !isPreLoginAuthenticationRoute(event.url)) {
-          if (requestedPath === "/vault" || requestedPath.startsWith("/vault/")) {
-            console.log("[EBvault 2FA LOGIN] navigation to /vault started", {
-              currentUrl: this.router.url,
-              requestedUrl: event.url,
-            });
-          } else if (isMandatorySetupAllowedUrl(requestedPath)) {
+          if (isMandatorySetupAllowedUrl(requestedPath)) {
             console.log("[EBvault 2FA SETUP] navigation to /settings/security/two-factor started", {
               currentUrl: this.router.url,
               requestedUrl: event.url,
@@ -216,11 +211,6 @@ export class MandatoryAuthenticatorEnforcementService {
         console.log("[EBvault 2FA LOGIN] original login flow completed", {
           currentUrl: finalUrl,
         });
-        if (normalizeMandatorySetupPath(finalUrl) === "/vault") {
-          console.log("[EBvault 2FA LOGIN] navigation to /vault completed true");
-          console.log("[EBvault 2FA LOGIN] loading false");
-          console.log("[EBvault 2FA LOGIN] current url /vault");
-        }
         if (isMandatorySetupAllowedUrl(finalUrl)) {
           console.log("[EBvault 2FA SETUP] navigation completed true");
           console.log("[EBvault 2FA SETUP] current url /settings/security/two-factor");
@@ -360,10 +350,10 @@ export class MandatoryAuthenticatorEnforcementService {
       mandatory2faLog("mandatory authenticator status detected: configured");
       console.log("[EBvault 2FA LOGIN] gate released");
       await this.resumeServerNotifications();
-      mandatory2faLog("selected navigation target: vault");
+      mandatory2faLog("gate released; EBvault is not forcing vault navigation");
       mandatory2faNavLog("runGateResolution/released", {
         currentUrl: this.router.url,
-        requestedUrl: "/vault",
+        requestedUrl: "original-login-flow",
         finalUrl: "original-login-flow",
       });
       return;
