@@ -44,6 +44,14 @@ function evaluateMandatoryAuthenticatorAccess(url: string): boolean | UrlTree {
   }
 
   if (isMandatorySetupAllowedUrl(url)) {
+    console.log("[EBvault 2FA SETUP] allowing mandatory setup route", {
+      url,
+      gatePhase,
+      mandatorySetupRequired: state.mandatorySetupRequired,
+    });
+    console.log("[EBvault 2FA SETUP] /settings parent guard allow setup route");
+    console.log("[EBvault 2FA SETUP] /settings/security parent guard allow setup route");
+    console.log("[EBvault 2FA SETUP] /settings/security/two-factor route allowed");
     return allowTrue(router, url, "mandatory setup route");
   }
 

@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { NavigationEnd, NavigationStart, Router } from "@angular/router";
-import { distinctUntilChanged, EMPTY, switchMap } from "rxjs";
+import { distinctUntilChanged, EMPTY, filter, firstValueFrom, switchMap, take } from "rxjs";
 
 import { ApiService } from "@bitwarden/common/abstractions/api.service";
 import { AccountService } from "@bitwarden/common/auth/abstractions/account.service";
@@ -66,6 +66,7 @@ export class MandatoryAuthenticatorEnforcementService {
 
   private started = false;
   private gateResolvePromise: Promise<void> | null = null;
+  private setupNavigationPromise: Promise<void> | null = null;
   private currentAccountId: UserId | null | undefined;
 
   start(): void {
@@ -232,6 +233,7 @@ export class MandatoryAuthenticatorEnforcementService {
       }
 
       this.logAuthFlowRouterEvent(event);
+      this.logMandatorySetupRouterEvent(event);
 
       if (!(event instanceof NavigationEnd) || !isMandatoryAuthFlowInProgress()) {
         return;
@@ -288,6 +290,35 @@ export class MandatoryAuthenticatorEnforcementService {
       console.log("[EBvault 2FA LOGIN] router navigation error", detail);
     }
     console.log("[EBvault ROUTER]", eventName, detail);
+  }
+
+  private logMandatorySetupRouterEvent(event: unknown): void {
+    const eventName = getRouterEventName(event);
+    if (!shouldLogRouterEvent(eventName)) {
+      return;
+    }
+
+    const detail = getRouterEventDetail(event);
+    const url = normalizeMandatorySetupPath(
+      String(detail["urlAfterRedirects"] ?? detail["url"] ?? this.router.url),
+    );
+    if (!isMandatorySetupAllowedUrl(url)) {
+      return;
+    }
+
+    if (eventName === "RoutesRecognized") {
+      console.log("[EBvault 2FA SETUP] setup route RoutesRecognized", detail);
+    } else if (eventName === "GuardsCheckStart") {
+      console.log("[EBvault 2FA SETUP] setup route GuardsCheckStart", detail);
+    } else if (eventName === "GuardsCheckEnd") {
+      console.log("[EBvault 2FA SETUP] setup route GuardsCheckEnd", detail);
+    } else if (eventName === "NavigationEnd") {
+      console.log("[EBvault 2FA SETUP] setup route NavigationEnd", detail);
+    } else if (eventName === "NavigationCancel") {
+      console.log("[EBvault 2FA SETUP] setup route NavigationCancel", detail);
+    } else if (eventName === "NavigationError") {
+      console.log("[EBvault 2FA SETUP] setup route NavigationError", detail);
+    }
   }
 
   private async bootstrapExistingSession(): Promise<void> {
@@ -577,6 +608,19 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
+    if (this.setupNavigationPromise) {
+      console.log("[EBvault 2FA SETUP] setup navigation already in progress");
+      await this.setupNavigationPromise;
+      return;
+    }
+
+    this.setupNavigationPromise = this.performMandatorySetupNavigation(currentPath).finally(() => {
+      this.setupNavigationPromise = null;
+    });
+    await this.setupNavigationPromise;
+  }
+
+  private async performMandatorySetupNavigation(currentPath: string): Promise<void> {
     mandatory2faLog("current route", currentPath);
     mandatory2faLog("target route", MANDATORY_TWO_FACTOR_SETUP_URL);
     mandatory2faLog("route blocked", {
@@ -593,7 +637,58 @@ export class MandatoryAuthenticatorEnforcementService {
       targetUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
     });
     console.log("[EBvault 2FA SETUP] navigating to /settings/security/two-factor");
-    await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
+    await this.waitForProtectedLoginNavigationToSettleBeforeSetupRedirect(currentPath);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl: true });
+  }
+
+  private async waitForProtectedLoginNavigationToSettleBeforeSetupRedirect(
+    currentPath: string,
+  ): Promise<void> {
+    const router = this.router as Router & { getCurrentNavigation?: () => unknown };
+    const hasCurrentNavigation =
+      typeof router.getCurrentNavigation === "function" && !!router.getCurrentNavigation();
+    const waitingForOriginalLoginNavigation =
+      isMandatoryAuthFlowInProgress() && isPreLoginAuthenticationRoute(currentPath);
+
+    if (!hasCurrentNavigation && !waitingForOriginalLoginNavigation) {
+      return;
+    }
+
+    console.log("[EBvault 2FA SETUP] waiting for protected navigation to settle before setup redirect", {
+      currentUrl: this.router.url,
+      hasCurrentNavigation,
+      waitingForOriginalLoginNavigation,
+    });
+
+    let timedOut = false;
+    await Promise.race([
+      firstValueFrom(
+        this.router.events.pipe(
+          filter((event) => {
+            const eventName = getRouterEventName(event);
+            return (
+              eventName === "NavigationEnd" ||
+              eventName === "NavigationCancel" ||
+              eventName === "NavigationError"
+            );
+          }),
+          take(1),
+        ),
+      ),
+      new Promise<void>((resolve) =>
+        setTimeout(() => {
+          timedOut = true;
+          resolve();
+        }, waitingForOriginalLoginNavigation ? 1000 : 500),
+      ),
+    ]);
+
+    if (timedOut) {
+      console.log("[EBvault 2FA SETUP] setup redirect wait timed out; continuing", {
+        currentUrl: this.router.url,
+      });
+    }
   }
 
   /** Wait until the mandatory setup route is active so the setup component can mount. */
