@@ -165,7 +165,7 @@ export class MandatoryAuthenticatorLockService {
         this.allowDialogClose = true;
       } else if (lockWasActive) {
         config = {
-          ...config,
+          ...asDialogConfigObject(config),
           disableClose: true,
           closeOnNavigation: false,
         };
@@ -277,4 +277,12 @@ export class MandatoryAuthenticatorLockService {
       };
     }
   }
+}
+
+function asDialogConfigObject(config: unknown): Record<string, unknown> {
+  if (config == null || typeof config !== "object") {
+    return {};
+  }
+
+  return config as Record<string, unknown>;
 }

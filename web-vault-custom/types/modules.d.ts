@@ -9,6 +9,7 @@
 declare module "@angular/core" {
   export function inject<T>(token: new (...args: never[]) => T): T;
   export function inject<T>(token: abstract new (...args: never[]) => T): T;
+  export function inject<T>(token: unknown): T;
   export function Component(metadata: unknown): ClassDecorator;
   export function NgModule(metadata: unknown): ClassDecorator;
   export function Injectable(metadata?: unknown): ClassDecorator;
@@ -56,10 +57,14 @@ declare module "@angular/platform-browser" {
 }
 
 declare module "@angular/router" {
+  import { Observable } from "rxjs";
+
   export interface RouterStateSnapshot {
     url: string;
   }
+  export type Routes = unknown[];
   export class NavigationEnd {
+    url: string;
     urlAfterRedirects: string;
   }
   export class NavigationStart {
@@ -73,13 +78,17 @@ declare module "@angular/router" {
   export type CanActivateChildFn = CanActivateFn;
   export class Router {
     url: string;
-    events: import("rxjs").Observable<RouterEvent>;
+    events: Observable<RouterEvent>;
     createUrlTree(commands: string[]): UrlTree;
-    navigate(commands: string[], extras?: { replaceUrl?: boolean }): Promise<boolean>;
+    navigate(commands: string[], extras?: { replaceUrl?: boolean; relativeTo?: ActivatedRoute }): Promise<boolean>;
     navigateByUrl(url: string, extras?: { replaceUrl?: boolean }): Promise<boolean>;
   }
-  export class RouterModule {}
-  export class ActivatedRoute {}
+  export class RouterModule {
+    static forChild(routes: Routes): unknown;
+  }
+  export class ActivatedRoute {
+    params: Observable<Record<string, string>>;
+  }
   export interface UrlTree {}
 }
 
@@ -110,6 +119,11 @@ declare module "rxjs" {
   export class Subject<T> extends Observable<T> {
     next(value: T): void;
     complete(): void;
+  }
+
+  export class ReplaySubject<T> extends Subject<T> {
+    constructor(bufferSize?: number);
+    asObservable(): Observable<T>;
   }
 
   export class Subscription {
@@ -348,6 +362,7 @@ declare module "@bitwarden/common/platform/abstractions/messaging.service" {
 
 declare module "@bitwarden/common/platform/abstractions/platform-utils.service" {
   export class PlatformUtilsService {
+    isSelfHost(): boolean;
     launchUri(url: string): void;
   }
 }
@@ -355,7 +370,33 @@ declare module "@bitwarden/common/platform/abstractions/platform-utils.service" 
 declare module "@bitwarden/common/platform/misc/utils" {
   export const Utils: {
     encodeRFC3986URIComponent(value: string): string;
+    isMobileBrowser: boolean;
   };
+}
+
+declare module "@bitwarden/common/platform/state" {
+  import { Observable } from "rxjs";
+
+  export const SETUP_EXTENSION_DISMISSED_DISK: unknown;
+
+  export class UserKeyDefinition<T> {
+    constructor(storage: unknown, key: string, options: unknown);
+  }
+
+  export class StateProvider {
+    getUser<T>(
+      userId: string,
+      key: UserKeyDefinition<T>,
+    ): {
+      state$: Observable<T | undefined>;
+    };
+  }
+}
+
+declare module "@bitwarden/angular/vault/services/vault-profile.service" {
+  export class VaultProfileService {
+    getProfileCreationDate(userId: string): Promise<string | Date | undefined>;
+  }
 }
 
 declare module "@bitwarden/angular/jslib.module" {

@@ -1,16 +1,5 @@
 import { inject, Injectable } from "@angular/core";
-import {
-  GuardsCheckEnd,
-  GuardsCheckStart,
-  NavigationCancel,
-  NavigationEnd,
-  NavigationError,
-  NavigationStart,
-  ResolveEnd,
-  ResolveStart,
-  Router,
-  RoutesRecognized,
-} from "@angular/router";
+import { NavigationEnd, NavigationStart, Router } from "@angular/router";
 import { distinctUntilChanged, EMPTY, switchMap } from "rxjs";
 
 import { ApiService } from "@bitwarden/common/abstractions/api.service";
@@ -216,7 +205,7 @@ export class MandatoryAuthenticatorEnforcementService {
         return;
       }
 
-      const finalUrl = event.urlAfterRedirects || event.url;
+      const finalUrl = event.urlAfterRedirects || this.router.url;
       if (isPreLoginAuthenticationRoute(finalUrl)) {
         return;
       }
@@ -251,47 +240,18 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
-    if (event instanceof RoutesRecognized) {
-      console.log("[EBvault ROUTER] RoutesRecognized", event.urlAfterRedirects || event.url);
+    const eventName = getRouterEventName(event);
+    if (!shouldLogRouterEvent(eventName)) {
       return;
     }
-    if (event instanceof GuardsCheckStart) {
-      console.log("[EBvault ROUTER] GuardsCheckStart", event.url);
-      return;
+
+    const detail = getRouterEventDetail(event);
+    if (eventName === "NavigationCancel") {
+      console.log("[EBvault 2FA LOGIN] router navigation cancelled", detail);
+    } else if (eventName === "NavigationError") {
+      console.log("[EBvault 2FA LOGIN] router navigation error", detail);
     }
-    if (event instanceof GuardsCheckEnd) {
-      console.log("[EBvault ROUTER] GuardsCheckEnd", event.url, {
-        shouldActivate: event.shouldActivate,
-      });
-      return;
-    }
-    if (event instanceof ResolveStart) {
-      console.log("[EBvault ROUTER] ResolveStart", event.url);
-      return;
-    }
-    if (event instanceof ResolveEnd) {
-      console.log("[EBvault ROUTER] ResolveEnd", event.url);
-      return;
-    }
-    if (event instanceof NavigationCancel) {
-      console.log("[EBvault 2FA LOGIN] router navigation cancelled", {
-        url: event.url,
-        reason: event.reason,
-      });
-      console.log("[EBvault ROUTER] NavigationCancel", event.url, event.reason);
-      return;
-    }
-    if (event instanceof NavigationError) {
-      console.log("[EBvault 2FA LOGIN] router navigation error", {
-        url: event.url,
-        error: event.error,
-      });
-      console.log("[EBvault ROUTER] NavigationError", event.url, event.error);
-      return;
-    }
-    if (event instanceof NavigationEnd) {
-      console.log("[EBvault ROUTER] NavigationEnd", event.urlAfterRedirects || event.url);
-    }
+    console.log("[EBvault ROUTER]", eventName, detail);
   }
 
   private async bootstrapExistingSession(): Promise<void> {
@@ -550,4 +510,34 @@ export class MandatoryAuthenticatorEnforcementService {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
   }
+}
+
+function getRouterEventName(event: unknown): string {
+  if (event == null || typeof event !== "object") {
+    return "UnknownRouterEvent";
+  }
+
+  const constructor = (event as { constructor?: { name?: string } }).constructor;
+  return constructor?.name ?? "UnknownRouterEvent";
+}
+
+function shouldLogRouterEvent(eventName: string): boolean {
+  return (
+    eventName.includes("Navigation") ||
+    eventName.includes("GuardsCheck") ||
+    eventName.includes("Resolve") ||
+    eventName.includes("RoutesRecognized")
+  );
+}
+
+function getRouterEventDetail(event: unknown): Record<string, unknown> {
+  const safeEvent = event != null && typeof event === "object" ? (event as Record<string, unknown>) : {};
+
+  return {
+    url: safeEvent["url"],
+    urlAfterRedirects: safeEvent["urlAfterRedirects"],
+    shouldActivate: safeEvent["shouldActivate"],
+    reason: safeEvent["reason"],
+    error: safeEvent["error"],
+  };
 }

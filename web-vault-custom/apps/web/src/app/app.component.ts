@@ -427,16 +427,20 @@ export class AppComponent implements OnDestroy, OnInit {
       return;
     }
 
-    window.addEventListener("unhandledrejection", (event) => {
+    window.addEventListener("unhandledrejection", (event: Event) => {
+      const rejectionEvent = event as Event & { reason?: unknown };
+      const reason = rejectionEvent.reason;
       const reasonText =
-        event.reason instanceof Error
-          ? event.reason.message
-          : String(event.reason?.message ?? event.reason ?? "");
+        reason instanceof Error
+          ? reason.message
+          : typeof reason === "object" && reason != null && "message" in reason
+            ? String((reason as { message?: unknown }).message ?? reason)
+            : String(reason ?? "");
       if (!reasonText.includes("WebSocket failed to connect")) {
         return;
       }
 
-      mandatory2faWarn("SignalR failed but EBvault continues without server notifications", event.reason);
+      mandatory2faWarn("SignalR failed but EBvault continues without server notifications", reason);
       event.preventDefault();
     });
   }
