@@ -1,5 +1,16 @@
 import { inject, Injectable } from "@angular/core";
-import { NavigationEnd, NavigationStart, Router } from "@angular/router";
+import {
+  GuardsCheckEnd,
+  GuardsCheckStart,
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+  NavigationStart,
+  ResolveEnd,
+  ResolveStart,
+  Router,
+  RoutesRecognized,
+} from "@angular/router";
 import { distinctUntilChanged, EMPTY, switchMap } from "rxjs";
 
 import { ApiService } from "@bitwarden/common/abstractions/api.service";
@@ -160,6 +171,7 @@ export class MandatoryAuthenticatorEnforcementService {
       if (event instanceof NavigationStart) {
         const requestedPath = normalizeMandatorySetupPath(event.url);
         if (isMandatoryAuthFlowInProgress() && !isPreLoginAuthenticationRoute(event.url)) {
+          console.log("[EBvault ROUTER] NavigationStart", event.url);
           if (isMandatorySetupAllowedUrl(requestedPath)) {
             console.log("[EBvault 2FA SETUP] navigation to /settings/security/two-factor started", {
               currentUrl: this.router.url,
@@ -198,6 +210,8 @@ export class MandatoryAuthenticatorEnforcementService {
         return;
       }
 
+      this.logAuthFlowRouterEvent(event);
+
       if (!(event instanceof NavigationEnd) || !isMandatoryAuthFlowInProgress()) {
         return;
       }
@@ -211,6 +225,12 @@ export class MandatoryAuthenticatorEnforcementService {
         console.log("[EBvault 2FA LOGIN] original login flow completed", {
           currentUrl: finalUrl,
         });
+        if (normalizeMandatorySetupPath(finalUrl) === "/vault") {
+          console.log("[EBvault 2FA LOGIN] original login flow navigation completed true", {
+            currentUrl: finalUrl,
+          });
+          console.log("[EBvault LOGIN] current url /vault");
+        }
         if (isMandatorySetupAllowedUrl(finalUrl)) {
           console.log("[EBvault 2FA SETUP] navigation completed true");
           console.log("[EBvault 2FA SETUP] current url /settings/security/two-factor");
@@ -219,6 +239,59 @@ export class MandatoryAuthenticatorEnforcementService {
         this.scheduleGateResolution();
       }, 0);
     });
+  }
+
+  private logAuthFlowRouterEvent(event: unknown): void {
+    if (!isMandatoryAuthFlowInProgress()) {
+      return;
+    }
+
+    const currentPath = normalizeMandatorySetupPath(this.router.url);
+    if (!isPreLoginAuthenticationRoute(currentPath)) {
+      return;
+    }
+
+    if (event instanceof RoutesRecognized) {
+      console.log("[EBvault ROUTER] RoutesRecognized", event.urlAfterRedirects || event.url);
+      return;
+    }
+    if (event instanceof GuardsCheckStart) {
+      console.log("[EBvault ROUTER] GuardsCheckStart", event.url);
+      return;
+    }
+    if (event instanceof GuardsCheckEnd) {
+      console.log("[EBvault ROUTER] GuardsCheckEnd", event.url, {
+        shouldActivate: event.shouldActivate,
+      });
+      return;
+    }
+    if (event instanceof ResolveStart) {
+      console.log("[EBvault ROUTER] ResolveStart", event.url);
+      return;
+    }
+    if (event instanceof ResolveEnd) {
+      console.log("[EBvault ROUTER] ResolveEnd", event.url);
+      return;
+    }
+    if (event instanceof NavigationCancel) {
+      console.log("[EBvault 2FA LOGIN] router navigation cancelled", {
+        url: event.url,
+        reason: event.reason,
+      });
+      console.log("[EBvault ROUTER] NavigationCancel", event.url, event.reason);
+      return;
+    }
+    if (event instanceof NavigationError) {
+      console.log("[EBvault 2FA LOGIN] router navigation error", {
+        url: event.url,
+        error: event.error,
+      });
+      console.log("[EBvault ROUTER] NavigationError", event.url, event.error);
+      return;
+    }
+    if (event instanceof NavigationEnd) {
+      console.log("[EBvault ROUTER] NavigationEnd", event.urlAfterRedirects || event.url);
+    }
   }
 
   private async bootstrapExistingSession(): Promise<void> {

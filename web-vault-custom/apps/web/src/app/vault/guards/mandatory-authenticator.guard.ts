@@ -62,6 +62,22 @@ async function evaluateMandatoryAuthenticatorAccess(
     }
 
     const state = getMandatory2faState();
+    if (
+      state.currentAuthFlowPassedTotp &&
+      !state.mandatorySetupRequired &&
+      !state.mandatoryGateReleased
+    ) {
+      console.log("[EBvault 2FA] gate pending - no setup route decision yet", {
+        route: ctx.path,
+        hasAuthenticatorConfigured: state.hasAuthenticatorConfigured,
+        currentAuthFlowPassedTotp: state.currentAuthFlowPassedTotp,
+        mandatorySetupRequired: state.mandatorySetupRequired,
+        mandatoryGateReleased: state.mandatoryGateReleased,
+      });
+      logMandatoryGuardDecision("cancel - setup route requested while TOTP login gate pending", ctx, state);
+      return false;
+    }
+
     console.log("[EBvault 2FA] allow mandatory setup route", {
       route: ctx.path,
       hasAccount: ctx.hasAccount,

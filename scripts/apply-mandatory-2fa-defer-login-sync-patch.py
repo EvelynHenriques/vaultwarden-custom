@@ -16,13 +16,23 @@ ORIGINAL_PREFIX = f"""{RUN_SIGNATURE}
     await this.syncService.fullSync(true, {{ skipTokenRefresh: true }});
     await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
 
+REGEN_LINE = "    await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"
+REGEN_BLOCK = """    console.log("[EBvault LOGIN] before key regeneration");
+    try {
+      await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);
+      console.log("[EBvault LOGIN] after key regeneration");
+    } catch (error: unknown) {
+      console.log("[EBvault LOGIN] key regeneration failed", error);
+      throw error;
+    }"""
+
 PATCHED_PREFIX = f"""{RUN_SIGNATURE}
     console.log("[EBvault LOGIN] DefaultLoginSuccessHandlerService.run started");
     console.log("[EBvault LOGIN] auth state stable");
     // {MARKER}: avoid issuing /api/sync before EBvault confirms the mandatory gate.
     console.log("[EBvault 2FA] sync deferred without throwing during login bootstrap");
     console.log("[EBvault LOGIN] original post-login bootstrap completed");
-    await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
+{REGEN_BLOCK}"""
 
 COMPLETION_LOG = '    console.log("[EBvault LOGIN] DefaultLoginSuccessHandlerService.run completed");'
 
@@ -75,7 +85,7 @@ def remove_legacy_early_return(run_method: str) -> str:
 def patch_run_method(text: str) -> str:
     if MARKER in text and LEGACY_BOOTSTRAP_MARKER not in text:
         start, end = get_run_method_bounds(text)
-        run_method = ensure_completion_log(text[start:end])
+        run_method = ensure_completion_log(upgrade_regeneration_logging(text[start:end]))
         return text[:start] + run_method + text[end:]
 
     if ORIGINAL_PREFIX in text:
@@ -131,6 +141,14 @@ def ensure_completion_log(run_method: str) -> str:
         raise RuntimeError("could not find DefaultLoginSuccessHandlerService.run closing brace")
 
     return run_method[:closing_brace_index] + "\n" + COMPLETION_LOG + run_method[closing_brace_index:]
+
+
+def upgrade_regeneration_logging(run_method: str) -> str:
+    if "[EBvault LOGIN] before key regeneration" in run_method:
+        return run_method
+    if REGEN_LINE not in run_method:
+        return run_method
+    return run_method.replace(REGEN_LINE, REGEN_BLOCK, 1)
 
 
 def apply_defer_login_sync_patch(path: Path) -> bool:
