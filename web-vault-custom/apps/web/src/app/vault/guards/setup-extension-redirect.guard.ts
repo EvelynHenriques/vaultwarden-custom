@@ -1,5 +1,5 @@
 import { inject } from "@angular/core";
-import { CanActivateFn, Router } from "@angular/router";
+import { CanActivateFn, Router, UrlTree } from "@angular/router";
 import { firstValueFrom, map } from "rxjs";
 
 import { VaultProfileService } from "@bitwarden/angular/vault/services/vault-profile.service";
@@ -20,7 +20,9 @@ import {
 } from "./mandatory-authenticator-account.util";
 import {
   getMandatoryAuthenticatorRedirect,
+  isMandatoryAuthFlowInProgress,
   mandatory2faNavLog,
+  normalizeMandatorySetupPath,
 } from "./mandatory-authenticator.policy";
 
 export const SETUP_EXTENSION_DISMISSED = new UserKeyDefinition<boolean>(
@@ -35,59 +37,76 @@ export const SETUP_EXTENSION_DISMISSED = new UserKeyDefinition<boolean>(
 /**
  * Extension onboarding redirect — mandatory Authenticator 2FA enrollment takes priority.
  */
-export const setupExtensionRedirectGuard: CanActivateFn = async () => {
+export const setupExtensionRedirectGuard: CanActivateFn = async (_route, state) => {
   const router = inject(Router);
   const accountService = inject(AccountService);
   const authService = inject(AuthService);
   const vaultProfileService = inject(VaultProfileService);
   const stateProvider = inject(StateProvider);
   const twoFactorService = inject(TwoFactorService);
+  const url = state.url;
 
-  if (Utils.isMobileBrowser) {
-    return true;
-  }
+  console.log("[EBvault GUARD TRACE] guard started: setupExtensionRedirectGuard", url);
+  try {
+    if (isMandatoryAuthFlowInProgress() && normalizeMandatorySetupPath(url) === "/vault") {
+      console.log("[EBvault GUARD TRACE] guard completed: setupExtensionRedirectGuard", url, {
+        result: true,
+        reason: "active TOTP login flow; skip setup-extension onboarding",
+      });
+      return true;
+    }
 
-  const userId = await getActiveAccountUserIdOrNull(accountService);
-  if (!userId) {
-    mandatory2faNavLog("setupExtensionRedirectGuard/noUser", {
+    if (Utils.isMobileBrowser) {
+      return completeGuard("setupExtensionRedirectGuard", url, true);
+    }
+
+    const userId = await getActiveAccountUserIdOrNull(accountService);
+    if (!userId) {
+      mandatory2faNavLog("setupExtensionRedirectGuard/noUser", {
+        currentUrl: router.url,
+        requestedUrl: "/login",
+        finalUrl: "/login",
+      });
+      return completeGuard("setupExtensionRedirectGuard", url, router.createUrlTree(["/login"]));
+    }
+
+    const authStatus = await getAuthStatusOrNull(authService, userId);
+    if (authStatus !== AuthenticationStatus.Unlocked) {
+      return completeGuard("setupExtensionRedirectGuard", url, true);
+    }
+
+    const mandatoryRedirect = await getMandatoryAuthenticatorRedirect(router, twoFactorService);
+    if (mandatoryRedirect) {
+      return completeGuard("setupExtensionRedirectGuard", url, mandatoryRedirect);
+    }
+
+    const dismissedExtensionPage = await firstValueFrom(
+      stateProvider
+        .getUser(userId, SETUP_EXTENSION_DISMISSED)
+        .state$.pipe(map((dismissed) => dismissed ?? false)),
+    );
+
+    const isProfileOlderThan30Days = await profileIsOlderThan30Days(
+      vaultProfileService,
+      userId,
+    ).catch(() => true);
+
+    if (dismissedExtensionPage || isProfileOlderThan30Days) {
+      return completeGuard("setupExtensionRedirectGuard", url, true);
+    }
+
+    mandatory2faNavLog("setupExtensionRedirectGuard/setupExtension", {
       currentUrl: router.url,
-      requestedUrl: "/login",
-      finalUrl: "/login",
+      requestedUrl: "/setup-extension",
+      finalUrl: "/setup-extension",
     });
-    return router.createUrlTree(["/login"]);
+    return completeGuard("setupExtensionRedirectGuard", url, router.createUrlTree(["/setup-extension"]));
+  } catch (error) {
+    console.log("[EBvault GUARD TRACE] guard failed: setupExtensionRedirectGuard", url, {
+      error,
+    });
+    throw error;
   }
-
-  const authStatus = await getAuthStatusOrNull(authService, userId);
-  if (authStatus !== AuthenticationStatus.Unlocked) {
-    return true;
-  }
-
-  const mandatoryRedirect = await getMandatoryAuthenticatorRedirect(router, twoFactorService);
-  if (mandatoryRedirect) {
-    return mandatoryRedirect;
-  }
-
-  const dismissedExtensionPage = await firstValueFrom(
-    stateProvider
-      .getUser(userId, SETUP_EXTENSION_DISMISSED)
-      .state$.pipe(map((dismissed) => dismissed ?? false)),
-  );
-
-  const isProfileOlderThan30Days = await profileIsOlderThan30Days(
-    vaultProfileService,
-    userId,
-  ).catch(() => true);
-
-  if (dismissedExtensionPage || isProfileOlderThan30Days) {
-    return true;
-  }
-
-  mandatory2faNavLog("setupExtensionRedirectGuard/setupExtension", {
-    currentUrl: router.url,
-    requestedUrl: "/setup-extension",
-    finalUrl: "/setup-extension",
-  });
-  return router.createUrlTree(["/setup-extension"]);
 };
 
 /** Blocks direct navigation to /setup-extension until mandatory Authenticator 2FA is configured. */
@@ -106,6 +125,13 @@ export const blockSetupExtensionUntilMandatory2faGuard: CanActivateFn = async ()
   const mandatoryRedirect = await getMandatoryAuthenticatorRedirect(router, twoFactorService);
   return mandatoryRedirect ?? true;
 };
+
+function completeGuard(name: string, url: string, result: boolean | UrlTree): boolean | UrlTree {
+  console.log("[EBvault GUARD TRACE] guard completed:", name, url, {
+    result: result === true ? true : result === false ? false : "UrlTree",
+  });
+  return result;
+}
 
 async function profileIsOlderThan30Days(
   vaultProfileService: VaultProfileService,
