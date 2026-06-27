@@ -134,6 +134,14 @@ export class MandatoryAuthenticatorEnforcementService {
           });
           if (status === AuthenticationStatus.Unlocked) {
             enterPostLoginVerificationState();
+            const state = getMandatory2faState();
+            const currentPath = normalizeMandatorySetupPath(this.router.url);
+            if (!state.currentAuthFlowPassedTotp && currentPath.startsWith("/login")) {
+              console.log("[EBvault 2FA SETUP] restricted session created");
+              console.log("[EBvault 2FA SETUP] no-TOTP cleanup flow started");
+              console.log("[EBvault 2FA SETUP] no-TOTP post-login verification started");
+              this.scheduleGateResolution();
+            }
           }
           return;
         }
@@ -431,6 +439,11 @@ export class MandatoryAuthenticatorEnforcementService {
 
     enterPostLoginVerificationState();
 
+    const stateBeforeCheck = getMandatory2faState();
+    if (!stateBeforeCheck.currentAuthFlowPassedTotp) {
+      console.log("[EBvault 2FA SETUP] checking /api/two-factor outside guard");
+    }
+
     const phase = await resolveMandatoryAuthenticatorGate(this.twoFactorService);
 
     if (!isMandatory2faEnforcementEnabled()) {
@@ -579,6 +592,7 @@ export class MandatoryAuthenticatorEnforcementService {
       currentUrl: this.router.url,
       targetUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
     });
+    console.log("[EBvault 2FA SETUP] navigating to /settings/security/two-factor");
     await this.router.navigate([MANDATORY_TWO_FACTOR_SETUP_URL], { replaceUrl: true });
   }
 
