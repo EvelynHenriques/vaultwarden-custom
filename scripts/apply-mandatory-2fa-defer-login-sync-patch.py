@@ -63,8 +63,10 @@ PATCHED_PREFIX = f"""{RUN_SIGNATURE}
 COMPLETION_LOG = '    console.log("[EBvault LOGIN] DefaultLoginSuccessHandlerService.run completed");'
 LOGIN_COMPONENT = "libs/auth/src/angular/login/login.component.ts"
 DEEP_LINK_GUARD = "apps/web/src/app/auth/guards/deep-link/deep-link.guard.ts"
+AUTH_GUARD = "libs/angular/src/auth/guards/auth.guard.ts"
 LOGIN_REDIRECT_MARKER = "EBvault mandatory setup redirect after no-TOTP gate"
 DEEP_LINK_MARKER = "EBvault mandatory setup suppresses deep-link vault restore"
+AUTH_GUARD_MARKER = "EBvault mandatory setup bypasses authGuard force-state checks"
 
 LOGIN_HANDLER_CALL = (
     "    await this.loginSuccessHandlerService.run(authResult.userId, authResult.masterPassword);"
@@ -188,6 +190,7 @@ DEFERRED_LOGIN_REDIRECT_NAVIGATION = """      await new Promise((resolve) => set
 
 DEEP_LINK_AUTH_UNLOCKED_ANCHOR = "    if (authStatus === AuthenticationStatus.Unlocked) {\n"
 DEEP_LINK_SUPPRESS_BLOCK = f"""{DEEP_LINK_AUTH_UNLOCKED_ANCHOR}      // {DEEP_LINK_MARKER}: no-TOTP users must not replay a saved /vault destination.
+      console.log("[EBvault DEEP LINK] start", {{ requestedUrl: routerState.url }});
       const ebvaultMandatoryGateDecision =
         (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_DECISION?: {{ kind?: string }} }})
           .EBVAULT_MANDATORY_2FA_GATE_DECISION;
@@ -198,8 +201,14 @@ DEEP_LINK_SUPPRESS_BLOCK = f"""{DEEP_LINK_AUTH_UNLOCKED_ANCHOR}      // {DEEP_LI
         ebvaultMandatoryGateDecision?.kind === "setup_required" ||
         ebvaultMandatoryLoginRedirect === "/settings/security/two-factor";
       if (ebvaultMandatorySetupRequired) {{
+        console.log("[EBvault DEEP LINK] mandatory setup route detected", {{
+          requestedUrl: routerState.url,
+          gateDecision: ebvaultMandatoryGateDecision?.kind,
+        }});
         const ebvaultDiscardedPreLoginUrl = await routerService.getAndClearLoginRedirectUrl();
         const ebvaultRequestedPath = routerState.url.split("?")[0].split("#")[0];
+        console.log("[EBvault DEEP LINK] stale redirect value", ebvaultDiscardedPreLoginUrl);
+        console.log("[EBvault DEEP LINK] clearing stale persisted redirect");
         console.log("[EBvault DEBUG] /vault navigation source suppressed: deepLinkGuard persisted login redirect", {{
           requestedUrl: routerState.url,
           discardedUrl: ebvaultDiscardedPreLoginUrl,
@@ -209,6 +218,7 @@ DEEP_LINK_SUPPRESS_BLOCK = f"""{DEEP_LINK_AUTH_UNLOCKED_ANCHOR}      // {DEEP_LI
           ebvaultRequestedPath.startsWith("/settings/security/two-factor/")
         ) {{
           console.log("[EBvault 2FA SETUP] setup route allowed after suppressing stale protected destination");
+          console.log("[EBvault DEEP LINK] returning true immediately for mandatory setup");
           return true;
         }}
         console.log("[EBvault 2FA SETUP] deep-link protected destination redirected back to setup", {{
@@ -217,6 +227,44 @@ DEEP_LINK_SUPPRESS_BLOCK = f"""{DEEP_LINK_AUTH_UNLOCKED_ANCHOR}      // {DEEP_LI
         }});
         return router.createUrlTree(["/settings/security/two-factor"]);
       }}
+      console.log("[EBvault DEEP LINK] falling through to upstream behavior", {{
+        requestedUrl: routerState.url,
+      }});
+"""
+
+AUTH_GUARD_STATUS_ANCHOR = "  const authStatus = await authService.getAuthStatus();\n\n"
+AUTH_GUARD_SETUP_BYPASS_BLOCK = f"""  const authStatus = await authService.getAuthStatus();
+  console.log("[EBvault AUTH GUARD] start", {{
+    requestedUrl: routerState.url,
+    authStatus,
+  }});
+
+  // {AUTH_GUARD_MARKER}: the restricted setup route must not wait on normal vault shell state.
+  const ebvaultRequestedPath = routerState.url.split("?")[0].split("#")[0];
+  const ebvaultMandatoryGateDecision =
+    (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_DECISION?: {{ kind?: string }} }})
+      .EBVAULT_MANDATORY_2FA_GATE_DECISION;
+  const ebvaultMandatoryLoginRedirect =
+    (globalThis as {{ EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string }})
+      .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT;
+  const ebvaultMandatorySetupRequired =
+    ebvaultMandatoryGateDecision?.kind === "setup_required" ||
+    ebvaultMandatoryLoginRedirect === "/settings/security/two-factor";
+  const ebvaultMandatorySetupRoute =
+    ebvaultRequestedPath === "/settings/security/two-factor" ||
+    ebvaultRequestedPath.startsWith("/settings/security/two-factor/");
+  if (
+    authStatus !== AuthenticationStatus.LoggedOut &&
+    ebvaultMandatorySetupRequired &&
+    ebvaultMandatorySetupRoute
+  ) {{
+    console.log("[EBvault AUTH GUARD] mandatory setup route allowed immediately", {{
+      requestedUrl: routerState.url,
+      gateDecision: ebvaultMandatoryGateDecision?.kind,
+    }});
+    return true;
+  }}
+
 """
 
 
@@ -442,6 +490,24 @@ def apply_deep_link_guard_patch(path: Path) -> bool:
     return True
 
 
+def apply_auth_guard_patch(path: Path) -> bool:
+    text = path.read_text(encoding="utf-8")
+    if AUTH_GUARD_MARKER in text:
+        print(f"  mandatory setup auth guard fast path already applied in {path.name}")
+        return False
+
+    if AUTH_GUARD_STATUS_ANCHOR not in text:
+        raise RuntimeError(
+            f"{path}: could not find authGuard auth status anchor — "
+            "Bitwarden clients version may have changed"
+        )
+
+    patched = text.replace(AUTH_GUARD_STATUS_ANCHOR, AUTH_GUARD_SETUP_BYPASS_BLOCK, 1)
+    path.write_text(patched, encoding="utf-8")
+    print(f"  added mandatory setup auth guard fast path in {path.name}")
+    return True
+
+
 def main() -> int:
     clients_dir = Path(sys.argv[1])
     handler_path = (
@@ -456,9 +522,13 @@ def main() -> int:
     deep_link_guard_path = clients_dir / DEEP_LINK_GUARD
     if not deep_link_guard_path.is_file():
         raise SystemExit(f"ERROR: missing {deep_link_guard_path}")
+    auth_guard_path = clients_dir / AUTH_GUARD
+    if not auth_guard_path.is_file():
+        raise SystemExit(f"ERROR: missing {auth_guard_path}")
     apply_defer_login_sync_patch(handler_path)
     apply_login_component_redirect_patch(login_component_path)
     apply_deep_link_guard_patch(deep_link_guard_path)
+    apply_auth_guard_patch(auth_guard_path)
     return 0
 
 

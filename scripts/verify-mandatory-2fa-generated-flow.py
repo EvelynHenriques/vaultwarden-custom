@@ -46,6 +46,7 @@ BAD_LOGIN_MARKERS = (
 OSS_ROUTING = "apps/web/src/app/oss-routing.module.ts"
 LOGIN_COMPONENT = "libs/auth/src/angular/login/login.component.ts"
 DEEP_LINK_GUARD = "apps/web/src/app/auth/guards/deep-link/deep-link.guard.ts"
+AUTH_GUARD = "libs/angular/src/auth/guards/auth.guard.ts"
 TWO_FACTOR_COMPONENT = "libs/auth/src/angular/two-factor-auth/two-factor-auth.component.ts"
 TWO_FACTOR_TEMPLATE = "libs/auth/src/angular/two-factor-auth/two-factor-auth.component.html"
 
@@ -164,6 +165,29 @@ def verify_deep_link_guard_suppresses_setup_required_vault_restore(clients_dir: 
     print("  verified deepLinkGuard suppresses stale /vault restore during mandatory setup")
 
 
+def verify_auth_guard_allows_mandatory_setup_route(clients_dir: Path) -> None:
+    guard = clients_dir / AUTH_GUARD
+    if not guard.is_file():
+        raise RuntimeError(f"missing generated auth guard: {guard}")
+
+    text = guard.read_text(encoding="utf-8")
+    expected = (
+        "EBvault mandatory setup bypasses authGuard force-state checks",
+        "EBVAULT_MANDATORY_2FA_GATE_DECISION",
+        'ebvaultMandatoryGateDecision?.kind === "setup_required"',
+        "[EBvault AUTH GUARD] mandatory setup route allowed immediately",
+        "authStatus !== AuthenticationStatus.LoggedOut",
+    )
+    missing = [marker for marker in expected if marker not in text]
+    if missing:
+        raise RuntimeError(
+            f"{guard}: mandatory setup route can still wait behind upstream authGuard state: "
+            + ", ".join(missing)
+        )
+
+    print("  verified authGuard allows mandatory setup route without vault-state waits")
+
+
 def verify_lock_guard(clients_dir: Path) -> None:
     routing = clients_dir / OSS_ROUTING
     if not routing.is_file():
@@ -266,6 +290,7 @@ def main() -> int:
     verify_no_ebvault_vault_navigation_log(clients_dir)
     verify_password_login_redirect(clients_dir)
     verify_deep_link_guard_suppresses_setup_required_vault_restore(clients_dir)
+    verify_auth_guard_allows_mandatory_setup_route(clients_dir)
     verify_lock_guard(clients_dir)
     verify_remember_device_disabled(clients_dir)
     return 0
