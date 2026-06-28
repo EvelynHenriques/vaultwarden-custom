@@ -1322,10 +1322,14 @@ fn extract_url_path(url: &str) -> String {
     }
 }
 
-fn generate_smtp_img_src(_embed_images: bool, domain: &str) -> String {
-    // normalize base_url
-    let base_url = domain.trim_end_matches('/');
-    format!("{base_url}/vw_static/")
+fn generate_smtp_img_src(embed_images: bool, domain: &str) -> String {
+    if embed_images {
+        "cid:".to_owned()
+    } else {
+        // normalize base_url
+        let base_url = domain.trim_end_matches('/');
+        format!("{base_url}/vw_static/")
+    }
 }
 
 fn generate_sso_callback_path(domain: &str) -> String {

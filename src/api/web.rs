@@ -283,7 +283,7 @@ pub async fn static_files_dev(filename: PathBuf) -> Option<NamedFile> {
     let file = filename.to_str().unwrap_or_default();
     let ext = filename.extension().unwrap_or_default();
 
-    let path = if ext == "png" || ext == "svg" {
+    let path = if ext == "png" || ext == "svg" || ext == "jpeg" || ext == "jpg" {
         tokio::fs::canonicalize(Path::new(file!()).parent().unwrap().join("../static/images/").join(file)).await
     } else {
         tokio::fs::canonicalize(Path::new(file!()).parent().unwrap().join("../static/scripts/").join(file)).await
@@ -302,6 +302,7 @@ pub fn static_files(filename: &str) -> Result<(ContentType, &'static [u8]), Erro
         "mail-github.png" => Ok((ContentType::PNG, include_bytes!("../static/images/mail-github.png"))),
         "logo-gray.png" => Ok((ContentType::PNG, include_bytes!("../static/images/logo-gray.png"))),
         "logo-ebvault.svg" => Ok((ContentType::SVG, include_bytes!("../static/images/logo-ebvault.svg"))),
+        "logo-ebvault.jpeg" => Ok((ContentType::JPEG, include_bytes!("../static/images/logo-ebvault.jpeg"))),
         "error-x.svg" => Ok((ContentType::SVG, include_bytes!("../static/images/error-x.svg"))),
         "hibp.png" => Ok((ContentType::PNG, include_bytes!("../static/images/hibp.png"))),
         "vaultwarden-icon.png" => Ok((ContentType::PNG, include_bytes!("../static/images/vaultwarden-icon.png"))),
