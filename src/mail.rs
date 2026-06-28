@@ -704,13 +704,13 @@ async fn send_email(address: &str, subject: &str, body_html: String, body_text: 
     let smtp_from = Address::from_str(&CONFIG.smtp_from())?;
 
     let body = if CONFIG.smtp_embed_images() {
-        if let Ok((_content_type, logo_bytes)) = crate::api::static_files("logo-ebvault.jpeg") {
-            if let Ok(logo_mime) = "image/jpeg".parse() {
+        if let Ok((_content_type, logo_bytes)) = crate::api::static_files("logo-ebvault.png") {
+            if let Ok(logo_mime) = "image/png".parse() {
                 let logo_body = Body::new(logo_bytes.to_vec());
                 MultiPart::alternative().singlepart(SinglePart::plain(body_text)).multipart(
                     MultiPart::related()
                         .singlepart(SinglePart::html(body_html))
-                        .singlepart(Attachment::new_inline(String::from("logo-ebvault.jpeg")).body(
+                        .singlepart(Attachment::new_inline(String::from("logo-ebvault.png")).body(
                             logo_body, logo_mime,
                         )),
                 )
