@@ -85,16 +85,46 @@ LOGIN_REDIRECT_BLOCK = f"""{LOGIN_HANDLER_CALL}
         currentUrl: this.router.url,
         target: ebvaultMandatoryLoginRedirect,
       }});
+      console.log("[EBvault SETUP ROUTE] setup navigation promise created", {{
+        currentUrl: this.router.url,
+        target: ebvaultMandatoryLoginRedirect,
+      }});
+      let ebvaultMandatorySetupNavigationSettled = false;
+      const ebvaultMandatorySetupNavigationPendingTimer = setTimeout(() => {{
+        if (ebvaultMandatorySetupNavigationSettled) {{
+          return;
+        }}
+        console.log("[EBvault SETUP ROUTE] setup navigation still pending after 2s", {{
+          currentUrl: this.router.url,
+          routerStateUrl: this.router.routerState?.snapshot?.url,
+          target: ebvaultMandatoryLoginRedirect,
+        }});
+      }}, 2000);
       try {{
         const ebvaultMandatorySetupNavigationResult = await this.router.navigateByUrl(
           ebvaultMandatoryLoginRedirect,
           {{ replaceUrl: true }},
+        );
+        ebvaultMandatorySetupNavigationSettled = true;
+        clearTimeout(ebvaultMandatorySetupNavigationPendingTimer);
+        console.log(
+          ebvaultMandatorySetupNavigationResult
+            ? "[EBvault SETUP ROUTE] setup navigation promise resolved true"
+            : "[EBvault SETUP ROUTE] setup navigation promise resolved false",
+          {{
+            currentUrl: this.router.url,
+            routerStateUrl: this.router.routerState?.snapshot?.url,
+            target: ebvaultMandatoryLoginRedirect,
+          }},
         );
         console.log("[EBvault LOGIN] mandatory setup navigation completed", {{
           result: ebvaultMandatorySetupNavigationResult,
           currentUrl: this.router.url,
         }});
       }} catch (error: unknown) {{
+        ebvaultMandatorySetupNavigationSettled = true;
+        clearTimeout(ebvaultMandatorySetupNavigationPendingTimer);
+        console.log("[EBvault SETUP ROUTE] setup navigation promise rejected", error);
         console.log("[EBvault LOGIN] mandatory setup navigation failed", error);
         throw error;
       }}
@@ -110,16 +140,46 @@ DEFERRED_LOGIN_REDIRECT_NAVIGATION = """      await new Promise((resolve) => set
         currentUrl: this.router.url,
         target: ebvaultMandatoryLoginRedirect,
       });
+      console.log("[EBvault SETUP ROUTE] setup navigation promise created", {
+        currentUrl: this.router.url,
+        target: ebvaultMandatoryLoginRedirect,
+      });
+      let ebvaultMandatorySetupNavigationSettled = false;
+      const ebvaultMandatorySetupNavigationPendingTimer = setTimeout(() => {
+        if (ebvaultMandatorySetupNavigationSettled) {
+          return;
+        }
+        console.log("[EBvault SETUP ROUTE] setup navigation still pending after 2s", {
+          currentUrl: this.router.url,
+          routerStateUrl: this.router.routerState?.snapshot?.url,
+          target: ebvaultMandatoryLoginRedirect,
+        });
+      }, 2000);
       try {
         const ebvaultMandatorySetupNavigationResult = await this.router.navigateByUrl(
           ebvaultMandatoryLoginRedirect,
           { replaceUrl: true },
+        );
+        ebvaultMandatorySetupNavigationSettled = true;
+        clearTimeout(ebvaultMandatorySetupNavigationPendingTimer);
+        console.log(
+          ebvaultMandatorySetupNavigationResult
+            ? "[EBvault SETUP ROUTE] setup navigation promise resolved true"
+            : "[EBvault SETUP ROUTE] setup navigation promise resolved false",
+          {
+            currentUrl: this.router.url,
+            routerStateUrl: this.router.routerState?.snapshot?.url,
+            target: ebvaultMandatoryLoginRedirect,
+          },
         );
         console.log("[EBvault LOGIN] mandatory setup navigation completed", {
           result: ebvaultMandatorySetupNavigationResult,
           currentUrl: this.router.url,
         });
       } catch (error: unknown) {
+        ebvaultMandatorySetupNavigationSettled = true;
+        clearTimeout(ebvaultMandatorySetupNavigationPendingTimer);
+        console.log("[EBvault SETUP ROUTE] setup navigation promise rejected", error);
         console.log("[EBvault LOGIN] mandatory setup navigation failed", error);
         throw error;
       }"""

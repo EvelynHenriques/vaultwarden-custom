@@ -33,6 +33,11 @@ function evaluateMandatoryAuthenticatorAccess(url: string): boolean | UrlTree {
   const gatePhase = getMandatoryGatePhase();
   const mode = getMandatory2faMode();
 
+  console.log("[EBvault GUARD] mandatoryAuthenticatorAccess start", {
+    targetUrl: url,
+    gatePhase,
+    state,
+  });
   logGuardState("entered", router, url);
 
   if (!isMandatory2faEnforcementEnabled()) {
@@ -161,6 +166,10 @@ export const mandatoryFullReloginLockGuard: CanActivateFn = (_route, state) => {
 export { MANDATORY_TWO_FACTOR_SETUP_URL };
 
 function allowTrue(router: Router, url: string, reason: string): true {
+  console.log("[EBvault GUARD] mandatoryAuthenticatorAccess allow", {
+    targetUrl: url,
+    reason,
+  });
   logGuardReturn(router, url, true, reason);
   return true;
 }
@@ -191,6 +200,18 @@ function logGuardReturn(
     requestedUrl: url,
     finalUrl: result === true ? url : result.toString?.(),
   };
+  if (result === false) {
+    console.log("[EBvault GUARD] mandatoryAuthenticatorAccess block", {
+      targetUrl: url,
+      reason,
+    });
+  } else if (result !== true) {
+    console.log("[EBvault GUARD] mandatoryAuthenticatorAccess redirect", {
+      targetUrl: url,
+      redirectTo: result.toString?.(),
+      reason,
+    });
+  }
   mandatory2faNavLog(`mandatoryAuthenticatorGuard/${reason}`, detail);
   console.log("[EBvault GUARD TRACE] returning to Angular", {
     url,
