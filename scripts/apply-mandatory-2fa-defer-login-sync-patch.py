@@ -62,7 +62,9 @@ PATCHED_PREFIX = f"""{RUN_SIGNATURE}
 
 COMPLETION_LOG = '    console.log("[EBvault LOGIN] DefaultLoginSuccessHandlerService.run completed");'
 LOGIN_COMPONENT = "libs/auth/src/angular/login/login.component.ts"
+DEEP_LINK_GUARD = "apps/web/src/app/auth/guards/deep-link/deep-link.guard.ts"
 LOGIN_REDIRECT_MARKER = "EBvault mandatory setup redirect after no-TOTP gate"
+DEEP_LINK_MARKER = "EBvault mandatory setup suppresses deep-link vault restore"
 
 LOGIN_HANDLER_CALL = (
     "    await this.loginSuccessHandlerService.run(authResult.userId, authResult.masterPassword);"
@@ -183,6 +185,39 @@ DEFERRED_LOGIN_REDIRECT_NAVIGATION = """      await new Promise((resolve) => set
         console.log("[EBvault LOGIN] mandatory setup navigation failed", error);
         throw error;
       }"""
+
+DEEP_LINK_AUTH_UNLOCKED_ANCHOR = "    if (authStatus === AuthenticationStatus.Unlocked) {\n"
+DEEP_LINK_SUPPRESS_BLOCK = f"""{DEEP_LINK_AUTH_UNLOCKED_ANCHOR}      // {DEEP_LINK_MARKER}: no-TOTP users must not replay a saved /vault destination.
+      const ebvaultMandatoryGateDecision =
+        (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_DECISION?: {{ kind?: string }} }})
+          .EBVAULT_MANDATORY_2FA_GATE_DECISION;
+      const ebvaultMandatoryLoginRedirect =
+        (globalThis as {{ EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string }})
+          .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT;
+      const ebvaultMandatorySetupRequired =
+        ebvaultMandatoryGateDecision?.kind === "setup_required" ||
+        ebvaultMandatoryLoginRedirect === "/settings/security/two-factor";
+      if (ebvaultMandatorySetupRequired) {{
+        const ebvaultDiscardedPreLoginUrl = await routerService.getAndClearLoginRedirectUrl();
+        const ebvaultRequestedPath = routerState.url.split("?")[0].split("#")[0];
+        console.log("[EBvault DEBUG] /vault navigation source suppressed: deepLinkGuard persisted login redirect", {{
+          requestedUrl: routerState.url,
+          discardedUrl: ebvaultDiscardedPreLoginUrl,
+        }});
+        if (
+          ebvaultRequestedPath === "/settings/security/two-factor" ||
+          ebvaultRequestedPath.startsWith("/settings/security/two-factor/")
+        ) {{
+          console.log("[EBvault 2FA SETUP] setup route allowed after suppressing stale protected destination");
+          return true;
+        }}
+        console.log("[EBvault 2FA SETUP] deep-link protected destination redirected back to setup", {{
+          requestedUrl: routerState.url,
+          target: "/settings/security/two-factor",
+        }});
+        return router.createUrlTree(["/settings/security/two-factor"]);
+      }}
+"""
 
 
 def find_matching_brace(text: str, open_brace_index: int) -> int:
@@ -389,6 +424,24 @@ def apply_login_component_redirect_patch(path: Path) -> bool:
     return True
 
 
+def apply_deep_link_guard_patch(path: Path) -> bool:
+    text = path.read_text(encoding="utf-8")
+    if DEEP_LINK_MARKER in text:
+        print(f"  mandatory setup deep-link suppression already applied in {path.name}")
+        return False
+
+    if DEEP_LINK_AUTH_UNLOCKED_ANCHOR not in text:
+        raise RuntimeError(
+            f"{path}: could not find deepLinkGuard unlocked branch — "
+            "Bitwarden clients version may have changed"
+        )
+
+    patched = text.replace(DEEP_LINK_AUTH_UNLOCKED_ANCHOR, DEEP_LINK_SUPPRESS_BLOCK, 1)
+    path.write_text(patched, encoding="utf-8")
+    print(f"  added mandatory setup deep-link suppression in {path.name}")
+    return True
+
+
 def main() -> int:
     clients_dir = Path(sys.argv[1])
     handler_path = (
@@ -400,8 +453,12 @@ def main() -> int:
     login_component_path = clients_dir / LOGIN_COMPONENT
     if not login_component_path.is_file():
         raise SystemExit(f"ERROR: missing {login_component_path}")
+    deep_link_guard_path = clients_dir / DEEP_LINK_GUARD
+    if not deep_link_guard_path.is_file():
+        raise SystemExit(f"ERROR: missing {deep_link_guard_path}")
     apply_defer_login_sync_patch(handler_path)
     apply_login_component_redirect_patch(login_component_path)
+    apply_deep_link_guard_patch(deep_link_guard_path)
     return 0
 
 

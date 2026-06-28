@@ -45,6 +45,7 @@ BAD_LOGIN_MARKERS = (
 
 OSS_ROUTING = "apps/web/src/app/oss-routing.module.ts"
 LOGIN_COMPONENT = "libs/auth/src/angular/login/login.component.ts"
+DEEP_LINK_GUARD = "apps/web/src/app/auth/guards/deep-link/deep-link.guard.ts"
 TWO_FACTOR_COMPONENT = "libs/auth/src/angular/two-factor-auth/two-factor-auth.component.ts"
 TWO_FACTOR_TEMPLATE = "libs/auth/src/angular/two-factor-auth/two-factor-auth.component.html"
 
@@ -137,6 +138,30 @@ def verify_password_login_redirect(clients_dir: Path) -> None:
         )
 
     print("  verified password login skips default vault navigation when mandatory setup is required")
+
+
+def verify_deep_link_guard_suppresses_setup_required_vault_restore(clients_dir: Path) -> None:
+    guard = clients_dir / DEEP_LINK_GUARD
+    if not guard.is_file():
+        raise RuntimeError(f"missing generated deep-link guard: {guard}")
+
+    text = guard.read_text(encoding="utf-8")
+    expected = (
+        "EBvault mandatory setup suppresses deep-link vault restore",
+        "EBVAULT_MANDATORY_2FA_GATE_DECISION",
+        'ebvaultMandatoryGateDecision?.kind === "setup_required"',
+        "[EBvault DEBUG] /vault navigation source suppressed: deepLinkGuard persisted login redirect",
+        "[EBvault 2FA SETUP] setup route allowed after suppressing stale protected destination",
+        'return router.createUrlTree(["/settings/security/two-factor"]);',
+    )
+    missing = [marker for marker in expected if marker not in text]
+    if missing:
+        raise RuntimeError(
+            f"{guard}: no-TOTP setup navigation can still be cancelled by a stale /vault deep link: "
+            + ", ".join(missing)
+        )
+
+    print("  verified deepLinkGuard suppresses stale /vault restore during mandatory setup")
 
 
 def verify_lock_guard(clients_dir: Path) -> None:
@@ -240,6 +265,7 @@ def main() -> int:
     verify_login_handler(clients_dir)
     verify_no_ebvault_vault_navigation_log(clients_dir)
     verify_password_login_redirect(clients_dir)
+    verify_deep_link_guard_suppresses_setup_required_vault_restore(clients_dir)
     verify_lock_guard(clients_dir)
     verify_remember_device_disabled(clients_dir)
     return 0

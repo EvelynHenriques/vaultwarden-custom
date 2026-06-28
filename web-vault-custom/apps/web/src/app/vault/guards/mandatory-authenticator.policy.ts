@@ -229,6 +229,7 @@ export function markMandatoryAuthenticatorSetupComplete(): void {
   mandatoryGateReleased = true;
   gatePhase = "released";
   statusCheckPromise = null;
+  clearMandatoryGateGlobals();
   log("releasing gate after 2FA configured");
   mandatory2faStateLog("markMandatoryAuthenticatorSetupComplete");
 }
