@@ -38,18 +38,51 @@ PATCHED_PREFIX = f"""{RUN_SIGNATURE}
       console.log("[EBvault LOGIN] upstream login-time fullSync completed after TOTP");
     }} else {{
       console.log("[EBvault 2FA] sync deferred without throwing during login bootstrap");
+      console.log("[EBvault LOGIN] mandatory no-TOTP gate check starting before default navigation");
       const ebvaultMandatoryGatePromise =
-        (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<void> }})
+        (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<{{ kind?: string }}> }})
           .EBVAULT_MANDATORY_2FA_GATE_PROMISE;
-      if (ebvaultMandatoryGatePromise != null) {{
-        await ebvaultMandatoryGatePromise;
-        console.log("[EBvault 2FA SETUP] mandatory gate resolved before default navigation");
+      const ebvaultMandatoryGateDecision =
+        ebvaultMandatoryGatePromise != null
+          ? await ebvaultMandatoryGatePromise
+          : (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_DECISION?: {{ kind?: string }} }})
+              .EBVAULT_MANDATORY_2FA_GATE_DECISION;
+      if (ebvaultMandatoryGateDecision?.kind === "setup_required") {{
+        console.log("[EBvault LOGIN] mandatory gate result: setup required");
+        console.log("[EBvault LOGIN] default /vault navigation skipped because mandatory setup is required");
+        (globalThis as {{ EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string }})
+          .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT = "/settings/security/two-factor";
+      }} else {{
+        console.log("[EBvault LOGIN] mandatory gate result: " + (ebvaultMandatoryGateDecision?.kind ?? "unknown"));
+        console.log("[EBvault LOGIN] continuing original Web Vault login flow");
       }}
     }}
     console.log("[EBvault LOGIN] original post-login bootstrap completed");
 {REGEN_BLOCK}"""
 
 COMPLETION_LOG = '    console.log("[EBvault LOGIN] DefaultLoginSuccessHandlerService.run completed");'
+LOGIN_COMPONENT = "libs/auth/src/angular/login/login.component.ts"
+LOGIN_REDIRECT_MARKER = "EBvault mandatory setup redirect after no-TOTP gate"
+
+LOGIN_HANDLER_CALL = (
+    "    await this.loginSuccessHandlerService.run(authResult.userId, authResult.masterPassword);"
+)
+
+LOGIN_REDIRECT_BLOCK = f"""{LOGIN_HANDLER_CALL}
+
+    // {LOGIN_REDIRECT_MARKER}: no-TOTP users must not continue to the default vault route.
+    const ebvaultMandatoryLoginRedirect =
+      (globalThis as {{ EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string }})
+        .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT;
+    if (ebvaultMandatoryLoginRedirect) {{
+      delete (globalThis as {{ EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string }})
+        .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT;
+      console.log("[EBvault LOGIN] navigating to mandatory setup instead of default vault route", {{
+        target: ebvaultMandatoryLoginRedirect,
+      }});
+      await this.router.navigateByUrl(ebvaultMandatoryLoginRedirect, {{ replaceUrl: true }});
+      return;
+    }}"""
 
 
 def find_matching_brace(text: str, open_brace_index: int) -> int:
@@ -100,7 +133,9 @@ def remove_legacy_early_return(run_method: str) -> str:
 def patch_run_method(text: str) -> str:
     if MARKER in text and LEGACY_BOOTSTRAP_MARKER not in text:
         start, end = get_run_method_bounds(text)
-        run_method = ensure_completion_log(upgrade_gate_wait(upgrade_regeneration_logging(text[start:end])))
+        run_method = ensure_completion_log(
+            upgrade_gate_wait(replace_patched_prefix(upgrade_regeneration_logging(text[start:end])))
+        )
         return text[:start] + run_method + text[end:]
 
     if ORIGINAL_PREFIX in text:
@@ -138,7 +173,7 @@ def patch_run_method(text: str) -> str:
         return text[:start] + patched_method + text[end:]
 
     if MARKER in run_method:
-        patched_method = ensure_completion_log(upgrade_gate_wait(run_method))
+        patched_method = ensure_completion_log(upgrade_gate_wait(replace_patched_prefix(run_method)))
         return text[:start] + patched_method + text[end:]
 
     raise RuntimeError(
@@ -167,21 +202,46 @@ def upgrade_regeneration_logging(run_method: str) -> str:
 
 
 def upgrade_gate_wait(run_method: str) -> str:
-    if "EBVAULT_MANDATORY_2FA_GATE_PROMISE" in run_method:
+    if "EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT" in run_method:
         return run_method
 
     anchor = '      console.log("[EBvault 2FA] sync deferred without throwing during login bootstrap");'
     if anchor not in run_method:
         return run_method
 
-    gate_wait = """      const ebvaultMandatoryGatePromise =
-        (globalThis as { EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<void> })
+    gate_wait = """      console.log("[EBvault LOGIN] mandatory no-TOTP gate check starting before default navigation");
+      const ebvaultMandatoryGatePromise =
+        (globalThis as { EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<{ kind?: string }> })
           .EBVAULT_MANDATORY_2FA_GATE_PROMISE;
-      if (ebvaultMandatoryGatePromise != null) {
-        await ebvaultMandatoryGatePromise;
-        console.log("[EBvault 2FA SETUP] mandatory gate resolved before default navigation");
+      const ebvaultMandatoryGateDecision =
+        ebvaultMandatoryGatePromise != null
+          ? await ebvaultMandatoryGatePromise
+          : (globalThis as { EBVAULT_MANDATORY_2FA_GATE_DECISION?: { kind?: string } })
+              .EBVAULT_MANDATORY_2FA_GATE_DECISION;
+      if (ebvaultMandatoryGateDecision?.kind === "setup_required") {
+        console.log("[EBvault LOGIN] mandatory gate result: setup required");
+        console.log("[EBvault LOGIN] default /vault navigation skipped because mandatory setup is required");
+        (globalThis as { EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string })
+          .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT = "/settings/security/two-factor";
+      } else {
+        console.log("[EBvault LOGIN] mandatory gate result: " + (ebvaultMandatoryGateDecision?.kind ?? "unknown"));
+        console.log("[EBvault LOGIN] continuing original Web Vault login flow");
       }"""
     return run_method.replace(anchor, f"{anchor}\n{gate_wait}", 1)
+
+
+def replace_patched_prefix(run_method: str) -> str:
+    if MARKER not in run_method:
+        return run_method
+    if "EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT" in run_method:
+        return run_method
+
+    regen_index = run_method.find(REGEN_BLOCK)
+    if regen_index == -1:
+        return run_method
+
+    prefix_end = regen_index + len(REGEN_BLOCK)
+    return PATCHED_PREFIX + run_method[prefix_end:]
 
 
 def apply_defer_login_sync_patch(path: Path) -> bool:
@@ -202,6 +262,24 @@ def apply_defer_login_sync_patch(path: Path) -> bool:
     return True
 
 
+def apply_login_component_redirect_patch(path: Path) -> bool:
+    text = path.read_text(encoding="utf-8")
+    if LOGIN_REDIRECT_MARKER in text:
+        print(f"  mandatory setup login redirect already applied in {path.name}")
+        return False
+
+    if LOGIN_HANDLER_CALL not in text:
+        raise RuntimeError(
+            f"{path}: could not find password login success handler call — "
+            "Bitwarden clients version may have changed"
+        )
+
+    patched = text.replace(LOGIN_HANDLER_CALL, LOGIN_REDIRECT_BLOCK, 1)
+    path.write_text(patched, encoding="utf-8")
+    print(f"  added mandatory setup redirect before default vault navigation in {path.name}")
+    return True
+
+
 def main() -> int:
     clients_dir = Path(sys.argv[1])
     handler_path = (
@@ -210,7 +288,11 @@ def main() -> int:
     )
     if not handler_path.is_file():
         raise SystemExit(f"ERROR: missing {handler_path}")
+    login_component_path = clients_dir / LOGIN_COMPONENT
+    if not login_component_path.is_file():
+        raise SystemExit(f"ERROR: missing {login_component_path}")
     apply_defer_login_sync_patch(handler_path)
+    apply_login_component_redirect_patch(login_component_path)
     return 0
 
 

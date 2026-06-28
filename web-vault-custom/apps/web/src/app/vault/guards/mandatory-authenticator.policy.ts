@@ -36,6 +36,8 @@ export type Mandatory2faMode = "off" | "observe" | "enforce";
 
 const MODE_STORAGE_KEY = "EBVAULT_2FA_MODE";
 const TOTP_FLOW_GLOBAL_KEY = "EBVAULT_CURRENT_AUTH_FLOW_PASSED_TOTP";
+const GATE_DECISION_GLOBAL_KEY = "EBVAULT_MANDATORY_2FA_GATE_DECISION";
+const LOGIN_REDIRECT_GLOBAL_KEY = "EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT";
 
 let gatePhase: MandatoryGatePhase = "idle";
 let statusCheckPromise: Promise<MandatoryGatePhase> | null = null;
@@ -214,6 +216,7 @@ export function resetMandatoryAuthenticatorSetupState(): void {
   mandatoryGateReleased = false;
   gatePhase = "idle";
   statusCheckPromise = null;
+  clearMandatoryGateGlobals();
   log("gate state = idle (session reset)");
   mandatory2faStateLog("resetMandatoryAuthenticatorSetupState");
 }
@@ -791,6 +794,15 @@ function readGlobalString(key: string): string | null {
 function setCurrentAuthFlowPassedTotpGlobal(value: boolean): void {
   try {
     (globalThis as Record<string, unknown>)[TOTP_FLOW_GLOBAL_KEY] = value;
+  } catch {
+    // Ignore non-browser or locked-down globals; the in-memory policy state remains authoritative.
+  }
+}
+
+function clearMandatoryGateGlobals(): void {
+  try {
+    delete (globalThis as Record<string, unknown>)[GATE_DECISION_GLOBAL_KEY];
+    delete (globalThis as Record<string, unknown>)[LOGIN_REDIRECT_GLOBAL_KEY];
   } catch {
     // Ignore non-browser or locked-down globals; the in-memory policy state remains authoritative.
   }

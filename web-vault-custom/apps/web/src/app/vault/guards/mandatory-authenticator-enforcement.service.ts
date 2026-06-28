@@ -54,6 +54,17 @@ type ApiServiceWithMiddleware = ApiService & {
   addMiddleware?: (middleware: unknown) => void;
 };
 
+type EbvaultMandatoryGateDecision =
+  | { kind: "setup_required" }
+  | { kind: "vault_allowed" }
+  | { kind: "totp_required" }
+  | { kind: "disabled" };
+
+type EbvaultMandatoryGateGlobals = {
+  EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<EbvaultMandatoryGateDecision>;
+  EBVAULT_MANDATORY_2FA_GATE_DECISION?: EbvaultMandatoryGateDecision;
+};
+
 @Injectable({ providedIn: "root" })
 export class MandatoryAuthenticatorEnforcementService {
   private readonly router = inject(Router);
@@ -65,7 +76,7 @@ export class MandatoryAuthenticatorEnforcementService {
   private readonly serverNotificationsService = inject(ServerNotificationsService);
 
   private started = false;
-  private gateResolvePromise: Promise<void> | null = null;
+  private gateResolvePromise: Promise<EbvaultMandatoryGateDecision> | null = null;
   private setupNavigationPromise: Promise<void> | null = null;
   private currentAccountId: UserId | null | undefined;
 
@@ -436,30 +447,31 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
-    const gatePromise = this.runGateResolution().finally(() => {
-      const globalGate = globalThis as {
-        EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<void>;
-      };
-      if (globalGate.EBVAULT_MANDATORY_2FA_GATE_PROMISE === gatePromise) {
-        delete globalGate.EBVAULT_MANDATORY_2FA_GATE_PROMISE;
-      }
-      this.gateResolvePromise = null;
-    });
+    const gatePromise = this.runGateResolution()
+      .then((decision) => {
+        (globalThis as EbvaultMandatoryGateGlobals).EBVAULT_MANDATORY_2FA_GATE_DECISION = decision;
+        return decision;
+      })
+      .finally(() => {
+        const globalGate = globalThis as EbvaultMandatoryGateGlobals;
+        if (globalGate.EBVAULT_MANDATORY_2FA_GATE_PROMISE === gatePromise) {
+          delete globalGate.EBVAULT_MANDATORY_2FA_GATE_PROMISE;
+        }
+        this.gateResolvePromise = null;
+      });
     this.gateResolvePromise = gatePromise;
-    (globalThis as { EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<void> })
-      .EBVAULT_MANDATORY_2FA_GATE_PROMISE = gatePromise;
+    (globalThis as EbvaultMandatoryGateGlobals).EBVAULT_MANDATORY_2FA_GATE_PROMISE = gatePromise;
   }
 
-  private async ensureGateResolved(): Promise<void> {
+  private async ensureGateResolved(): Promise<EbvaultMandatoryGateDecision> {
     if (this.gateResolvePromise) {
-      await this.gateResolvePromise;
-      return;
+      return await this.gateResolvePromise;
     }
 
-    await this.runGateResolution();
+    return await this.runGateResolution();
   }
 
-  private async runGateResolution(): Promise<void> {
+  private async runGateResolution(): Promise<EbvaultMandatoryGateDecision> {
     if (isMandatoryLockSuspended()) {
       resumeMandatoryLock();
     }
@@ -469,7 +481,7 @@ export class MandatoryAuthenticatorEnforcementService {
       mandatory2faLog("active account = null (timed out waiting for unlocked account)");
       failSafeUnresolvedGate();
       await this.navigateToMandatorySetupIfNeeded();
-      return;
+      return { kind: "setup_required" };
     }
 
     mandatory2faLog("active account loaded", { userId });
@@ -488,7 +500,7 @@ export class MandatoryAuthenticatorEnforcementService {
         phase,
         state: getMandatory2faState(),
       });
-      return;
+      return { kind: "disabled" };
     }
 
     this.lockService.syncDomLockClass();
@@ -503,7 +515,7 @@ export class MandatoryAuthenticatorEnforcementService {
         requestedUrl: "original-login-flow",
         finalUrl: "original-login-flow",
       });
-      return;
+      return { kind: "vault_allowed" };
     }
 
     const state = getMandatory2faState();
@@ -517,12 +529,12 @@ export class MandatoryAuthenticatorEnforcementService {
         finalUrl: "/login",
       });
       await this.router.navigate(["/login"], { replaceUrl: true });
-      return;
+      return { kind: "totp_required" };
     }
 
     if (phase === "pending") {
       mandatory2faLog("gate pending - no navigation decision yet");
-      return;
+      return { kind: "totp_required" };
     }
 
     mandatory2faLog("mandatory authenticator status detected: not configured");
@@ -541,11 +553,12 @@ export class MandatoryAuthenticatorEnforcementService {
         currentUrl: this.router.url,
       });
       console.log("[EBvault 2FA SETUP] direct setup redirect requested");
-      mandatory2faLog("no-TOTP state resolved; original protected navigation will be redirected by guard");
-      return;
+      mandatory2faLog("no-TOTP state resolved; default /vault navigation skipped; navigating directly to setup");
+      return { kind: "setup_required" };
     }
 
     await this.navigateToMandatorySetupIfNeeded();
+    return { kind: "setup_required" };
   }
 
   /** Fail-safe: never release vault when 2FA state is unknown or unresolved. */

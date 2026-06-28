@@ -28,6 +28,9 @@ EXPECTED_LOGIN_MARKERS = (
     "[EBvault LOGIN] DefaultLoginSuccessHandlerService.run started",
     "[EBvault LOGIN] auth state stable",
     "EBVAULT_MANDATORY_2FA_GATE_PROMISE",
+    "EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT",
+    "[EBvault LOGIN] mandatory no-TOTP gate check starting before default navigation",
+    "[EBvault LOGIN] default /vault navigation skipped because mandatory setup is required",
     "[EBvault LOGIN] original post-login bootstrap completed",
     "[EBvault LOGIN] DefaultLoginSuccessHandlerService.run completed",
 )
@@ -37,9 +40,11 @@ BAD_LOGIN_MARKERS = (
     "void masterPassword;",
     "Post-login bootstrap skipped",
     "EBvault defer post-login bootstrap to mandatory 2FA gate",
+    "mandatory gate resolved before default navigation",
 )
 
 OSS_ROUTING = "apps/web/src/app/oss-routing.module.ts"
+LOGIN_COMPONENT = "libs/auth/src/angular/login/login.component.ts"
 TWO_FACTOR_COMPONENT = "libs/auth/src/angular/two-factor-auth/two-factor-auth.component.ts"
 TWO_FACTOR_TEMPLATE = "libs/auth/src/angular/two-factor-auth/two-factor-auth.component.html"
 
@@ -97,6 +102,34 @@ def verify_no_ebvault_vault_navigation_log(clients_dir: Path) -> None:
         )
 
     print("  verified no EBvault 'navigation to /vault started' generated log")
+
+
+def verify_password_login_redirect(clients_dir: Path) -> None:
+    component = clients_dir / LOGIN_COMPONENT
+    if not component.is_file():
+        raise RuntimeError(f"missing generated password login component: {component}")
+
+    text = component.read_text(encoding="utf-8")
+    expected = (
+        "EBvault mandatory setup redirect after no-TOTP gate",
+        "EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT",
+        "this.router.navigateByUrl(ebvaultMandatoryLoginRedirect, { replaceUrl: true })",
+    )
+    missing = [marker for marker in expected if marker not in text]
+    if missing:
+        raise RuntimeError(
+            f"{component}: password login can still continue to default vault navigation: "
+            + ", ".join(missing)
+        )
+
+    redirect_index = text.find("EBvault mandatory setup redirect after no-TOTP gate")
+    default_vault_index = text.find('this.router.navigate(["vault"])')
+    if default_vault_index != -1 and redirect_index > default_vault_index:
+        raise RuntimeError(
+            f"{component}: mandatory setup redirect is after the default vault navigation"
+        )
+
+    print("  verified password login skips default vault navigation when mandatory setup is required")
 
 
 def verify_lock_guard(clients_dir: Path) -> None:
@@ -199,6 +232,7 @@ def main() -> int:
     print_routing_context(clients_dir)
     verify_login_handler(clients_dir)
     verify_no_ebvault_vault_navigation_log(clients_dir)
+    verify_password_login_redirect(clients_dir)
     verify_lock_guard(clients_dir)
     verify_remember_device_disabled(clients_dir)
     return 0
