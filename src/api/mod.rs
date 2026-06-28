@@ -30,8 +30,8 @@ pub use crate::api::{
     },
     web::catchers as web_catchers,
     web::routes as web_routes,
-    web::static_files,
 };
+pub use web::static_files;
 use crate::{
     CONFIG,
     db::{
