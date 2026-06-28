@@ -113,7 +113,10 @@ def verify_password_login_redirect(clients_dir: Path) -> None:
     expected = (
         "EBvault mandatory setup redirect after no-TOTP gate",
         "EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT",
-        "this.router.navigateByUrl(ebvaultMandatoryLoginRedirect, { replaceUrl: true })",
+        "[EBvault LOGIN] deferred mandatory setup navigation starting",
+        "[EBvault LOGIN] mandatory setup navigation completed",
+        "[EBvault LOGIN] mandatory setup navigation failed",
+        "this.router.navigateByUrl(",
     )
     missing = [marker for marker in expected if marker not in text]
     if missing:

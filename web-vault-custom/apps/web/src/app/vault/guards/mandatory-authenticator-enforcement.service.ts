@@ -79,6 +79,7 @@ export class MandatoryAuthenticatorEnforcementService {
   private gateResolvePromise: Promise<EbvaultMandatoryGateDecision> | null = null;
   private setupNavigationPromise: Promise<void> | null = null;
   private currentAccountId: UserId | null | undefined;
+  private focusedRouteDebugUntil = 0;
 
   start(): void {
     if (this.started) {
@@ -203,6 +204,19 @@ export class MandatoryAuthenticatorEnforcementService {
     this.router.events.subscribe((event) => {
       if (event instanceof NavigationStart) {
         const requestedPath = normalizeMandatorySetupPath(event.url);
+        if (
+          isMandatorySetupAllowedUrl(requestedPath) ||
+          requestedPath === "/vault" ||
+          requestedPath === "/login" ||
+          requestedPath.startsWith("/login/")
+        ) {
+          this.focusedRouteDebugUntil = Date.now() + 15_000;
+          console.log("[EBvault ROUTER TRACE] focused route navigation started", {
+            url: event.url,
+            requestedPath,
+            currentUrl: this.router.url,
+          });
+        }
         if (isMandatoryAuthFlowInProgress() && !isPreLoginAuthenticationRoute(event.url)) {
           console.log("[EBvault ROUTER] NavigationStart", event.url);
           if (isMandatorySetupAllowedUrl(requestedPath)) {
@@ -240,6 +254,7 @@ export class MandatoryAuthenticatorEnforcementService {
         return;
       }
 
+      this.logFocusedRouteRouterEvent(event);
       this.logAuthFlowRouterEvent(event);
       this.logMandatorySetupRouterEvent(event);
 
@@ -327,6 +342,42 @@ export class MandatoryAuthenticatorEnforcementService {
     } else if (eventName === "NavigationError") {
       console.log("[EBvault 2FA SETUP] setup route NavigationError", detail);
     }
+  }
+
+  private logFocusedRouteRouterEvent(event: unknown): void {
+    if (Date.now() > this.focusedRouteDebugUntil) {
+      return;
+    }
+
+    const eventName = getRouterEventName(event);
+    if (!shouldLogRouterEvent(eventName)) {
+      return;
+    }
+
+    const detail = getRouterEventDetail(event);
+    const url = normalizeMandatorySetupPath(
+      String(detail["urlAfterRedirects"] ?? detail["url"] ?? this.router.url),
+    );
+    const routePath = typeof detail["routePath"] === "string" ? detail["routePath"] : "";
+    const isFocusedUrl =
+      isMandatorySetupAllowedUrl(url) ||
+      url === "/vault" ||
+      url === "/login" ||
+      url.startsWith("/login/") ||
+      routePath === "settings" ||
+      routePath === "security" ||
+      routePath === "two-factor";
+
+    if (!isFocusedUrl && eventName !== "RouteConfigLoadStart" && eventName !== "RouteConfigLoadEnd") {
+      return;
+    }
+
+    console.log("[EBvault ROUTER TRACE]", eventName, {
+      ...detail,
+      currentUrl: this.router.url,
+      gatePhase: getMandatoryGatePhase(),
+      state: getMandatory2faState(),
+    });
   }
 
   private async bootstrapExistingSession(): Promise<void> {
@@ -771,19 +822,29 @@ function shouldLogRouterEvent(eventName: string): boolean {
     eventName.includes("Navigation") ||
     eventName.includes("GuardsCheck") ||
     eventName.includes("Resolve") ||
-    eventName.includes("RoutesRecognized")
+    eventName.includes("RoutesRecognized") ||
+    eventName.includes("RouteConfigLoad") ||
+    eventName.includes("Activation")
   );
 }
 
 function getRouterEventDetail(event: unknown): Record<string, unknown> {
   const safeEvent = event != null && typeof event === "object" ? (event as Record<string, unknown>) : {};
+  const route =
+    safeEvent["route"] != null && typeof safeEvent["route"] === "object"
+      ? (safeEvent["route"] as Record<string, unknown>)
+      : {};
 
   return {
+    id: safeEvent["id"],
     url: safeEvent["url"],
     urlAfterRedirects: safeEvent["urlAfterRedirects"],
     shouldActivate: safeEvent["shouldActivate"],
     reason: safeEvent["reason"],
+    code: safeEvent["code"],
     error: safeEvent["error"],
+    routePath: route["path"],
+    routeLoadChildren: route["loadChildren"] == null ? undefined : String(route["loadChildren"]),
   };
 }
 

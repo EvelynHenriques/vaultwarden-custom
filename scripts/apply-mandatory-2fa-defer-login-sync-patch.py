@@ -80,9 +80,49 @@ LOGIN_REDIRECT_BLOCK = f"""{LOGIN_HANDLER_CALL}
       console.log("[EBvault LOGIN] navigating to mandatory setup instead of default vault route", {{
         target: ebvaultMandatoryLoginRedirect,
       }});
-      await this.router.navigateByUrl(ebvaultMandatoryLoginRedirect, {{ replaceUrl: true }});
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      console.log("[EBvault LOGIN] deferred mandatory setup navigation starting", {{
+        currentUrl: this.router.url,
+        target: ebvaultMandatoryLoginRedirect,
+      }});
+      try {{
+        const ebvaultMandatorySetupNavigationResult = await this.router.navigateByUrl(
+          ebvaultMandatoryLoginRedirect,
+          {{ replaceUrl: true }},
+        );
+        console.log("[EBvault LOGIN] mandatory setup navigation completed", {{
+          result: ebvaultMandatorySetupNavigationResult,
+          currentUrl: this.router.url,
+        }});
+      }} catch (error: unknown) {{
+        console.log("[EBvault LOGIN] mandatory setup navigation failed", error);
+        throw error;
+      }}
       return;
     }}"""
+
+OLD_LOGIN_REDIRECT_NAVIGATION = (
+    "      await this.router.navigateByUrl(ebvaultMandatoryLoginRedirect, { replaceUrl: true });"
+)
+
+DEFERRED_LOGIN_REDIRECT_NAVIGATION = """      await new Promise((resolve) => setTimeout(resolve, 0));
+      console.log("[EBvault LOGIN] deferred mandatory setup navigation starting", {
+        currentUrl: this.router.url,
+        target: ebvaultMandatoryLoginRedirect,
+      });
+      try {
+        const ebvaultMandatorySetupNavigationResult = await this.router.navigateByUrl(
+          ebvaultMandatoryLoginRedirect,
+          { replaceUrl: true },
+        );
+        console.log("[EBvault LOGIN] mandatory setup navigation completed", {
+          result: ebvaultMandatorySetupNavigationResult,
+          currentUrl: this.router.url,
+        });
+      } catch (error: unknown) {
+        console.log("[EBvault LOGIN] mandatory setup navigation failed", error);
+        throw error;
+      }"""
 
 
 def find_matching_brace(text: str, open_brace_index: int) -> int:
@@ -265,6 +305,15 @@ def apply_defer_login_sync_patch(path: Path) -> bool:
 def apply_login_component_redirect_patch(path: Path) -> bool:
     text = path.read_text(encoding="utf-8")
     if LOGIN_REDIRECT_MARKER in text:
+        if "deferred mandatory setup navigation starting" not in text:
+            if OLD_LOGIN_REDIRECT_NAVIGATION not in text:
+                raise RuntimeError(
+                    f"{path}: mandatory setup redirect marker exists but navigation anchor was not found"
+                )
+            patched = text.replace(OLD_LOGIN_REDIRECT_NAVIGATION, DEFERRED_LOGIN_REDIRECT_NAVIGATION, 1)
+            path.write_text(patched, encoding="utf-8")
+            print(f"  upgraded mandatory setup login redirect timing in {path.name}")
+            return True
         print(f"  mandatory setup login redirect already applied in {path.name}")
         return False
 
