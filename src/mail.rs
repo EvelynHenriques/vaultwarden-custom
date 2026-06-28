@@ -3,7 +3,7 @@ use std::{env::consts::EXE_SUFFIX, str::FromStr};
 use chrono::NaiveDateTime;
 use lettre::{
     Address, AsyncSendmailTransport, AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
-    message::{Attachment, Body, Mailbox, Message, MultiPart, SinglePart},
+    message::{Mailbox, Message, MultiPart},
     transport::smtp::authentication::{Credentials, Mechanism as SmtpAuthMechanism},
     transport::smtp::client::{Tls, TlsParameters},
     transport::smtp::extension::ClientId,
@@ -703,24 +703,7 @@ async fn send_with_selected_transport(email: Message) -> EmptyResult {
 async fn send_email(address: &str, subject: &str, body_html: String, body_text: String) -> EmptyResult {
     let smtp_from = Address::from_str(&CONFIG.smtp_from())?;
 
-    let body = if CONFIG.smtp_embed_images() {
-        let logo_body = Body::new(crate::api::static_files("logo-ebvault.svg").unwrap().1.to_vec());
-        let mail_github_body = Body::new(crate::api::static_files("mail-github.png").unwrap().1.to_vec());
-        MultiPart::alternative().singlepart(SinglePart::plain(body_text)).multipart(
-            MultiPart::related()
-                .singlepart(SinglePart::html(body_html))
-                .singlepart(
-                    Attachment::new_inline(String::from("logo-ebvault.svg"))
-                        .body(logo_body, "image/svg+xml".parse().unwrap()),
-                )
-                .singlepart(
-                    Attachment::new_inline(String::from("mail-github.png"))
-                        .body(mail_github_body, "image/png".parse().unwrap()),
-                ),
-        )
-    } else {
-        MultiPart::alternative_plain_html(body_text, body_html)
-    };
+    let body = MultiPart::alternative_plain_html(body_text, body_html);
 
     let email = Message::builder()
         .message_id(Some(format!("<{}@{}>", crate::util::get_uuid(), smtp_from.domain())))

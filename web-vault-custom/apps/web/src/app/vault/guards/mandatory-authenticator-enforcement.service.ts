@@ -32,6 +32,7 @@ import {
   isMandatorySetupAllowedUrl,
   isPreLoginAuthenticationRoute,
   isVaultAccessAllowedByGate,
+  mandatory2faDebugLog,
   mandatory2faLog,
   mandatory2faNavLog,
   mandatory2faWarn,
@@ -150,9 +151,9 @@ export class MandatoryAuthenticatorEnforcementService {
             const state = getMandatory2faState();
             const currentPath = normalizeMandatorySetupPath(this.router.url);
             if (!state.currentAuthFlowPassedTotp && currentPath.startsWith("/login")) {
-              console.log("[EBvault 2FA SETUP] restricted session created");
-              console.log("[EBvault 2FA SETUP] no-TOTP cleanup flow started");
-              console.log("[EBvault 2FA SETUP] no-TOTP post-login verification started");
+              mandatory2faDebugLog("[EBvault 2FA SETUP] restricted session created");
+              mandatory2faDebugLog("[EBvault 2FA SETUP] no-TOTP cleanup flow started");
+              mandatory2faDebugLog("[EBvault 2FA SETUP] no-TOTP post-login verification started");
               this.scheduleGateResolution();
             }
           }
@@ -182,12 +183,12 @@ export class MandatoryAuthenticatorEnforcementService {
 
         if (status === AuthenticationStatus.Unlocked) {
           mandatory2faLog("token login success");
-          console.log("[EBvault 2FA SETUP] restricted session created");
+          mandatory2faDebugLog("[EBvault 2FA SETUP] restricted session created");
           const state = getMandatory2faState();
           if (!state.currentAuthFlowPassedTotp) {
-            console.log("[EBvault 2FA SETUP] no-TOTP post-login verification started");
+            mandatory2faDebugLog("[EBvault 2FA SETUP] no-TOTP post-login verification started");
           }
-          console.log("[EBvault 2FA LOGIN] auth state saved");
+          mandatory2faDebugLog("[EBvault 2FA LOGIN] auth state saved");
           mandatory2faLog("post-login continuation started after successful authentication");
           mandatory2faLog("login or unlock success");
           enterPostLoginVerificationState();
@@ -211,21 +212,21 @@ export class MandatoryAuthenticatorEnforcementService {
           requestedPath.startsWith("/login/")
         ) {
           this.focusedRouteDebugUntil = Date.now() + 15_000;
-          console.log("[EBvault ROUTER TRACE] focused route navigation started", {
+          mandatory2faDebugLog("[EBvault ROUTER TRACE] focused route navigation started", {
             url: event.url,
             requestedPath,
             currentUrl: this.router.url,
           });
         }
         if (isMandatoryAuthFlowInProgress() && !isPreLoginAuthenticationRoute(event.url)) {
-          console.log("[EBvault ROUTER] NavigationStart", event.url);
+          mandatory2faDebugLog("[EBvault ROUTER] NavigationStart", event.url);
           if (isMandatorySetupAllowedUrl(requestedPath)) {
-            console.log("[EBvault 2FA SETUP] navigation to /settings/security/two-factor started", {
+            mandatory2faDebugLog("[EBvault 2FA SETUP] navigation to /settings/security/two-factor started", {
               currentUrl: this.router.url,
               requestedUrl: event.url,
             });
           } else {
-            console.log("[EBvault 2FA LOGIN] original login flow navigation started", {
+            mandatory2faDebugLog("[EBvault 2FA LOGIN] original login flow navigation started", {
               currentUrl: this.router.url,
               requestedUrl: event.url,
             });
@@ -268,19 +269,19 @@ export class MandatoryAuthenticatorEnforcementService {
       }
 
       setTimeout(() => {
-        console.log("[EBvault 2FA LOGIN] original login flow completed", {
+        mandatory2faDebugLog("[EBvault 2FA LOGIN] original login flow completed", {
           currentUrl: finalUrl,
         });
         if (normalizeMandatorySetupPath(finalUrl) === "/vault") {
-          console.log("[EBvault 2FA LOGIN] original login flow navigation completed true", {
+          mandatory2faDebugLog("[EBvault 2FA LOGIN] original login flow navigation completed true", {
             currentUrl: finalUrl,
           });
-          console.log("[EBvault LOGIN] current url /vault");
+          mandatory2faDebugLog("[EBvault LOGIN] current url /vault");
         }
         if (isMandatorySetupAllowedUrl(finalUrl)) {
-          console.log("[EBvault 2FA SETUP] setup route NavigationEnd");
-          console.log("[EBvault 2FA SETUP] navigation completed true");
-          console.log("[EBvault 2FA SETUP] current url /settings/security/two-factor");
+          mandatory2faDebugLog("[EBvault 2FA SETUP] setup route NavigationEnd");
+          mandatory2faDebugLog("[EBvault 2FA SETUP] navigation completed true");
+          mandatory2faDebugLog("[EBvault 2FA SETUP] current url /settings/security/two-factor");
         }
         finishMandatoryAuthFlow("post-login navigation completed");
         this.scheduleGateResolution();
@@ -305,14 +306,14 @@ export class MandatoryAuthenticatorEnforcementService {
 
     const detail = getRouterEventDetail(event);
     if (eventName === "RoutesRecognized") {
-      console.log("[EBvault ROUTER MATCH]", getRouterMatchDetail(event));
+      mandatory2faDebugLog("[EBvault ROUTER MATCH]", getRouterMatchDetail(event));
     }
     if (eventName === "NavigationCancel") {
-      console.log("[EBvault 2FA LOGIN] router navigation cancelled", detail);
+      mandatory2faDebugLog("[EBvault 2FA LOGIN] router navigation cancelled", detail);
     } else if (eventName === "NavigationError") {
-      console.log("[EBvault 2FA LOGIN] router navigation error", detail);
+      mandatory2faDebugLog("[EBvault 2FA LOGIN] router navigation error", detail);
     }
-    console.log("[EBvault ROUTER]", eventName, detail);
+    mandatory2faDebugLog("[EBvault ROUTER]", eventName, detail);
   }
 
   private logMandatorySetupRouterEvent(event: unknown): void {
@@ -330,17 +331,17 @@ export class MandatoryAuthenticatorEnforcementService {
     }
 
     if (eventName === "RoutesRecognized") {
-      console.log("[EBvault 2FA SETUP] setup route RoutesRecognized", detail);
+      mandatory2faDebugLog("[EBvault 2FA SETUP] setup route RoutesRecognized", detail);
     } else if (eventName === "GuardsCheckStart") {
-      console.log("[EBvault 2FA SETUP] setup route GuardsCheckStart", detail);
+      mandatory2faDebugLog("[EBvault 2FA SETUP] setup route GuardsCheckStart", detail);
     } else if (eventName === "GuardsCheckEnd") {
-      console.log("[EBvault 2FA SETUP] setup route GuardsCheckEnd", detail);
+      mandatory2faDebugLog("[EBvault 2FA SETUP] setup route GuardsCheckEnd", detail);
     } else if (eventName === "NavigationEnd") {
-      console.log("[EBvault 2FA SETUP] setup route NavigationEnd", detail);
+      mandatory2faDebugLog("[EBvault 2FA SETUP] setup route NavigationEnd", detail);
     } else if (eventName === "NavigationCancel") {
-      console.log("[EBvault 2FA SETUP] setup route NavigationCancel", detail);
+      mandatory2faDebugLog("[EBvault 2FA SETUP] setup route NavigationCancel", detail);
     } else if (eventName === "NavigationError") {
-      console.log("[EBvault 2FA SETUP] setup route NavigationError", detail);
+      mandatory2faDebugLog("[EBvault 2FA SETUP] setup route NavigationError", detail);
     }
   }
 
@@ -372,7 +373,7 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
 
-    console.log("[EBvault ROUTER TRACE]", eventName, {
+    mandatory2faDebugLog("[EBvault ROUTER TRACE]", eventName, {
       ...detail,
       currentUrl: this.router.url,
       gatePhase: getMandatoryGatePhase(),
@@ -541,7 +542,7 @@ export class MandatoryAuthenticatorEnforcementService {
 
     const stateBeforeCheck = getMandatory2faState();
     if (!stateBeforeCheck.currentAuthFlowPassedTotp) {
-      console.log("[EBvault 2FA SETUP] checking /api/two-factor outside guard");
+      mandatory2faDebugLog("[EBvault 2FA SETUP] checking /api/two-factor outside guard");
     }
 
     const phase = await resolveMandatoryAuthenticatorGate(this.twoFactorService);
@@ -558,7 +559,7 @@ export class MandatoryAuthenticatorEnforcementService {
 
     if (phase === "released") {
       mandatory2faLog("mandatory authenticator status detected: configured");
-      console.log("[EBvault 2FA LOGIN] gate released");
+      mandatory2faDebugLog("[EBvault 2FA LOGIN] gate released");
       await this.resumeServerNotifications();
       mandatory2faLog("gate released; EBvault is not forcing vault navigation");
       mandatory2faNavLog("runGateResolution/released", {
@@ -589,10 +590,10 @@ export class MandatoryAuthenticatorEnforcementService {
     }
 
     mandatory2faLog("mandatory authenticator status detected: not configured");
-    console.log("[EBvault 2FA SETUP] no-TOTP login flow selected");
+    mandatory2faDebugLog("[EBvault 2FA SETUP] no-TOTP login flow selected");
     this.pauseServerNotifications();
     mandatory2faLog("selected navigation target: security two-factor setup");
-    console.log("[EBvault 2FA SETUP] replacing protected destination with /settings/security/two-factor", {
+    mandatory2faDebugLog("[EBvault 2FA SETUP] replacing protected destination with /settings/security/two-factor", {
       currentUrl: this.router.url,
     });
 
@@ -600,10 +601,10 @@ export class MandatoryAuthenticatorEnforcementService {
       isMandatoryAuthFlowInProgress() &&
       isPreLoginAuthenticationRoute(normalizeMandatorySetupPath(this.router.url))
     ) {
-      console.log("[EBvault 2FA SETUP] discarding original protected destination /vault", {
+      mandatory2faDebugLog("[EBvault 2FA SETUP] discarding original protected destination /vault", {
         currentUrl: this.router.url,
       });
-      console.log("[EBvault 2FA SETUP] direct setup redirect requested");
+      mandatory2faDebugLog("[EBvault 2FA SETUP] direct setup redirect requested");
       mandatory2faLog("no-TOTP state resolved; default /vault navigation skipped; navigating directly to setup");
       return { kind: "setup_required" };
     }
@@ -693,7 +694,7 @@ export class MandatoryAuthenticatorEnforcementService {
     }
 
     if (this.setupNavigationPromise) {
-      console.log("[EBvault 2FA SETUP] setup navigation already in progress");
+      mandatory2faDebugLog("[EBvault 2FA SETUP] setup navigation already in progress");
       await this.setupNavigationPromise;
       return;
     }
@@ -716,7 +717,7 @@ export class MandatoryAuthenticatorEnforcementService {
       requestedUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
       finalUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
     });
-    console.log("[EBvault 2FA SETUP] replacing protected destination with /settings/security/two-factor", {
+    mandatory2faDebugLog("[EBvault 2FA SETUP] replacing protected destination with /settings/security/two-factor", {
       currentUrl: this.router.url,
       targetUrl: MANDATORY_TWO_FACTOR_SETUP_URL,
     });
@@ -726,12 +727,12 @@ export class MandatoryAuthenticatorEnforcementService {
     }
 
     const protectedDestination = this.currentNavigationTargetUrl() ?? "/vault";
-    console.log("[EBvault 2FA SETUP] discarding original protected destination /vault", {
+    mandatory2faDebugLog("[EBvault 2FA SETUP] discarding original protected destination /vault", {
       currentUrl: this.router.url,
       protectedDestination,
     });
-    console.log("[EBvault 2FA SETUP] direct setup redirect requested");
-    console.log("[EBvault 2FA SETUP] navigating to /settings/security/two-factor");
+    mandatory2faDebugLog("[EBvault 2FA SETUP] direct setup redirect requested");
+    mandatory2faDebugLog("[EBvault 2FA SETUP] navigating to /settings/security/two-factor");
     await this.router.navigateByUrl(MANDATORY_TWO_FACTOR_SETUP_URL, { replaceUrl: true });
   }
 
@@ -749,7 +750,7 @@ export class MandatoryAuthenticatorEnforcementService {
         latestState.currentAuthFlowPassedTotp &&
         !latestState.mandatorySetupRequired)
     ) {
-      console.log(
+      mandatory2faDebugLog(
         "[EBvault 2FA] setup navigation skipped: Authenticator already configured and current TOTP flow passed",
         {
           currentUrl: this.router.url,

@@ -16,10 +16,9 @@ import {
   isMandatoryLockModeActive,
   isMandatoryLockSuspended,
   isMandatorySetupRoute,
+  mandatory2faDebugLog,
   normalizeMandatorySetupPath,
 } from "./mandatory-authenticator.policy";
-
-const LOG_PREFIX = "[EBvault 2FA]";
 
 /** Safe alternative to getUserId — returns null instead of throwing when account is absent. */
 export function activeAccountUserId$(
@@ -99,11 +98,7 @@ export function logMandatoryGuardDecision(
   context: MandatoryGuardContext,
   extra?: Record<string, unknown>,
 ): void {
-  if (typeof console === "undefined" || !console.log) {
-    return;
-  }
-
-  console.log(`${LOG_PREFIX} guard decision: ${decision}`, {
+  mandatory2faDebugLog(`[EBvault 2FA] guard decision: ${decision}`, {
     route: context.path,
     isPublicRoute: context.isPublicRoute,
     isMandatorySetupRoute: context.isMandatorySetupRoute,

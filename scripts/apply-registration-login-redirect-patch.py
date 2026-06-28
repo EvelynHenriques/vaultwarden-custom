@@ -9,13 +9,13 @@ from pathlib import Path
 START_EMAIL_ANCHOR = (
     "    const result = await this.accountApiService.registerSendVerificationEmail(request);"
 )
-START_EMAIL_LOG = '    console.log("[EBvault ACCOUNT] email submitted for verification");'
+START_EMAIL_LOG = '    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] email submitted for verification");'
 START_VERIFY_ANCHOR = "    this.state = RegistrationStartState.CHECK_EMAIL;"
-START_VERIFY_LOG = '    console.log("[EBvault ACCOUNT] verify email screen shown");'
+START_VERIFY_LOG = '    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] verify email screen shown");'
 
 FINISH_LINK_ANCHOR = "      await this.initEmailVerificationFlow();"
-FINISH_LINK_OPENED_LOG = '      console.log("[EBvault ACCOUNT] verification link opened");'
-FINISH_SET_PASSWORD_LOG = '      console.log("[EBvault ACCOUNT] set password screen loaded");'
+FINISH_LINK_OPENED_LOG = '      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] verification link opened");'
+FINISH_SET_PASSWORD_LOG = '      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] set password screen loaded");'
 
 FINISH_SUCCESS_MARKER = "[EBvault ACCOUNT] redirecting to login after password setup"
 
@@ -26,8 +26,8 @@ FINISH_REPLACEMENT = """    // Show acct created toast
       message: this.i18nService.t("newAccountCreated2"),
     });
 
-    console.log("[EBvault ACCOUNT] password defined successfully");
-    console.log("[EBvault ACCOUNT] redirecting to login after password setup");
+    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] password defined successfully");
+    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] redirecting to login after password setup");
     await this.router.navigate(["/login"], { queryParams: { email: this.email } });
     this.submitting = false;"""
 

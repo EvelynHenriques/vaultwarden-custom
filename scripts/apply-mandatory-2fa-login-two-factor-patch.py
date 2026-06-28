@@ -94,7 +94,7 @@ def apply_remember_device_ts_patch(path: Path) -> bool:
             f"""    // {REMEMBER_MARKER}: EBvault requires TOTP every login.
     void remember;
     const rememberValue = false;
-    console.log("[EBvault 2FA] remember device option disabled");""",
+    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault 2FA] remember device option disabled");""",
             1,
         )
 

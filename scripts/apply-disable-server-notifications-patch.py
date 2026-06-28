@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 MARKER = "EBvault disable server notifications during mandatory 2FA flow"
-WARNING = 'console.warn("[EBvault 2FA] server notifications disabled during mandatory 2FA flow");'
+WARNING = '(globalThis as any).EBVAULT_2FA_DEBUG === true && console.warn("[EBvault 2FA] server notifications disabled during mandatory 2FA flow");'
 
 EBVAULT_BLOCK_RE = re.compile(
     rf"\n[ \t]*// {re.escape(MARKER)}[^\n]*\n"

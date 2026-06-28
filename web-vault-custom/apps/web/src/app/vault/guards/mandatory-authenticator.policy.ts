@@ -9,14 +9,14 @@ export const MANDATORY_TWO_FACTOR_SETUP_URL = "/settings/security/two-factor";
 const LOG = "[EBvault 2FA]";
 
 /** Set to `false` to disable temporary mandatory-2FA debug logs after validation. */
-export let MANDATORY_2FA_DEBUG_ENABLED = true;
+export let MANDATORY_2FA_DEBUG_ENABLED = false;
 
 export function setMandatory2faDebugEnabled(enabled: boolean): void {
   MANDATORY_2FA_DEBUG_ENABLED = enabled;
 }
 
 export function mandatory2faLog(message: string, detail?: unknown): void {
-  if (!MANDATORY_2FA_DEBUG_ENABLED || typeof console === "undefined" || !console.log) {
+  if (!isMandatory2faDebugEnabled() || typeof console === "undefined" || !console.log) {
     return;
   }
   console.log(`${LOG} ${message}`, detail ?? "");
@@ -24,10 +24,32 @@ export function mandatory2faLog(message: string, detail?: unknown): void {
 
 /** Operational warnings (sync failures, etc.) — visible without DevTools Verbose. */
 export function mandatory2faWarn(message: string, detail?: unknown): void {
-  if (typeof console === "undefined" || !console.warn) {
+  if (!isMandatory2faDebugEnabled() || typeof console === "undefined" || !console.warn) {
     return;
   }
   console.warn(`${LOG} ${message}`, detail ?? "");
+}
+
+export function mandatory2faDebugLog(...args: unknown[]): void {
+  if (!isMandatory2faDebugEnabled() || typeof console === "undefined" || !console.log) {
+    return;
+  }
+  console.log(...args);
+}
+
+export function mandatory2faDebugWarn(...args: unknown[]): void {
+  if (!isMandatory2faDebugEnabled() || typeof console === "undefined" || !console.warn) {
+    return;
+  }
+  console.warn(...args);
+}
+
+function isMandatory2faDebugEnabled(): boolean {
+  const globalValue =
+    typeof globalThis !== "undefined"
+      ? (globalThis as { EBVAULT_2FA_DEBUG?: boolean }).EBVAULT_2FA_DEBUG
+      : undefined;
+  return MANDATORY_2FA_DEBUG_ENABLED || globalValue === true;
 }
 
 /** Gate phases — single source of truth for mandatory 2FA session state. */
@@ -110,11 +132,11 @@ export function mandatory2faStateLog(
     finalUrl?: string;
   } = {},
 ): void {
-  if (!MANDATORY_2FA_DEBUG_ENABLED || typeof console === "undefined" || !console.log) {
+  if (!isMandatory2faDebugEnabled() || typeof console === "undefined" || !console.log) {
     return;
   }
 
-  console.log("[EBvault 2FA STATE]", {
+  mandatory2faDebugLog("[EBvault 2FA STATE]", {
     source,
     hasAuthenticatorConfigured,
     currentAuthFlowPassedTotp,
@@ -129,7 +151,7 @@ export function mandatory2faStateLog(
 export function markCurrentAuthFlowPassedTotp(source: string): void {
   currentAuthFlowPassedTotp = true;
   setCurrentAuthFlowPassedTotpGlobal(true);
-  console.log("[EBvault 2FA LOGIN] /identity/connect/token 2FA success", { source });
+  mandatory2faDebugLog("[EBvault 2FA LOGIN] /identity/connect/token 2FA success", { source });
   log(`current auth flow passed TOTP (${source})`);
   mandatory2faStateLog(source);
   if (hasAuthenticatorConfigured) {
@@ -177,11 +199,11 @@ export function mandatory2faNavLog(
     finalUrl?: string;
   },
 ): void {
-  if (!MANDATORY_2FA_DEBUG_ENABLED || typeof console === "undefined" || !console.log) {
+  if (!isMandatory2faDebugEnabled() || typeof console === "undefined" || !console.log) {
     return;
   }
 
-  console.log("[EBvault 2FA NAV]", {
+  mandatory2faDebugLog("[EBvault 2FA NAV]", {
     source,
     currentUrl: detail.currentUrl,
     requestedUrl: detail.requestedUrl,
@@ -594,7 +616,7 @@ async function fetchMandatoryAuthenticatorStatus(
     mandatorySetupRequired = !hasEnabledAuthenticator;
     mandatoryGateReleased = hasEnabledAuthenticator && currentAuthFlowPassedTotp;
     if (!hasEnabledAuthenticator) {
-      console.log("[EBvault 2FA SETUP] /api/two-factor returned empty");
+      mandatory2faDebugLog("[EBvault 2FA SETUP] /api/two-factor returned empty");
     }
 
     log("hasAuthenticatorConfigured", hasAuthenticatorConfigured);
@@ -625,7 +647,7 @@ async function fetchMandatoryAuthenticatorStatus(
     }
 
     log("decision = missing authenticator");
-    console.log("[EBvault 2FA SETUP] mandatory setup required");
+    mandatory2faDebugLog("[EBvault 2FA SETUP] mandatory setup required");
     syncGatePhaseFromState();
     log("gate state = blocked");
     mandatory2faStateLog("fetchMandatoryAuthenticatorStatus");
@@ -844,12 +866,12 @@ export async function getMandatoryAuthenticatorRedirect(
 }
 
 function logGeneratedUrlTree(source: string, router: Router, tree: UrlTree): void {
-  if (!MANDATORY_2FA_DEBUG_ENABLED || typeof console === "undefined" || !console.log) {
+  if (!isMandatory2faDebugEnabled() || typeof console === "undefined" || !console.log) {
     return;
   }
 
   const windowRef = typeof window === "undefined" ? null : window;
-  console.log("[EBvault ROUTER DEBUG] generated UrlTree", {
+  mandatory2faDebugLog("[EBvault ROUTER DEBUG] generated UrlTree", {
     source,
     routerUrl: router.url,
     windowLocationHref: windowRef?.location?.href,

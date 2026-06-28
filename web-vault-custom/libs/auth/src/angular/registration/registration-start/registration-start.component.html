@@ -34,15 +34,6 @@
     <bit-error-summary *ngIf="showErrorSummary" [formGroup]="formGroup"></bit-error-summary>
   </form>
 
-  <p
-    bitTypography="helper"
-    class="tw-text-main tw-text-xs tw-mt-2 tw-mb-0 tw-whitespace-normal tw-break-words tw-leading-relaxed tw-text-center"
-  >
-    {{ "byContinuingYouAgreeToThe" | i18n }}
-    <a bitLink linkType="primary" href="#" rel="noreferrer">{{ "termsOfService" | i18n }}</a>
-    {{ "and" | i18n }}
-    <a bitLink linkType="primary" href="#" rel="noreferrer">{{ "privacyPolicy" | i18n }}</a>
-  </p>
 </ng-container>
 
 <ng-container *ngIf="state === RegistrationStartState.CHECK_EMAIL">

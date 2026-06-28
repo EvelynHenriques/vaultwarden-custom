@@ -21,6 +21,7 @@ import {
 import {
   getMandatoryAuthenticatorRedirect,
   isMandatoryAuthFlowInProgress,
+  mandatory2faDebugLog,
   mandatory2faNavLog,
   normalizeMandatorySetupPath,
 } from "./mandatory-authenticator.policy";
@@ -46,10 +47,10 @@ export const setupExtensionRedirectGuard: CanActivateFn = async (_route, state) 
   const twoFactorService = inject(TwoFactorService);
   const url = state.url;
 
-  console.log("[EBvault GUARD TRACE] guard started: setupExtensionRedirectGuard", url);
+  mandatory2faDebugLog("[EBvault GUARD TRACE] guard started: setupExtensionRedirectGuard", url);
   try {
     if (isMandatoryAuthFlowInProgress() && normalizeMandatorySetupPath(url) === "/vault") {
-      console.log("[EBvault GUARD TRACE] guard completed: setupExtensionRedirectGuard", url, {
+      mandatory2faDebugLog("[EBvault GUARD TRACE] guard completed: setupExtensionRedirectGuard", url, {
         result: true,
         reason: "active TOTP login flow; skip setup-extension onboarding",
       });
@@ -102,7 +103,7 @@ export const setupExtensionRedirectGuard: CanActivateFn = async (_route, state) 
     });
     return completeGuard("setupExtensionRedirectGuard", url, router.createUrlTree(["/setup-extension"]));
   } catch (error) {
-    console.log("[EBvault GUARD TRACE] guard failed: setupExtensionRedirectGuard", url, {
+    mandatory2faDebugLog("[EBvault GUARD TRACE] guard failed: setupExtensionRedirectGuard", url, {
       error,
     });
     throw error;
@@ -127,7 +128,7 @@ export const blockSetupExtensionUntilMandatory2faGuard: CanActivateFn = async ()
 };
 
 function completeGuard(name: string, url: string, result: boolean | UrlTree): boolean | UrlTree {
-  console.log("[EBvault GUARD TRACE] guard completed:", name, url, {
+  mandatory2faDebugLog("[EBvault GUARD TRACE] guard completed:", name, url, {
     result: result === true ? true : result === false ? false : "UrlTree",
   });
   return result;
