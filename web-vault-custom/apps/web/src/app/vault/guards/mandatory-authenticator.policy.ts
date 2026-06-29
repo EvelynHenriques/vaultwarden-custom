@@ -253,6 +253,48 @@ export function markMandatoryAuthenticatorSetupComplete(): void {
   mandatory2faStateLog("markMandatoryAuthenticatorSetupComplete");
 }
 
+export async function rehydrateMandatoryAuthenticatorForRestoredUnlockedSession(
+  twoFactorService: TwoFactorService,
+): Promise<MandatoryGatePhase> {
+  if (mandatoryLockSuspended) {
+    return gatePhase;
+  }
+
+  enterPostLoginVerificationState();
+
+  try {
+    const providerList = await twoFactorService.getEnabledTwoFactorProviders();
+    const hasEnabledAuthenticator = providerList.data.some(
+      (provider) =>
+        provider.type === TwoFactorProviderType.Authenticator && provider.enabled === true,
+    );
+
+    hasAuthenticatorConfigured = hasEnabledAuthenticator;
+    mandatorySetupRequired = !hasEnabledAuthenticator;
+    if (hasEnabledAuthenticator) {
+      currentAuthFlowPassedTotp = true;
+      mandatoryGateReleased = true;
+      gatePhase = "released";
+      statusCheckPromise = null;
+      clearMandatoryGateGlobals();
+      mandatory2faStateLog("rehydrateMandatoryAuthenticatorForRestoredUnlockedSession");
+      return "released";
+    }
+
+    currentAuthFlowPassedTotp = false;
+    mandatoryGateReleased = false;
+    gatePhase = "blocked";
+    statusCheckPromise = null;
+    clearMandatoryGateGlobals();
+    mandatory2faStateLog("rehydrateMandatoryAuthenticatorForRestoredUnlockedSession");
+    return "blocked";
+  } catch (error) {
+    log("error while rehydrating restored session =", extractApiErrorMessage(error));
+    failSafeUnresolvedGate();
+    return "blocked";
+  }
+}
+
 /** @deprecated Use resetMandatoryAuthenticatorSetupState */
 export function clearMandatoryAuthenticatorGuardCache(): void {
   resetMandatoryAuthenticatorSetupState();

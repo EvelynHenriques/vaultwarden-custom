@@ -38,6 +38,7 @@ import {
   mandatory2faWarn,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   normalizeMandatorySetupPath,
+  rehydrateMandatoryAuthenticatorForRestoredUnlockedSession,
   resetCurrentAuthFlowTotp,
   resetMandatoryAuthenticatorSetupState,
   resolveMandatoryAuthenticatorGate,
@@ -389,9 +390,20 @@ export class MandatoryAuthenticatorEnforcementService {
 
     const status = await getAuthStatusOrNull(this.authService, userId);
     if (status === AuthenticationStatus.Unlocked) {
+      const currentPath = normalizeMandatorySetupPath(this.router.url);
+      if (currentPath === "/lock" || currentPath.startsWith("/lock/")) {
+        return;
+      }
+
       mandatory2faLog("login or unlock success (existing session)");
-      enterPostLoginVerificationState();
+      const phase = await rehydrateMandatoryAuthenticatorForRestoredUnlockedSession(
+        this.twoFactorService,
+      );
       this.pauseServerNotifications();
+      if (phase === "released") {
+        await this.resumeServerNotifications();
+        return;
+      }
       this.scheduleGateResolution();
     }
   }

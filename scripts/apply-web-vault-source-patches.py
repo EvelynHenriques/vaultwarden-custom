@@ -38,6 +38,7 @@ def main() -> int:
     run_step("login 2FA submit UX", "apply-mandatory-2fa-login-two-factor-patch.py", str(clients_dir))
     run_step("defer post-login sync", "apply-mandatory-2fa-defer-login-sync-patch.py", str(clients_dir))
     run_step("verify mandatory 2FA generated flow", "verify-mandatory-2fa-generated-flow.py", str(clients_dir))
+    run_step("EBvault contrast cleanup", "apply-ebvault-contrast-patch.py", str(clients_dir))
     run_step("marketing routing", "apply-marketing-routing.py", str(oss_routing))
     run_step("organization routing", "apply-organization-routing.py", str(org_routing))
 
