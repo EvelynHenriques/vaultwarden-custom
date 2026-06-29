@@ -183,9 +183,20 @@ export class MandatoryAuthenticatorEnforcementService {
         }
 
         if (status === AuthenticationStatus.Unlocked) {
+          const currentPath = normalizeMandatorySetupPath(this.router.url);
+          const state = getMandatory2faState();
+          if (
+            !isMandatoryAuthFlowInProgress() &&
+            !isPreLoginAuthenticationRoute(currentPath) &&
+            !state.currentAuthFlowPassedTotp &&
+            !state.mandatoryGateReleased
+          ) {
+            void this.bootstrapExistingSession();
+            return;
+          }
+
           mandatory2faLog("token login success");
           mandatory2faDebugLog("[EBvault 2FA SETUP] restricted session created");
-          const state = getMandatory2faState();
           if (!state.currentAuthFlowPassedTotp) {
             mandatory2faDebugLog("[EBvault 2FA SETUP] no-TOTP post-login verification started");
           }
@@ -584,6 +595,9 @@ export class MandatoryAuthenticatorEnforcementService {
 
     const state = getMandatory2faState();
     if (state.hasAuthenticatorConfigured && !state.currentAuthFlowPassedTotp) {
+      mandatory2faDebugLog(
+        "[EBvault REFRESH] redirect to /login source runGateResolution/fullLoginRequired",
+      );
       mandatory2faLog("mandatory authenticator configured but current auth flow did not pass TOTP");
       this.pauseServerNotifications();
       mandatory2faLog("selected navigation target: login");

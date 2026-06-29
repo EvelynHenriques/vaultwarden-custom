@@ -260,9 +260,11 @@ export async function rehydrateMandatoryAuthenticatorForRestoredUnlockedSession(
     return gatePhase;
   }
 
+  mandatory2faDebugLog("[EBvault REFRESH] bootstrap existing unlocked session detected");
   enterPostLoginVerificationState();
 
   try {
+    mandatory2faDebugLog("[EBvault REFRESH] calling /api/two-factor for restored session");
     const providerList = await twoFactorService.getEnabledTwoFactorProviders();
     const hasEnabledAuthenticator = providerList.data.some(
       (provider) =>
@@ -277,6 +279,9 @@ export async function rehydrateMandatoryAuthenticatorForRestoredUnlockedSession(
       gatePhase = "released";
       statusCheckPromise = null;
       clearMandatoryGateGlobals();
+      mandatory2faDebugLog(
+        "[EBvault REFRESH] authenticator configured; releasing gate for restored session",
+      );
       mandatory2faStateLog("rehydrateMandatoryAuthenticatorForRestoredUnlockedSession");
       return "released";
     }
@@ -286,6 +291,7 @@ export async function rehydrateMandatoryAuthenticatorForRestoredUnlockedSession(
     gatePhase = "blocked";
     statusCheckPromise = null;
     clearMandatoryGateGlobals();
+    mandatory2faDebugLog("[EBvault REFRESH] no authenticator configured; mandatory setup required");
     mandatory2faStateLog("rehydrateMandatoryAuthenticatorForRestoredUnlockedSession");
     return "blocked";
   } catch (error) {
@@ -843,6 +849,15 @@ export async function getMandatoryAuthenticatorRedirect(
     return null;
   }
 
+  if (gatePhase === "idle" && !authFlowInProgress) {
+    const restoredSessionPhase = await rehydrateMandatoryAuthenticatorForRestoredUnlockedSession(
+      twoFactorService,
+    );
+    if (restoredSessionPhase === "released") {
+      return null;
+    }
+  }
+
   const phase = await resolveMandatoryAuthenticatorGate(twoFactorService);
 
   if (phase === "released") {
@@ -851,6 +866,9 @@ export async function getMandatoryAuthenticatorRedirect(
   }
 
   if (hasAuthenticatorConfigured && !currentAuthFlowPassedTotp) {
+    mandatory2faDebugLog(
+      "[EBvault REFRESH] redirect to /login source getMandatoryAuthenticatorRedirect/fullLoginRequired",
+    );
     mandatory2faNavLog("getMandatoryAuthenticatorRedirect/fullLoginRequired", {
       currentUrl: router.url,
       requestedUrl: "/login",
