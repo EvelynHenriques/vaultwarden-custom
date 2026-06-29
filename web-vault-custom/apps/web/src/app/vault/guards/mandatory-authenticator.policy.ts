@@ -44,6 +44,13 @@ export function mandatory2faDebugWarn(...args: unknown[]): void {
   console.warn(...args);
 }
 
+export function mandatoryRefreshLog(message: string, detail?: unknown): void {
+  if (typeof console === "undefined" || !console.log) {
+    return;
+  }
+  console.log(`[EBvault REFRESH] ${message}`, detail ?? "");
+}
+
 function isMandatory2faDebugEnabled(): boolean {
   const globalValue =
     typeof globalThis !== "undefined"
@@ -260,16 +267,23 @@ export async function rehydrateMandatoryAuthenticatorForRestoredUnlockedSession(
     return gatePhase;
   }
 
-  mandatory2faDebugLog("[EBvault REFRESH] bootstrap existing unlocked session detected");
+  mandatoryRefreshLog("existing unlocked session detected");
   enterPostLoginVerificationState();
 
   try {
-    mandatory2faDebugLog("[EBvault REFRESH] calling /api/two-factor for restored session");
+    mandatoryRefreshLog("calling /api/two-factor for restored session");
     const providerList = await twoFactorService.getEnabledTwoFactorProviders();
     const hasEnabledAuthenticator = providerList.data.some(
       (provider) =>
         provider.type === TwoFactorProviderType.Authenticator && provider.enabled === true,
     );
+    mandatoryRefreshLog("/api/two-factor result", {
+      providerTypes: providerList.data.map((provider) => provider.type),
+      enabledProviders: providerList.data
+        .filter((provider) => provider.enabled === true)
+        .map((provider) => provider.type),
+      hasEnabledAuthenticator,
+    });
 
     hasAuthenticatorConfigured = hasEnabledAuthenticator;
     mandatorySetupRequired = !hasEnabledAuthenticator;
@@ -279,9 +293,8 @@ export async function rehydrateMandatoryAuthenticatorForRestoredUnlockedSession(
       gatePhase = "released";
       statusCheckPromise = null;
       clearMandatoryGateGlobals();
-      mandatory2faDebugLog(
-        "[EBvault REFRESH] authenticator configured; releasing gate for restored session",
-      );
+      mandatoryRefreshLog("authenticator configured; releasing gate for restored session");
+      mandatoryRefreshLog("gate state after release", getMandatory2faState());
       mandatory2faStateLog("rehydrateMandatoryAuthenticatorForRestoredUnlockedSession");
       return "released";
     }
@@ -291,7 +304,7 @@ export async function rehydrateMandatoryAuthenticatorForRestoredUnlockedSession(
     gatePhase = "blocked";
     statusCheckPromise = null;
     clearMandatoryGateGlobals();
-    mandatory2faDebugLog("[EBvault REFRESH] no authenticator configured; mandatory setup required");
+    mandatoryRefreshLog("no authenticator configured; mandatory setup required");
     mandatory2faStateLog("rehydrateMandatoryAuthenticatorForRestoredUnlockedSession");
     return "blocked";
   } catch (error) {
@@ -866,9 +879,11 @@ export async function getMandatoryAuthenticatorRedirect(
   }
 
   if (hasAuthenticatorConfigured && !currentAuthFlowPassedTotp) {
-    mandatory2faDebugLog(
-      "[EBvault REFRESH] redirect to /login source getMandatoryAuthenticatorRedirect/fullLoginRequired",
-    );
+    mandatoryRefreshLog("redirect to /login source getMandatoryAuthenticatorRedirect/fullLoginRequired", {
+      currentUrl: router.url,
+      state: getMandatory2faState(),
+      gatePhase,
+    });
     mandatory2faNavLog("getMandatoryAuthenticatorRedirect/fullLoginRequired", {
       currentUrl: router.url,
       requestedUrl: "/login",

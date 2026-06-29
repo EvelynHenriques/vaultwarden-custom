@@ -8,6 +8,7 @@ from pathlib import Path
 
 LEGACY_MARKER = "EBvault readable soft callout foreground"
 MARKER = "EBvault readable light nudge card"
+READABLE_LIGHT_CARD_TEXT = "!tw-text-green-950"
 
 
 def restore_callout_if_needed(clients_dir: Path) -> None:
@@ -61,6 +62,11 @@ def replace_once(path: Path, old: str, new: str, label: str) -> None:
 
     text = path.read_text(encoding="utf-8")
     if MARKER in text:
+        updated = text.replace("!tw-text-gray-900", READABLE_LIGHT_CARD_TEXT)
+        if updated != text:
+            path.write_text(updated, encoding="utf-8")
+            print(f"  updated EBvault {label} contrast to dark green")
+            return
         print(f"  EBvault contrast patch already present in {label}")
         return
 
@@ -75,8 +81,9 @@ def patch_generator_nudge(clients_dir: Path) -> None:
     path = clients_dir / "libs/tools/generator/components/src/nudge-generator-spotlight.component.html"
     old = '  <div class="tw-mb-4">'
     new = (
-        f'  <div class="tw-mb-4 [&_aside]:!tw-text-gray-900 [&_header]:!tw-text-gray-900 '
-        f'[&_p]:!tw-text-gray-900 [&_button]:!tw-text-gray-900" data-ebvault-contrast="{MARKER}">'
+        f'  <div class="tw-mb-4 [&_aside]:{READABLE_LIGHT_CARD_TEXT} '
+        f'[&_header]:{READABLE_LIGHT_CARD_TEXT} [&_p]:{READABLE_LIGHT_CARD_TEXT} '
+        f'[&_button]:{READABLE_LIGHT_CARD_TEXT}" data-ebvault-contrast="{MARKER}">'
     )
     replace_once(path, old, new, "generator nudge")
 
@@ -85,8 +92,9 @@ def patch_new_item_nudge(clients_dir: Path) -> None:
     path = clients_dir / "libs/vault/src/cipher-form/components/new-item-nudge/new-item-nudge.component.html"
     old = '  <bit-callout [title]="nudgeTitle" [icon]="null" (dismiss)="dismissNewItemSpotlight()">'
     new = (
-        f'  <bit-callout class="[&_aside]:!tw-text-gray-900 [&_header]:!tw-text-gray-900 '
-        f'[&_a]:!tw-text-gray-900" data-ebvault-contrast="{MARKER}" '
+        f'  <bit-callout class="[&_aside]:{READABLE_LIGHT_CARD_TEXT} '
+        f'[&_header]:{READABLE_LIGHT_CARD_TEXT} [&_a]:{READABLE_LIGHT_CARD_TEXT}" '
+        f'data-ebvault-contrast="{MARKER}" '
         f'[title]="nudgeTitle" [icon]="null" (dismiss)="dismissNewItemSpotlight()">'
     )
     replace_once(path, old, new, "new-item nudge")

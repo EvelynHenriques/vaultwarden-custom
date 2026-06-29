@@ -35,6 +35,7 @@ import {
   mandatory2faDebugLog,
   mandatory2faLog,
   mandatory2faNavLog,
+  mandatoryRefreshLog,
   mandatory2faWarn,
   MANDATORY_TWO_FACTOR_SETUP_URL,
   normalizeMandatorySetupPath,
@@ -51,6 +52,8 @@ import {
 const ACCOUNT_WAIT_MS = 15_000;
 /** Safety fallback only — normal flow awaits gate resolution promise. */
 const GATE_WAIT_MS = 20_000;
+const STARTUP_AUTH_STATUS_RETRY_ATTEMPTS = 12;
+const STARTUP_AUTH_STATUS_RETRY_MS = 100;
 
 type ApiServiceWithMiddleware = ApiService & {
   addMiddleware?: (middleware: unknown) => void;
@@ -80,6 +83,7 @@ export class MandatoryAuthenticatorEnforcementService {
   private started = false;
   private gateResolvePromise: Promise<EbvaultMandatoryGateDecision> | null = null;
   private setupNavigationPromise: Promise<void> | null = null;
+  private startupAuthStatusCheckPromise: Promise<void> | null = null;
   private currentAccountId: UserId | null | undefined;
   private focusedRouteDebugUntil = 0;
 
@@ -88,6 +92,7 @@ export class MandatoryAuthenticatorEnforcementService {
       return;
     }
     this.started = true;
+    mandatoryRefreshLog("app startup detected");
     mandatory2faLog(`mandatory 2FA mode = ${getMandatory2faMode()}`);
 
     if (typeof this.apiService.addMiddleware === "function") {
@@ -162,27 +167,41 @@ export class MandatoryAuthenticatorEnforcementService {
         }
 
         if (status === AuthenticationStatus.LoggedOut) {
+          mandatoryRefreshLog("restored auth status", {
+            source: "MandatoryAuthenticatorEnforcementService/authStatusLoggedOut",
+            status,
+            currentUrl: this.router.url,
+          });
           this.pauseServerNotifications();
           this.lockService.prepareForLogout();
           return;
         }
 
         if (status === AuthenticationStatus.Locked) {
-          mandatory2faLog("lock/unlock path selected: full login required before vault access");
-          mandatory2faLog("vault locked — mandatory gate will revalidate after unlock");
-          resetCurrentAuthFlowTotp("vault locked");
-          this.pauseServerNotifications();
-          this.resetGateForRevalidation("vault locked");
-          mandatory2faNavLog("MandatoryAuthenticatorEnforcementService/authStatusLocked", {
+          mandatoryRefreshLog("restored auth status", {
+            source: "MandatoryAuthenticatorEnforcementService/authStatusLocked",
+            status,
             currentUrl: this.router.url,
-            requestedUrl: "/login",
-            finalUrl: "/login",
           });
-          void this.router.navigate(["/login"], { replaceUrl: true });
-          return;
+          const currentPath = normalizeMandatorySetupPath(this.router.url);
+          if (
+            !isMandatoryAuthFlowInProgress() &&
+            currentPath !== "/lock" &&
+            !currentPath.startsWith("/lock/")
+          ) {
+            void this.verifyStartupLockedStatusBeforeLoginRedirect();
+            return;
+          }
+          this.redirectLockedSessionToLogin("MandatoryAuthenticatorEnforcementService/authStatusLocked");
+          mandatory2faLog("vault locked — mandatory gate will revalidate after unlock");
         }
 
         if (status === AuthenticationStatus.Unlocked) {
+          mandatoryRefreshLog("restored auth status", {
+            source: "MandatoryAuthenticatorEnforcementService/authStatusUnlocked",
+            status,
+            currentUrl: this.router.url,
+          });
           const currentPath = normalizeMandatorySetupPath(this.router.url);
           const state = getMandatory2faState();
           if (
@@ -301,6 +320,74 @@ export class MandatoryAuthenticatorEnforcementService {
     });
   }
 
+  private async verifyStartupLockedStatusBeforeLoginRedirect(): Promise<void> {
+    if (this.startupAuthStatusCheckPromise) {
+      return await this.startupAuthStatusCheckPromise;
+    }
+
+    this.startupAuthStatusCheckPromise = this.verifyStartupLockedStatusBeforeLoginRedirectInner()
+      .finally(() => {
+        this.startupAuthStatusCheckPromise = null;
+      });
+    return await this.startupAuthStatusCheckPromise;
+  }
+
+  private async verifyStartupLockedStatusBeforeLoginRedirectInner(): Promise<void> {
+    for (let attempt = 1; attempt <= STARTUP_AUTH_STATUS_RETRY_ATTEMPTS; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, STARTUP_AUTH_STATUS_RETRY_MS));
+
+      const userId = await getActiveAccountUserIdOrNull(this.accountService);
+      if (!userId) {
+        mandatoryRefreshLog("startup locked-status retry: no active account", {
+          attempt,
+          currentUrl: this.router.url,
+        });
+        continue;
+      }
+
+      const status = await getAuthStatusOrNull(this.authService, userId);
+      mandatoryRefreshLog("startup locked-status retry", {
+        attempt,
+        status,
+        currentUrl: this.router.url,
+      });
+
+      if (status === AuthenticationStatus.Unlocked) {
+        await this.bootstrapExistingSession();
+        return;
+      }
+
+      if (status === AuthenticationStatus.LoggedOut) {
+        mandatoryRefreshLog("redirect to /login source startup auth status became logged out", {
+          status,
+          currentUrl: this.router.url,
+        });
+        return;
+      }
+    }
+
+    this.redirectLockedSessionToLogin(
+      "MandatoryAuthenticatorEnforcementService/startupLockedStatusConfirmed",
+    );
+  }
+
+  private redirectLockedSessionToLogin(source: string): void {
+    mandatory2faLog("lock/unlock path selected: full login required before vault access");
+    mandatory2faLog("vault locked - mandatory gate will revalidate after unlock");
+    resetCurrentAuthFlowTotp("vault locked");
+    this.pauseServerNotifications();
+    this.resetGateForRevalidation("vault locked");
+    mandatoryRefreshLog(`redirect to /login source ${source}`, {
+      currentUrl: this.router.url,
+    });
+    mandatory2faNavLog(source, {
+      currentUrl: this.router.url,
+      requestedUrl: "/login",
+      finalUrl: "/login",
+    });
+    void this.router.navigate(["/login"], { replaceUrl: true });
+  }
+
   private logAuthFlowRouterEvent(event: unknown): void {
     if (!isMandatoryAuthFlowInProgress()) {
       return;
@@ -396,10 +483,18 @@ export class MandatoryAuthenticatorEnforcementService {
   private async bootstrapExistingSession(): Promise<void> {
     const userId = await getActiveAccountUserIdOrNull(this.accountService);
     if (!userId) {
+      mandatoryRefreshLog("bootstrapExistingSession skipped: no active account", {
+        currentUrl: this.router.url,
+      });
       return;
     }
 
     const status = await getAuthStatusOrNull(this.authService, userId);
+    mandatoryRefreshLog("restored auth status", {
+      source: "bootstrapExistingSession",
+      status,
+      currentUrl: this.router.url,
+    });
     if (status === AuthenticationStatus.Unlocked) {
       const currentPath = normalizeMandatorySetupPath(this.router.url);
       if (currentPath === "/lock" || currentPath.startsWith("/lock/")) {
@@ -595,9 +690,10 @@ export class MandatoryAuthenticatorEnforcementService {
 
     const state = getMandatory2faState();
     if (state.hasAuthenticatorConfigured && !state.currentAuthFlowPassedTotp) {
-      mandatory2faDebugLog(
-        "[EBvault REFRESH] redirect to /login source runGateResolution/fullLoginRequired",
-      );
+      mandatoryRefreshLog("redirect to /login source runGateResolution/fullLoginRequired", {
+        currentUrl: this.router.url,
+        state,
+      });
       mandatory2faLog("mandatory authenticator configured but current auth flow did not pass TOTP");
       this.pauseServerNotifications();
       mandatory2faLog("selected navigation target: login");

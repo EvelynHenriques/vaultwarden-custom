@@ -17,6 +17,7 @@ import {
   mandatory2faDebugLog,
   mandatory2faLog,
   mandatory2faNavLog,
+  mandatoryRefreshLog,
   resetCurrentAuthFlowTotp,
 } from "./mandatory-authenticator.policy";
 
@@ -72,6 +73,11 @@ function evaluateMandatoryAuthenticatorAccess(url: string): boolean | UrlTree {
   }
 
   if (state.hasAuthenticatorConfigured && !state.currentAuthFlowPassedTotp) {
+    mandatoryRefreshLog("redirect to /login source mandatoryAuthenticatorAccess/fullLoginRequired", {
+      url,
+      gatePhase,
+      state,
+    });
     mandatory2faLog("route blocked - full login with TOTP required", { url });
     const tree = router.createUrlTree(["/login"]);
     logGuardReturn(router, url, tree, "full login required");

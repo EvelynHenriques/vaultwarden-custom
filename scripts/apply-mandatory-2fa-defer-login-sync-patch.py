@@ -233,14 +233,49 @@ DEEP_LINK_SUPPRESS_BLOCK = f"""{DEEP_LINK_AUTH_UNLOCKED_ANCHOR}      // {DEEP_LI
 """
 
 AUTH_GUARD_STATUS_ANCHOR = "  const authStatus = await authService.getAuthStatus();\n\n"
-AUTH_GUARD_SETUP_BYPASS_BLOCK = f"""  const authStatus = await authService.getAuthStatus();
-  (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault AUTH GUARD] start", {{
+AUTH_GUARD_SETUP_BYPASS_BLOCK = f"""  let authStatus = await authService.getAuthStatus();
+  console.log("[EBvault REFRESH] restored auth status", {{
+    source: "auth.guard",
     requestedUrl: routerState.url,
     authStatus,
   }});
 
-  // {AUTH_GUARD_MARKER}: the restricted setup route must not wait on normal vault shell state.
   const ebvaultRequestedPath = routerState.url.split("?")[0].split("#")[0];
+  const ebvaultIsProtectedStartupRoute =
+    !ebvaultRequestedPath.startsWith("/login") &&
+    !ebvaultRequestedPath.startsWith("/2fa") &&
+    ebvaultRequestedPath !== "/lock" &&
+    !ebvaultRequestedPath.startsWith("/lock/");
+  if (
+    (authStatus === AuthenticationStatus.LoggedOut || authStatus === AuthenticationStatus.Locked) &&
+    ebvaultIsProtectedStartupRoute
+  ) {{
+    for (let ebvaultRefreshAttempt = 1; ebvaultRefreshAttempt <= 10; ebvaultRefreshAttempt++) {{
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      authStatus = await authService.getAuthStatus();
+      console.log("[EBvault REFRESH] restored auth status retry", {{
+        source: "auth.guard",
+        requestedUrl: routerState.url,
+        attempt: ebvaultRefreshAttempt,
+        authStatus,
+      }});
+      if (authStatus !== AuthenticationStatus.LoggedOut && authStatus !== AuthenticationStatus.Locked) {{
+        break;
+      }}
+    }}
+  }}
+  if (authStatus === AuthenticationStatus.LoggedOut) {{
+    console.log("[EBvault REFRESH] redirect to /login source auth.guard/loggedOut", {{
+      requestedUrl: routerState.url,
+    }});
+  }}
+  if (authStatus === AuthenticationStatus.Locked && ebvaultIsProtectedStartupRoute) {{
+    console.log("[EBvault REFRESH] redirect to /login source auth.guard/locked", {{
+      requestedUrl: routerState.url,
+    }});
+  }}
+
+  // {AUTH_GUARD_MARKER}: the restricted setup route must not wait on normal vault shell state.
   const ebvaultMandatoryGateDecision =
     (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_DECISION?: {{ kind?: string }} }})
       .EBVAULT_MANDATORY_2FA_GATE_DECISION;
