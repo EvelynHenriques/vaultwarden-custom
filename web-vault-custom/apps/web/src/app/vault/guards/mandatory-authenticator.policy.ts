@@ -55,8 +55,6 @@ function isMandatory2faDebugEnabled(): boolean {
 /** Gate phases — single source of truth for mandatory 2FA session state. */
 export type MandatoryGatePhase = "idle" | "pending" | "blocked" | "released";
 export type Mandatory2faMode = "off" | "observe" | "enforce";
-
-const MODE_STORAGE_KEY = "EBVAULT_2FA_MODE";
 const TOTP_FLOW_GLOBAL_KEY = "EBVAULT_CURRENT_AUTH_FLOW_PASSED_TOTP";
 const GATE_DECISION_GLOBAL_KEY = "EBVAULT_MANDATORY_2FA_GATE_DECISION";
 const LOGIN_REDIRECT_GLOBAL_KEY = "EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT";
@@ -77,8 +75,7 @@ export const MANDATORY_AUTHENTICATOR_SETUP_LOG_MESSAGE =
   "User must configure Authenticator 2FA before using this endpoint";
 
 export function getMandatory2faMode(): Mandatory2faMode {
-  const value = readMandatory2faModeOverride();
-  return value ?? "enforce";
+  return "enforce";
 }
 
 export function isMandatory2faEnforcementEnabled(): boolean {
@@ -86,7 +83,7 @@ export function isMandatory2faEnforcementEnabled(): boolean {
 }
 
 export function isMandatory2faObserveOnly(): boolean {
-  return getMandatory2faMode() === "observe";
+  return false;
 }
 
 function log(message: string, detail?: unknown): void {
@@ -777,41 +774,6 @@ export function createMandatorySetupUrlTree(router: Router): UrlTree {
   const tree = router.createUrlTree([MANDATORY_TWO_FACTOR_SETUP_URL]);
   logGeneratedUrlTree("createMandatorySetupUrlTree", router, tree);
   return tree;
-}
-
-function readMandatory2faModeOverride(): Mandatory2faMode | null {
-  const candidate = readRawMandatory2faModeOverride();
-  if (candidate === "off" || candidate === "observe" || candidate === "enforce") {
-    return candidate;
-  }
-
-  return null;
-}
-
-function readRawMandatory2faModeOverride(): string | null {
-  const globalValue = readGlobalString("EBVAULT_2FA_MODE");
-  if (globalValue) {
-    return globalValue.toLowerCase();
-  }
-
-  try {
-    if (typeof window !== "undefined") {
-      return window.localStorage?.getItem(MODE_STORAGE_KEY)?.toLowerCase() ?? null;
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-function readGlobalString(key: string): string | null {
-  try {
-    const value = (globalThis as Record<string, unknown>)[key];
-    return typeof value === "string" ? value : null;
-  } catch {
-    return null;
-  }
 }
 
 function setCurrentAuthFlowPassedTotpGlobal(value: boolean): void {
