@@ -73,16 +73,6 @@ impl Device {
         })
     }
 
-    pub fn refresh_twofactor_remember(&mut self) -> String {
-        use crate::auth::{encode_jwt, generate_2fa_remember_claims};
-
-        let two_factor_remember_claim = generate_2fa_remember_claims(self.uuid.clone(), self.user_uuid.clone());
-        let two_factor_remember_string = encode_jwt(&two_factor_remember_claim);
-        self.twofactor_remember = Some(two_factor_remember_string.clone());
-
-        two_factor_remember_string
-    }
-
     pub fn delete_twofactor_remember(&mut self) {
         self.twofactor_remember = None;
     }
