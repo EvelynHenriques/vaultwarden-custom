@@ -67,6 +67,7 @@ $gold-600: #d4a017;
 
   --color-bg-avatar-brand: var(--color-brand-600);
   --color-bg-avatar-brand-hover: var(--color-brand-700);
+  --ebvault-light-panel-fg: #{$text-dark};
 }
 
 /* ========== LIGHT THEME ========== */
@@ -585,6 +586,56 @@ body.theme_dark.layout_frontend bit-landing-footer {
 .theme_dark bit-callout,
 .theme_dark bit-section-header {
   color: #{$text-light};
+}
+
+/* Light callouts on dark EBvault pages need dark foreground for readable contrast. */
+.theme_dark bit-callout,
+.theme_dark bit-callout [bitTypography],
+.theme_dark bit-callout bit-icon,
+.theme_dark bit-callout header,
+.theme_dark bit-callout h1,
+.theme_dark bit-callout h2,
+.theme_dark bit-callout h3,
+.theme_dark bit-callout h4,
+.theme_dark bit-callout p,
+.theme_dark bit-callout span,
+.theme_dark bit-callout small,
+.theme_dark bit-callout i,
+.theme_dark bit-callout svg,
+.theme_dark bit-callout .tw-text-fg-body,
+.theme_dark bit-callout .tw-text-fg-heading,
+.theme_dark bit-callout .tw-text-fg-body-subtle,
+.theme_dark bit-callout .tw-text-fg-brand,
+.theme_dark bit-callout .tw-text-fg-brand-strong,
+.theme_dark bit-callout .tw-text-fg-info,
+.theme_dark bit-callout .tw-text-fg-info-strong,
+.theme_dark bit-callout .tw-text-fg-success,
+.theme_dark bit-callout .tw-text-fg-success-strong,
+.theme_dark bit-callout .tw-text-fg-warning,
+.theme_dark bit-callout .tw-text-fg-warning-strong,
+.theme_dark bit-callout .tw-text-muted,
+.theme_dark bit-callout .text-muted,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"],
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] [bitTypography],
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] aside,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] header,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] h1,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] h2,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] h3,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] h4,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] p,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] span,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] a,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] button,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] i,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] svg,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-fg-body,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-fg-heading,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-fg-body-subtle,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-fg-brand,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-fg-brand-strong,
+.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-muted {
+  color: var(--ebvault-light-panel-fg) !important;
 }
 
 .theme_light bit-empty-state p {
