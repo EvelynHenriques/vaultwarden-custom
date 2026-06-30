@@ -68,6 +68,8 @@ $gold-600: #d4a017;
   --color-bg-avatar-brand: var(--color-brand-600);
   --color-bg-avatar-brand-hover: var(--color-brand-700);
   --ebvault-light-panel-fg: #{$text-dark};
+  --ebvault-dark-panel-fg: #{$text-light};
+  --ebvault-dark-panel-fg-muted: #{$text-light-muted};
 }
 
 /* ========== LIGHT THEME ========== */
@@ -588,33 +590,62 @@ body.theme_dark.layout_frontend bit-landing-footer {
   color: #{$text-light};
 }
 
-/* Light callouts on dark EBvault pages need dark foreground for readable contrast. */
-.theme_dark bit-callout,
-.theme_dark bit-callout [bitTypography],
-.theme_dark bit-callout bit-icon,
-.theme_dark bit-callout header,
-.theme_dark bit-callout h1,
-.theme_dark bit-callout h2,
-.theme_dark bit-callout h3,
-.theme_dark bit-callout h4,
-.theme_dark bit-callout p,
-.theme_dark bit-callout span,
-.theme_dark bit-callout small,
-.theme_dark bit-callout i,
-.theme_dark bit-callout svg,
-.theme_dark bit-callout .tw-text-fg-body,
-.theme_dark bit-callout .tw-text-fg-heading,
-.theme_dark bit-callout .tw-text-fg-body-subtle,
-.theme_dark bit-callout .tw-text-fg-brand,
-.theme_dark bit-callout .tw-text-fg-brand-strong,
-.theme_dark bit-callout .tw-text-fg-info,
-.theme_dark bit-callout .tw-text-fg-info-strong,
-.theme_dark bit-callout .tw-text-fg-success,
-.theme_dark bit-callout .tw-text-fg-success-strong,
-.theme_dark bit-callout .tw-text-fg-warning,
-.theme_dark bit-callout .tw-text-fg-warning-strong,
-.theme_dark bit-callout .tw-text-muted,
-.theme_dark bit-callout .text-muted,
+/* Dark olive/success surfaces need light foreground for readable contrast. */
+.theme_dark bit-callout[type="success"],
+.theme_dark bit-callout[type="success"] [bitTypography],
+.theme_dark bit-callout[type="success"] bit-icon,
+.theme_dark bit-callout[type="success"] header,
+.theme_dark bit-callout[type="success"] h1,
+.theme_dark bit-callout[type="success"] h2,
+.theme_dark bit-callout[type="success"] h3,
+.theme_dark bit-callout[type="success"] h4,
+.theme_dark bit-callout[type="success"] p,
+.theme_dark bit-callout[type="success"] span,
+.theme_dark bit-callout[type="success"] small,
+.theme_dark bit-callout[type="success"] i,
+.theme_dark bit-callout[type="success"] svg,
+.theme_dark bit-callout[type="success"] .tw-text-fg-body,
+.theme_dark bit-callout[type="success"] .tw-text-fg-heading,
+.theme_dark bit-callout[type="success"] .tw-text-fg-body-subtle,
+.theme_dark bit-callout[type="success"] .tw-text-fg-brand,
+.theme_dark bit-callout[type="success"] .tw-text-fg-brand-strong,
+.theme_dark bit-callout[type="success"] .tw-text-fg-info,
+.theme_dark bit-callout[type="success"] .tw-text-fg-info-strong,
+.theme_dark bit-callout[type="success"] .tw-text-fg-success,
+.theme_dark bit-callout[type="success"] .tw-text-fg-success-strong,
+.theme_dark bit-callout[type="success"] .tw-text-muted,
+.theme_dark bit-callout[type="success"] .text-muted,
+.theme_dark [class*="tw-bg-bg-brand"],
+.theme_dark [class*="tw-bg-bg-brand"] [bitTypography],
+.theme_dark [class*="tw-bg-bg-brand"] p,
+.theme_dark [class*="tw-bg-bg-brand"] span,
+.theme_dark [class*="tw-bg-bg-brand"] small,
+.theme_dark [class*="tw-bg-bg-brand"] i,
+.theme_dark [class*="tw-bg-bg-brand"] svg,
+.theme_dark [class*="tw-bg-bg-success"],
+.theme_dark [class*="tw-bg-bg-success"] [bitTypography],
+.theme_dark [class*="tw-bg-bg-success"] p,
+.theme_dark [class*="tw-bg-bg-success"] span,
+.theme_dark [class*="tw-bg-bg-success"] small,
+.theme_dark [class*="tw-bg-bg-success"] i,
+.theme_dark [class*="tw-bg-bg-success"] svg {
+  color: var(--ebvault-dark-panel-fg) !important;
+}
+
+.theme_dark bit-callout[type="success"] small,
+.theme_dark bit-callout[type="success"] [bitTypography="helper"],
+.theme_dark bit-callout[type="success"] .tw-text-fg-body-subtle,
+.theme_dark bit-callout[type="success"] .tw-text-fg-disabled,
+.theme_dark [class*="tw-bg-bg-brand"] small,
+.theme_dark [class*="tw-bg-bg-brand"] [bitTypography="helper"],
+.theme_dark [class*="tw-bg-bg-brand"] .tw-text-fg-body-subtle,
+.theme_dark [class*="tw-bg-bg-success"] small,
+.theme_dark [class*="tw-bg-bg-success"] [bitTypography="helper"],
+.theme_dark [class*="tw-bg-bg-success"] .tw-text-fg-body-subtle {
+  color: var(--ebvault-dark-panel-fg-muted) !important;
+}
+
+/* Marked light panels on dark EBvault pages need dark foreground for readable contrast. */
 .theme_dark [data-ebvault-contrast="EBvault readable light nudge card"],
 .theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] [bitTypography],
 .theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] aside,
