@@ -839,27 +839,17 @@ async fn twofactor_auth(
             email::validate_email_code_str(&user.uuid, twofactor_code, &selected_data?, &ip.ip, conn).await?;
         }
         Some(TwoFactorType::Remember) => {
-            match device.twofactor_remember {
-                // When a 2FA Remember token is used, check and validate this JWT token, if it is valid, just continue
-                // If it is invalid we need to trigger the 2FA Login prompt
-                Some(ref token)
-                    if !CONFIG.disable_2fa_remember()
-                        && (crypto::ct_eq(token, twofactor_code)
-                            && auth::decode_2fa_remember(twofactor_code)
-                                .is_ok_and(|t| t.sub == device.uuid && t.user_uuid == user.uuid)) => {}
-                _ => {
-                    // Always delete the current twofactor remember token here if it exists
-                    if device.twofactor_remember.is_some() {
-                        device.delete_twofactor_remember();
-                        // We need to save here, since we send a err_json!() which prevents saving `device` at a later stage
-                        device.save(true, conn).await?;
-                    }
-                    err_json!(
-                        json_err_twofactor(&twofactor_ids, &user.uuid, data, client_version, conn).await?,
-                        "2FA Remember token not provided or expired"
-                    )
-                }
+            // Remembered/trusted-device 2FA bypasses are disabled server-side for every client.
+            // If an old token exists, clear it and require an interactive 2FA provider again.
+            if device.twofactor_remember.is_some() {
+                device.delete_twofactor_remember();
+                // We need to save here, since we send a err_json!() which prevents saving `device` at a later stage
+                device.save(true, conn).await?;
             }
+            err_json!(
+                json_err_twofactor(&twofactor_ids, &user.uuid, data, client_version, conn).await?,
+                "2FA Remember token is disabled"
+            )
         }
         Some(TwoFactorType::RecoveryCode) => {
             err!("Recovery code login is not allowed")
@@ -874,13 +864,12 @@ async fn twofactor_auth(
 
     TwoFactorIncomplete::mark_complete(&user.uuid, &device.uuid, conn).await?;
 
-    let remember = data.two_factor_remember.unwrap_or(0);
-    let two_factor = if !CONFIG.disable_2fa_remember() && remember == 1 {
-        Some(device.refresh_twofactor_remember())
-    } else {
-        None
-    };
+    let two_factor = two_factor_remember_token_response(data);
     Ok(two_factor)
+}
+
+fn two_factor_remember_token_response(_data: &ConnectData) -> Option<String> {
+    None
 }
 
 fn selected_data(tf: Option<TwoFactor>) -> ApiResult<String> {
@@ -1127,7 +1116,25 @@ struct ConnectData {
     two_factor_token: Option<String>,
     #[field(name = uncased("two_factor_remember"))]
     #[field(name = uncased("twofactorremember"))]
-    two_factor_remember: Option<i32>,
+    _two_factor_remember: Option<String>,
+    #[field(name = uncased("remember_device"))]
+    #[field(name = uncased("rememberdevice"))]
+    _remember_device: Option<String>,
+    #[field(name = uncased("trust_device"))]
+    #[field(name = uncased("trustdevice"))]
+    _trust_device: Option<String>,
+    #[field(name = uncased("trusted_device"))]
+    #[field(name = uncased("trusteddevice"))]
+    _trusted_device: Option<String>,
+    #[field(name = uncased("remember"))]
+    _remember: Option<String>,
+    #[field(name = uncased("trust"))]
+    _trust: Option<String>,
+    #[field(name = uncased("trusted"))]
+    _trusted: Option<String>,
+    #[field(name = uncased("is_trusted"))]
+    #[field(name = uncased("istrusted"))]
+    _is_trusted: Option<String>,
     #[field(name = uncased("authrequest"))]
     auth_request: Option<AuthRequestId>,
 
@@ -1294,4 +1301,36 @@ async fn authorize(data: AuthorizeData, cookies: &CookieJar<'_>, secure: Secure,
     );
 
     Ok(Redirect::temporary(String::from(auth_url)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn two_factor_remember_request_never_issues_token() {
+        let data = ConnectData {
+            _two_factor_remember: Some("1".to_owned()),
+            ..ConnectData::default()
+        };
+
+        assert!(two_factor_remember_token_response(&data).is_none());
+    }
+
+    #[test]
+    fn equivalent_trust_device_flags_never_issue_token() {
+        let data = ConnectData {
+            _two_factor_remember: Some("true".to_owned()),
+            _remember_device: Some("true".to_owned()),
+            _trust_device: Some("true".to_owned()),
+            _trusted_device: Some("true".to_owned()),
+            _remember: Some("true".to_owned()),
+            _trust: Some("true".to_owned()),
+            _trusted: Some("true".to_owned()),
+            _is_trusted: Some("true".to_owned()),
+            ..ConnectData::default()
+        };
+
+        assert!(two_factor_remember_token_response(&data).is_none());
+    }
 }

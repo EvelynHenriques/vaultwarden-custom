@@ -32,7 +32,7 @@ pub mod yubikey;
 
 /// Only authenticator app 2FA is allowed for user-managed providers in this deployment.
 pub fn is_allowed_mandatory_twofactor_provider(provider_type: &TwoFactorType) -> bool {
-    matches!(provider_type, TwoFactorType::Authenticator | TwoFactorType::Remember)
+    matches!(provider_type, TwoFactorType::Authenticator)
 }
 
 pub fn is_allowed_mandatory_twofactor_setup(provider_type: &TwoFactorType) -> bool {
@@ -50,7 +50,6 @@ pub fn is_twofactor_provider_usable(provider_type: &TwoFactorType, _provider_dat
 
     match provider_type {
         TwoFactorType::Authenticator => true,
-        TwoFactorType::Remember => !CONFIG.disable_2fa_remember(),
         _ => false,
     }
 }
@@ -72,6 +71,23 @@ pub fn routes() -> Vec<Route> {
     routes.append(&mut protected_actions::routes());
 
     routes
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn remember_device_provider_is_not_usable() {
+        assert!(!is_allowed_mandatory_twofactor_provider(&TwoFactorType::Remember));
+        assert!(!is_twofactor_provider_usable(&TwoFactorType::Remember, None));
+    }
+
+    #[test]
+    fn authenticator_provider_remains_usable() {
+        assert!(is_allowed_mandatory_twofactor_provider(&TwoFactorType::Authenticator));
+        assert!(is_twofactor_provider_usable(&TwoFactorType::Authenticator, None));
+    }
 }
 
 #[get("/two-factor")]
