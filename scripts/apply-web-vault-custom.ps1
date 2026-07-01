@@ -64,33 +64,23 @@ foreach ($relative in $OverlayFiles) {
     Write-Host "  updated $relative"
 }
 
-$shieldLogoSource = Join-Path $CustomDir "apps\web\src\images\icons\logo-shield.svg"
-$shieldLogoDestination = Join-Path $ClientsDir "apps\web\src\images\icons\logo-shield.svg"
-if (-not (Test-Path $shieldLogoSource)) {
-    throw "Missing overlay file: apps/web/src/images/icons/logo-shield.svg"
+foreach ($logoName in @("logo-shield", "logo-ebcofre")) {
+    foreach ($logoExt in @("svg", "png", "jpeg")) {
+        $logoSource = Join-Path $CustomDir "apps\web\src\images\icons\$logoName.$logoExt"
+        $logoDestination = Join-Path $ClientsDir "apps\web\src\images\icons\$logoName.$logoExt"
+        $serverLogo = Join-Path (Join-Path $ScriptDir "..") "src\static\images\$logoName.$logoExt"
+        if (Test-Path $logoSource) {
+            New-Item -ItemType Directory -Force -Path (Split-Path $logoDestination -Parent) | Out-Null
+            New-Item -ItemType Directory -Force -Path (Split-Path $serverLogo -Parent) | Out-Null
+            Copy-Item $logoSource $logoDestination -Force
+            Copy-Item $logoSource $serverLogo -Force
+            Write-Host "  updated apps/web/src/images/icons/$logoName.$logoExt"
+            Write-Host "  updated src/static/images/$logoName.$logoExt"
+        } elseif ($logoExt -eq "svg") {
+            throw "Missing overlay file: apps/web/src/images/icons/$logoName.$logoExt"
+        }
+    }
 }
-New-Item -ItemType Directory -Force -Path (Split-Path $shieldLogoDestination -Parent) | Out-Null
-Copy-Item $shieldLogoSource $shieldLogoDestination -Force
-Write-Host "  updated apps/web/src/images/icons/logo-shield.svg"
-
-$ebcofreLogoSource = Join-Path $CustomDir "apps\web\src\images\icons\logo-ebcofre.svg"
-$ebcofreLogoDestination = Join-Path $ClientsDir "apps\web\src\images\icons\logo-ebcofre.svg"
-if (-not (Test-Path $ebcofreLogoSource)) {
-    throw "Missing overlay file: apps/web/src/images/icons/logo-ebcofre.svg"
-}
-New-Item -ItemType Directory -Force -Path (Split-Path $ebcofreLogoDestination -Parent) | Out-Null
-Copy-Item $ebcofreLogoSource $ebcofreLogoDestination -Force
-Write-Host "  updated apps/web/src/images/icons/logo-ebcofre.svg"
-
-$serverLogo = Join-Path (Join-Path $ScriptDir "..") "src\static\images\logo-ebcofre.svg"
-New-Item -ItemType Directory -Force -Path (Split-Path $serverLogo -Parent) | Out-Null
-Copy-Item $ebcofreLogoSource $serverLogo -Force
-Write-Host "  updated src/static/images/logo-ebcofre.svg"
-
-$serverShieldLogo = Join-Path (Join-Path $ScriptDir "..") "src\static\images\logo-shield.svg"
-New-Item -ItemType Directory -Force -Path (Split-Path $serverShieldLogo -Parent) | Out-Null
-Copy-Item $shieldLogoSource $serverShieldLogo -Force
-Write-Host "  updated src/static/images/logo-shield.svg"
 
 $python = $null
 foreach ($candidate in @("python3", "python", "py")) {

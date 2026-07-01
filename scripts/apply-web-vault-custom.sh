@@ -117,41 +117,23 @@ if ! grep -Fq "this.showRouterOutlet = onSetupRoute || setupPending || !hideVaul
   exit 1
 fi
 
-shield_logo_source="${CUSTOM_DIR}/apps/web/src/images/icons/logo-shield.svg"
-shield_logo_destination="${CLIENTS_DIR}/apps/web/src/images/icons/logo-shield.svg"
-if [[ -f "${shield_logo_source}" ]]; then
-  mkdir -p "$(dirname "${shield_logo_destination}")"
-  cp "${shield_logo_source}" "${shield_logo_destination}"
-  echo "  updated apps/web/src/images/icons/logo-shield.svg"
-else
-  echo "  missing overlay file: apps/web/src/images/icons/logo-shield.svg" >&2
-  exit 1
-fi
-
-ebcofre_logo_source="${CUSTOM_DIR}/apps/web/src/images/icons/logo-ebcofre.svg"
-ebcofre_logo_destination="${CLIENTS_DIR}/apps/web/src/images/icons/logo-ebcofre.svg"
-if [[ -f "${ebcofre_logo_source}" ]]; then
-  mkdir -p "$(dirname "${ebcofre_logo_destination}")"
-  cp "${ebcofre_logo_source}" "${ebcofre_logo_destination}"
-  echo "  updated apps/web/src/images/icons/logo-ebcofre.svg"
-else
-  echo "  missing overlay file: apps/web/src/images/icons/logo-ebcofre.svg" >&2
-  exit 1
-fi
-
-server_logo="${SCRIPT_DIR}/../src/static/images/logo-ebcofre.svg"
-if [[ -f "${ebcofre_logo_source}" ]]; then
-  mkdir -p "$(dirname "${server_logo}")"
-  cp "${ebcofre_logo_source}" "${server_logo}"
-  echo "  updated src/static/images/logo-ebcofre.svg"
-fi
-
-server_shield_logo="${SCRIPT_DIR}/../src/static/images/logo-shield.svg"
-if [[ -f "${shield_logo_source}" ]]; then
-  mkdir -p "$(dirname "${server_shield_logo}")"
-  cp "${shield_logo_source}" "${server_shield_logo}"
-  echo "  updated src/static/images/logo-shield.svg"
-fi
+for logo_name in logo-shield logo-ebcofre; do
+  for logo_ext in svg png jpeg; do
+    logo_source="${CUSTOM_DIR}/apps/web/src/images/icons/${logo_name}.${logo_ext}"
+    logo_destination="${CLIENTS_DIR}/apps/web/src/images/icons/${logo_name}.${logo_ext}"
+    server_logo="${SCRIPT_DIR}/../src/static/images/${logo_name}.${logo_ext}"
+    if [[ -f "${logo_source}" ]]; then
+      mkdir -p "$(dirname "${logo_destination}")" "$(dirname "${server_logo}")"
+      cp "${logo_source}" "${logo_destination}"
+      cp "${logo_source}" "${server_logo}"
+      echo "  updated apps/web/src/images/icons/${logo_name}.${logo_ext}"
+      echo "  updated src/static/images/${logo_name}.${logo_ext}"
+    elif [[ "${logo_ext}" == "svg" ]]; then
+      echo "  missing overlay file: apps/web/src/images/icons/${logo_name}.${logo_ext}" >&2
+      exit 1
+    fi
+  done
+done
 
 # Idempotent source patches (routing, favicon, org guards). Fail the build if any step fails.
 if command -v python3 >/dev/null 2>&1; then
