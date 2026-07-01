@@ -3,7 +3,7 @@ diff --git a/apps/web/src/index.html b/apps/web/src/index.html
 +++ b/apps/web/src/index.html
 @@ -7,8 +7,7 @@
  
-     <title>EBvault</title>
+     <title>EBcofre</title>
  
      <link rel="apple-touch-icon" href="images/icons/logo-shield.svg" />
 -    <link rel="icon" type="image/png" sizes="32x32" href="images/icons/favicon-32x32.png" />

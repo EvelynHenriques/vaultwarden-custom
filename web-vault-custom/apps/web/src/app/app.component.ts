@@ -42,7 +42,7 @@ import {
 
 const BroadcasterSubscriptionId = "AppComponent";
 const IdleTimeout = 60000 * 10; // 10 minutes
-const EBVAULT_DOCUMENT_TITLE = "EBvault";
+const EBVAULT_DOCUMENT_TITLE = "EBcofre";
 
 // FIXME(https://bitwarden.atlassian.net/browse/CL-764): Migrate to OnPush
 // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
@@ -165,7 +165,7 @@ export class AppComponent implements OnDestroy, OnInit {
               break;
             }
             resetCurrentAuthFlowTotp("lockVault broadcaster event");
-            mandatory2faLog("lockVault received; EBvault requires full re-login before vault access");
+            mandatory2faLog("lockVault received; EBcofre requires full re-login before vault access");
             await this.logOut(true);
             break;
           }
@@ -185,7 +185,7 @@ export class AppComponent implements OnDestroy, OnInit {
               mandatory2faLog("locked handled as mandatory setup; no full re-login");
               break;
             }
-            mandatory2faWarn("locked; EBvault requires full re-login before vault access");
+            mandatory2faWarn("locked; EBcofre requires full re-login before vault access");
             await this.logOut(true);
             break;
           case "lockedUrl":
@@ -431,7 +431,7 @@ export class AppComponent implements OnDestroy, OnInit {
         mandatory2faWarn("server notification pause failed during idle transition", error);
       }
     } else {
-      mandatory2faWarn("server notifications resume skipped by EBvault mandatory 2FA policy");
+      mandatory2faWarn("server notifications resume skipped by EBcofre mandatory 2FA policy");
     }
   }
 
@@ -453,7 +453,7 @@ export class AppComponent implements OnDestroy, OnInit {
         return;
       }
 
-      mandatory2faWarn("SignalR failed but EBvault continues without server notifications", reason);
+      mandatory2faWarn("SignalR failed but EBcofre continues without server notifications", reason);
       event.preventDefault();
     });
   }

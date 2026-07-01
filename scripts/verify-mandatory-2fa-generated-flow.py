@@ -25,21 +25,21 @@ LOGIN_HANDLER = (
 )
 
 EXPECTED_LOGIN_MARKERS = (
-    "[EBvault LOGIN] DefaultLoginSuccessHandlerService.run started",
-    "[EBvault LOGIN] auth state stable",
+    "[EBcofre LOGIN] DefaultLoginSuccessHandlerService.run started",
+    "[EBcofre LOGIN] auth state stable",
     "EBVAULT_MANDATORY_2FA_GATE_PROMISE",
     "EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT",
-    "[EBvault LOGIN] mandatory no-TOTP gate check starting before default navigation",
-    "[EBvault LOGIN] default /vault navigation skipped because mandatory setup is required",
-    "[EBvault LOGIN] original post-login bootstrap completed",
-    "[EBvault LOGIN] DefaultLoginSuccessHandlerService.run completed",
+    "[EBcofre LOGIN] mandatory no-TOTP gate check starting before default navigation",
+    "[EBcofre LOGIN] default /vault navigation skipped because mandatory setup is required",
+    "[EBcofre LOGIN] original post-login bootstrap completed",
+    "[EBcofre LOGIN] DefaultLoginSuccessHandlerService.run completed",
 )
 
 BAD_LOGIN_MARKERS = (
     "void userId;",
     "void masterPassword;",
     "Post-login bootstrap skipped",
-    "EBvault defer post-login bootstrap to mandatory 2FA gate",
+    "EBcofre defer post-login bootstrap to mandatory 2FA gate",
     "mandatory gate resolved before default navigation",
 )
 
@@ -87,7 +87,7 @@ def verify_login_handler(clients_dir: Path) -> None:
     print("  verified generated DefaultLoginSuccessHandlerService.run markers")
 
 
-def verify_no_ebvault_vault_navigation_log(clients_dir: Path) -> None:
+def verify_no_ebcofre_vault_navigation_log(clients_dir: Path) -> None:
     offenders = []
     for path in clients_dir.rglob("*.ts"):
         try:
@@ -99,11 +99,11 @@ def verify_no_ebvault_vault_navigation_log(clients_dir: Path) -> None:
 
     if offenders:
         raise RuntimeError(
-            "EBvault /2fa -> /vault navigation observer log is still present in generated files: "
+            "EBcofre /2fa -> /vault navigation observer log is still present in generated files: "
             + ", ".join(str(path) for path in offenders)
         )
 
-    print("  verified no EBvault 'navigation to /vault started' generated log")
+    print("  verified no EBcofre 'navigation to /vault started' generated log")
 
 
 def verify_password_login_redirect(clients_dir: Path) -> None:
@@ -113,15 +113,15 @@ def verify_password_login_redirect(clients_dir: Path) -> None:
 
     text = component.read_text(encoding="utf-8")
     expected = (
-        "EBvault mandatory setup redirect after no-TOTP gate",
+        "EBcofre mandatory setup redirect after no-TOTP gate",
         "EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT",
-        "[EBvault LOGIN] deferred mandatory setup navigation starting",
-        "[EBvault SETUP ROUTE] setup navigation promise created",
-        "[EBvault SETUP ROUTE] setup navigation still pending after 2s",
-        "[EBvault SETUP ROUTE] setup navigation promise resolved true",
-        "[EBvault SETUP ROUTE] setup navigation promise rejected",
-        "[EBvault LOGIN] mandatory setup navigation completed",
-        "[EBvault LOGIN] mandatory setup navigation failed",
+        "[EBcofre LOGIN] deferred mandatory setup navigation starting",
+        "[EBcofre SETUP ROUTE] setup navigation promise created",
+        "[EBcofre SETUP ROUTE] setup navigation still pending after 2s",
+        "[EBcofre SETUP ROUTE] setup navigation promise resolved true",
+        "[EBcofre SETUP ROUTE] setup navigation promise rejected",
+        "[EBcofre LOGIN] mandatory setup navigation completed",
+        "[EBcofre LOGIN] mandatory setup navigation failed",
         "this.router.navigateByUrl(",
     )
     missing = [marker for marker in expected if marker not in text]
@@ -131,7 +131,7 @@ def verify_password_login_redirect(clients_dir: Path) -> None:
             + ", ".join(missing)
         )
 
-    redirect_index = text.find("EBvault mandatory setup redirect after no-TOTP gate")
+    redirect_index = text.find("EBcofre mandatory setup redirect after no-TOTP gate")
     default_vault_index = text.find('this.router.navigate(["vault"])')
     if default_vault_index != -1 and redirect_index > default_vault_index:
         raise RuntimeError(
@@ -148,11 +148,11 @@ def verify_deep_link_guard_suppresses_setup_required_vault_restore(clients_dir: 
 
     text = guard.read_text(encoding="utf-8")
     expected = (
-        "EBvault mandatory setup suppresses deep-link vault restore",
+        "EBcofre mandatory setup suppresses deep-link vault restore",
         "EBVAULT_MANDATORY_2FA_GATE_DECISION",
-        'ebvaultMandatoryGateDecision?.kind === "setup_required"',
-        "[EBvault DEBUG] /vault navigation source suppressed: deepLinkGuard persisted login redirect",
-        "[EBvault 2FA SETUP] setup route allowed after suppressing stale protected destination",
+        'ebcofreMandatoryGateDecision?.kind === "setup_required"',
+        "[EBcofre DEBUG] /vault navigation source suppressed: deepLinkGuard persisted login redirect",
+        "[EBcofre 2FA SETUP] setup route allowed after suppressing stale protected destination",
         'return router.createUrlTree(["/settings/security/two-factor"]);',
     )
     missing = [marker for marker in expected if marker not in text]
@@ -172,10 +172,10 @@ def verify_auth_guard_allows_mandatory_setup_route(clients_dir: Path) -> None:
 
     text = guard.read_text(encoding="utf-8")
     expected = (
-        "EBvault mandatory setup bypasses authGuard force-state checks",
+        "EBcofre mandatory setup bypasses authGuard force-state checks",
         "EBVAULT_MANDATORY_2FA_GATE_DECISION",
-        'ebvaultMandatoryGateDecision?.kind === "setup_required"',
-        "[EBvault AUTH GUARD] mandatory setup route allowed immediately",
+        'ebcofreMandatoryGateDecision?.kind === "setup_required"',
+        "[EBcofre AUTH GUARD] mandatory setup route allowed immediately",
         "authStatus !== AuthenticationStatus.LoggedOut",
     )
     missing = [marker for marker in expected if marker not in text]
@@ -197,7 +197,7 @@ def verify_lock_guard(clients_dir: Path) -> None:
     if "mandatoryFullReloginLockGuard" not in text:
         raise RuntimeError(f"{routing}: generated /lock route is missing mandatoryFullReloginLockGuard")
     if "canActivate: [deepLinkGuard(), mandatoryFullReloginLockGuard, lockGuard()]" not in text:
-        raise RuntimeError(f"{routing}: generated /lock route does not force EBvault full re-login first")
+        raise RuntimeError(f"{routing}: generated /lock route does not force EBcofre full re-login first")
 
     print("  verified generated /lock route forces full re-login before local lock guard")
 
@@ -214,7 +214,7 @@ def verify_remember_device_disabled(clients_dir: Path) -> None:
     template_text = template.read_text(encoding="utf-8")
 
     expected = (
-        "EBvault remember device disabled",
+        "EBcofre remember device disabled",
         "const rememberValue = false;",
         'this.form.patchValue({ remember: false });',
     )
@@ -287,7 +287,7 @@ def main() -> int:
     print_matches(clients_dir)
     print_routing_context(clients_dir)
     verify_login_handler(clients_dir)
-    verify_no_ebvault_vault_navigation_log(clients_dir)
+    verify_no_ebcofre_vault_navigation_log(clients_dir)
     verify_password_login_redirect(clients_dir)
     verify_deep_link_guard_suppresses_setup_required_vault_restore(clients_dir)
     verify_auth_guard_allows_mandatory_setup_route(clients_dir)

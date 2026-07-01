@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-MARKER = "EBvault mandatory Authenticator 2FA gate"
+MARKER = "EBcofre mandatory Authenticator 2FA gate"
 
 METHOD_START = "  private async handleApiRequestError("
 METHOD_NEXT = "  private async handleTokenRefreshRequestError("

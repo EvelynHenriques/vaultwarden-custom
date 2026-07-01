@@ -103,7 +103,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit() {
-    mandatory2faDebugLog("[EBvault 2FA SETUP] setup component loaded");
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] setup component loaded");
     for (const key in TwoFactorProviders) {
       // eslint-disable-next-line
       if (!TwoFactorProviders.hasOwnProperty(key)) {
@@ -157,7 +157,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
   async load() {
     this.loading = true;
     const providerList = await this.getTwoFactorProviders();
-    mandatory2faDebugLog("[EBvault 2FA SETUP] /api/two-factor returned", providerList);
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] /api/two-factor returned", providerList);
     providerList.data.forEach((p) => {
       this.providers.forEach((p2) => {
         if (p.type === p2.type) {
@@ -170,11 +170,11 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
 
     const gateBlocked = getMandatoryGatePhase() === "blocked";
     const authenticatorEnabled = this.hasEnabledAuthenticatorProvider();
-    mandatory2faDebugLog("[EBvault 2FA SETUP] setup required", gateBlocked && !authenticatorEnabled);
-    mandatory2faDebugLog("[EBvault 2FA SETUP] required API allowed");
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] setup required", gateBlocked && !authenticatorEnabled);
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] required API allowed");
 
     if (authenticatorEnabled) {
-      mandatory2faDebugLog("[EBvault 2FA SETUP] Authenticator configured, releasing gate");
+      mandatory2faDebugLog("[EBcofre 2FA SETUP] Authenticator configured, releasing gate");
       markMandatoryAuthenticatorSetupComplete();
       this.lockService.syncDomLockClass();
       this.resumeServerNotificationsBestEffort("setup load detected Authenticator already enabled");
@@ -405,7 +405,7 @@ export class TwoFactorSetupComponent implements OnInit, OnDestroy {
       }
     });
     if (enabled && type === TwoFactorProviderType.Authenticator) {
-      mandatory2faDebugLog("[EBvault 2FA SETUP] Authenticator configured, releasing gate");
+      mandatory2faDebugLog("[EBcofre 2FA SETUP] Authenticator configured, releasing gate");
       markMandatoryAuthenticatorSetupComplete();
       this.lockService.syncDomLockClass();
       mandatory2faLog("Authenticator setup completed; mandatory gate released");

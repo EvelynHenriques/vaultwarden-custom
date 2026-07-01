@@ -7,8 +7,8 @@ import re
 import sys
 from pathlib import Path
 
-MARKER = "EBvault disable server notifications during mandatory 2FA flow"
-WARNING = '(globalThis as any).EBVAULT_2FA_DEBUG === true && console.warn("[EBvault 2FA] server notifications disabled during mandatory 2FA flow");'
+MARKER = "EBcofre disable server notifications during mandatory 2FA flow"
+WARNING = '(globalThis as any).EBVAULT_2FA_DEBUG === true && console.warn("[EBcofre 2FA] server notifications disabled during mandatory 2FA flow");'
 
 EBVAULT_BLOCK_RE = re.compile(
     rf"\n[ \t]*// {re.escape(MARKER)}[^\n]*\n"
@@ -130,7 +130,7 @@ def clean_signalr_connection(path: Path, clients_dir: Path) -> bool:
         return False
 
     path.write_text(cleaned, encoding="utf-8")
-    print(f"  removed stale EBvault SignalR patch from {path.relative_to(clients_dir)}")
+    print(f"  removed stale EBcofre SignalR patch from {path.relative_to(clients_dir)}")
     return True
 
 

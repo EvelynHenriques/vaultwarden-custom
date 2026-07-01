@@ -6,10 +6,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-MARKER = "EBvault defer login-time fullSync during mandatory 2FA gate"
-PREVIOUS_GUARD_MARKER = "EBvault guard login-time fullSync during mandatory 2FA gate"
-LEGACY_FULLSYNC_MARKER = "EBvault defer post-login fullSync to mandatory 2FA gate"
-LEGACY_BOOTSTRAP_MARKER = "EBvault defer post-login bootstrap to mandatory 2FA gate"
+MARKER = "EBcofre defer login-time fullSync during mandatory 2FA gate"
+PREVIOUS_GUARD_MARKER = "EBcofre guard login-time fullSync during mandatory 2FA gate"
+LEGACY_FULLSYNC_MARKER = "EBcofre defer post-login fullSync to mandatory 2FA gate"
+LEGACY_BOOTSTRAP_MARKER = "EBcofre defer post-login bootstrap to mandatory 2FA gate"
 
 RUN_SIGNATURE = "  async run(userId: UserId, masterPassword: string | null): Promise<void> {"
 ORIGINAL_PREFIX = f"""{RUN_SIGNATURE}
@@ -17,56 +17,56 @@ ORIGINAL_PREFIX = f"""{RUN_SIGNATURE}
     await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"""
 
 REGEN_LINE = "    await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);"
-REGEN_BLOCK = """    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] before key regeneration");
+REGEN_BLOCK = """    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] before key regeneration");
     try {
       await this.userAsymmetricKeysRegenerationService.regenerateIfNeeded(userId);
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] after key regeneration");
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] after key regeneration");
     } catch (error: unknown) {
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] key regeneration failed", error);
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] key regeneration failed", error);
       throw error;
     }"""
 
 PATCHED_PREFIX = f"""{RUN_SIGNATURE}
-    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] DefaultLoginSuccessHandlerService.run started");
-    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] auth state stable");
+    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] DefaultLoginSuccessHandlerService.run started");
+    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] auth state stable");
     // {MARKER}: keep upstream sync for real TOTP logins, but avoid /api/sync before setup.
-    const ebvaultCurrentFlowPassedTotp =
+    const ebcofreCurrentFlowPassedTotp =
       (globalThis as {{ EBVAULT_CURRENT_AUTH_FLOW_PASSED_TOTP?: boolean }})
         .EBVAULT_CURRENT_AUTH_FLOW_PASSED_TOTP === true;
-    if (ebvaultCurrentFlowPassedTotp) {{
+    if (ebcofreCurrentFlowPassedTotp) {{
       await this.syncService.fullSync(true, {{ skipTokenRefresh: true }});
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] upstream login-time fullSync completed after TOTP");
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] upstream login-time fullSync completed after TOTP");
     }} else {{
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault 2FA] sync deferred without throwing during login bootstrap");
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] mandatory no-TOTP gate check starting before default navigation");
-      const ebvaultMandatoryGatePromise =
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre 2FA] sync deferred without throwing during login bootstrap");
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] mandatory no-TOTP gate check starting before default navigation");
+      const ebcofreMandatoryGatePromise =
         (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<{{ kind?: string }}> }})
           .EBVAULT_MANDATORY_2FA_GATE_PROMISE;
-      const ebvaultMandatoryGateDecision =
-        ebvaultMandatoryGatePromise != null
-          ? await ebvaultMandatoryGatePromise
+      const ebcofreMandatoryGateDecision =
+        ebcofreMandatoryGatePromise != null
+          ? await ebcofreMandatoryGatePromise
           : (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_DECISION?: {{ kind?: string }} }})
               .EBVAULT_MANDATORY_2FA_GATE_DECISION;
-      if (ebvaultMandatoryGateDecision?.kind === "setup_required") {{
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] mandatory gate result: setup required");
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] default /vault navigation skipped because mandatory setup is required");
+      if (ebcofreMandatoryGateDecision?.kind === "setup_required") {{
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] mandatory gate result: setup required");
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] default /vault navigation skipped because mandatory setup is required");
         (globalThis as {{ EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string }})
           .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT = "/settings/security/two-factor";
       }} else {{
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] mandatory gate result: " + (ebvaultMandatoryGateDecision?.kind ?? "unknown"));
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] continuing original Web Vault login flow");
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] mandatory gate result: " + (ebcofreMandatoryGateDecision?.kind ?? "unknown"));
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] continuing original Web Vault login flow");
       }}
     }}
-    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] original post-login bootstrap completed");
+    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] original post-login bootstrap completed");
 {REGEN_BLOCK}"""
 
-COMPLETION_LOG = '    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] DefaultLoginSuccessHandlerService.run completed");'
+COMPLETION_LOG = '    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] DefaultLoginSuccessHandlerService.run completed");'
 LOGIN_COMPONENT = "libs/auth/src/angular/login/login.component.ts"
 DEEP_LINK_GUARD = "apps/web/src/app/auth/guards/deep-link/deep-link.guard.ts"
 AUTH_GUARD = "libs/angular/src/auth/guards/auth.guard.ts"
-LOGIN_REDIRECT_MARKER = "EBvault mandatory setup redirect after no-TOTP gate"
-DEEP_LINK_MARKER = "EBvault mandatory setup suppresses deep-link vault restore"
-AUTH_GUARD_MARKER = "EBvault mandatory setup bypasses authGuard force-state checks"
+LOGIN_REDIRECT_MARKER = "EBcofre mandatory setup redirect after no-TOTP gate"
+DEEP_LINK_MARKER = "EBcofre mandatory setup suppresses deep-link vault restore"
+AUTH_GUARD_MARKER = "EBcofre mandatory setup bypasses authGuard force-state checks"
 
 LOGIN_HANDLER_CALL = (
     "    await this.loginSuccessHandlerService.run(authResult.userId, authResult.masterPassword);"
@@ -75,188 +75,188 @@ LOGIN_HANDLER_CALL = (
 LOGIN_REDIRECT_BLOCK = f"""{LOGIN_HANDLER_CALL}
 
     // {LOGIN_REDIRECT_MARKER}: no-TOTP users must not continue to the default vault route.
-    const ebvaultMandatoryLoginRedirect =
+    const ebcofreMandatoryLoginRedirect =
       (globalThis as {{ EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string }})
         .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT;
-    if (ebvaultMandatoryLoginRedirect) {{
+    if (ebcofreMandatoryLoginRedirect) {{
       delete (globalThis as {{ EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string }})
         .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT;
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] navigating to mandatory setup instead of default vault route", {{
-        target: ebvaultMandatoryLoginRedirect,
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] navigating to mandatory setup instead of default vault route", {{
+        target: ebcofreMandatoryLoginRedirect,
       }});
       await new Promise((resolve) => setTimeout(resolve, 0));
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] deferred mandatory setup navigation starting", {{
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] deferred mandatory setup navigation starting", {{
         currentUrl: this.router.url,
-        target: ebvaultMandatoryLoginRedirect,
+        target: ebcofreMandatoryLoginRedirect,
       }});
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault SETUP ROUTE] setup navigation promise created", {{
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre SETUP ROUTE] setup navigation promise created", {{
         currentUrl: this.router.url,
-        target: ebvaultMandatoryLoginRedirect,
+        target: ebcofreMandatoryLoginRedirect,
       }});
-      let ebvaultMandatorySetupNavigationSettled = false;
-      const ebvaultMandatorySetupNavigationPendingTimer = setTimeout(() => {{
-        if (ebvaultMandatorySetupNavigationSettled) {{
+      let ebcofreMandatorySetupNavigationSettled = false;
+      const ebcofreMandatorySetupNavigationPendingTimer = setTimeout(() => {{
+        if (ebcofreMandatorySetupNavigationSettled) {{
           return;
         }}
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault SETUP ROUTE] setup navigation still pending after 2s", {{
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre SETUP ROUTE] setup navigation still pending after 2s", {{
           currentUrl: this.router.url,
           routerStateUrl: this.router.routerState?.snapshot?.url,
-          target: ebvaultMandatoryLoginRedirect,
+          target: ebcofreMandatoryLoginRedirect,
         }});
       }}, 2000);
       try {{
-        const ebvaultMandatorySetupNavigationResult = await this.router.navigateByUrl(
-          ebvaultMandatoryLoginRedirect,
+        const ebcofreMandatorySetupNavigationResult = await this.router.navigateByUrl(
+          ebcofreMandatoryLoginRedirect,
           {{ replaceUrl: true }},
         );
-        ebvaultMandatorySetupNavigationSettled = true;
-        clearTimeout(ebvaultMandatorySetupNavigationPendingTimer);
+        ebcofreMandatorySetupNavigationSettled = true;
+        clearTimeout(ebcofreMandatorySetupNavigationPendingTimer);
         (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log(
-          ebvaultMandatorySetupNavigationResult
-            ? "[EBvault SETUP ROUTE] setup navigation promise resolved true"
-            : "[EBvault SETUP ROUTE] setup navigation promise resolved false",
+          ebcofreMandatorySetupNavigationResult
+            ? "[EBcofre SETUP ROUTE] setup navigation promise resolved true"
+            : "[EBcofre SETUP ROUTE] setup navigation promise resolved false",
           {{
             currentUrl: this.router.url,
             routerStateUrl: this.router.routerState?.snapshot?.url,
-            target: ebvaultMandatoryLoginRedirect,
+            target: ebcofreMandatoryLoginRedirect,
           }},
         );
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] mandatory setup navigation completed", {{
-          result: ebvaultMandatorySetupNavigationResult,
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] mandatory setup navigation completed", {{
+          result: ebcofreMandatorySetupNavigationResult,
           currentUrl: this.router.url,
         }});
       }} catch (error: unknown) {{
-        ebvaultMandatorySetupNavigationSettled = true;
-        clearTimeout(ebvaultMandatorySetupNavigationPendingTimer);
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault SETUP ROUTE] setup navigation promise rejected", error);
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] mandatory setup navigation failed", error);
+        ebcofreMandatorySetupNavigationSettled = true;
+        clearTimeout(ebcofreMandatorySetupNavigationPendingTimer);
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre SETUP ROUTE] setup navigation promise rejected", error);
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] mandatory setup navigation failed", error);
         throw error;
       }}
       return;
     }}"""
 
 OLD_LOGIN_REDIRECT_NAVIGATION = (
-    "      await this.router.navigateByUrl(ebvaultMandatoryLoginRedirect, { replaceUrl: true });"
+    "      await this.router.navigateByUrl(ebcofreMandatoryLoginRedirect, { replaceUrl: true });"
 )
 
 DEFERRED_LOGIN_REDIRECT_NAVIGATION = """      await new Promise((resolve) => setTimeout(resolve, 0));
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] deferred mandatory setup navigation starting", {
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] deferred mandatory setup navigation starting", {
         currentUrl: this.router.url,
-        target: ebvaultMandatoryLoginRedirect,
+        target: ebcofreMandatoryLoginRedirect,
       });
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault SETUP ROUTE] setup navigation promise created", {
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre SETUP ROUTE] setup navigation promise created", {
         currentUrl: this.router.url,
-        target: ebvaultMandatoryLoginRedirect,
+        target: ebcofreMandatoryLoginRedirect,
       });
-      let ebvaultMandatorySetupNavigationSettled = false;
-      const ebvaultMandatorySetupNavigationPendingTimer = setTimeout(() => {
-        if (ebvaultMandatorySetupNavigationSettled) {
+      let ebcofreMandatorySetupNavigationSettled = false;
+      const ebcofreMandatorySetupNavigationPendingTimer = setTimeout(() => {
+        if (ebcofreMandatorySetupNavigationSettled) {
           return;
         }
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault SETUP ROUTE] setup navigation still pending after 2s", {
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre SETUP ROUTE] setup navigation still pending after 2s", {
           currentUrl: this.router.url,
           routerStateUrl: this.router.routerState?.snapshot?.url,
-          target: ebvaultMandatoryLoginRedirect,
+          target: ebcofreMandatoryLoginRedirect,
         });
       }, 2000);
       try {
-        const ebvaultMandatorySetupNavigationResult = await this.router.navigateByUrl(
-          ebvaultMandatoryLoginRedirect,
+        const ebcofreMandatorySetupNavigationResult = await this.router.navigateByUrl(
+          ebcofreMandatoryLoginRedirect,
           { replaceUrl: true },
         );
-        ebvaultMandatorySetupNavigationSettled = true;
-        clearTimeout(ebvaultMandatorySetupNavigationPendingTimer);
+        ebcofreMandatorySetupNavigationSettled = true;
+        clearTimeout(ebcofreMandatorySetupNavigationPendingTimer);
         (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log(
-          ebvaultMandatorySetupNavigationResult
-            ? "[EBvault SETUP ROUTE] setup navigation promise resolved true"
-            : "[EBvault SETUP ROUTE] setup navigation promise resolved false",
+          ebcofreMandatorySetupNavigationResult
+            ? "[EBcofre SETUP ROUTE] setup navigation promise resolved true"
+            : "[EBcofre SETUP ROUTE] setup navigation promise resolved false",
           {
             currentUrl: this.router.url,
             routerStateUrl: this.router.routerState?.snapshot?.url,
-            target: ebvaultMandatoryLoginRedirect,
+            target: ebcofreMandatoryLoginRedirect,
           },
         );
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] mandatory setup navigation completed", {
-          result: ebvaultMandatorySetupNavigationResult,
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] mandatory setup navigation completed", {
+          result: ebcofreMandatorySetupNavigationResult,
           currentUrl: this.router.url,
         });
       } catch (error: unknown) {
-        ebvaultMandatorySetupNavigationSettled = true;
-        clearTimeout(ebvaultMandatorySetupNavigationPendingTimer);
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault SETUP ROUTE] setup navigation promise rejected", error);
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] mandatory setup navigation failed", error);
+        ebcofreMandatorySetupNavigationSettled = true;
+        clearTimeout(ebcofreMandatorySetupNavigationPendingTimer);
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre SETUP ROUTE] setup navigation promise rejected", error);
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] mandatory setup navigation failed", error);
         throw error;
       }"""
 
 DEEP_LINK_AUTH_UNLOCKED_ANCHOR = "    if (authStatus === AuthenticationStatus.Unlocked) {\n"
 DEEP_LINK_SUPPRESS_BLOCK = f"""{DEEP_LINK_AUTH_UNLOCKED_ANCHOR}      // {DEEP_LINK_MARKER}: no-TOTP users must not replay a saved /vault destination.
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault DEEP LINK] start", {{ requestedUrl: routerState.url }});
-      const ebvaultMandatoryGateDecision =
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre DEEP LINK] start", {{ requestedUrl: routerState.url }});
+      const ebcofreMandatoryGateDecision =
         (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_DECISION?: {{ kind?: string }} }})
           .EBVAULT_MANDATORY_2FA_GATE_DECISION;
-      const ebvaultMandatoryLoginRedirect =
+      const ebcofreMandatoryLoginRedirect =
         (globalThis as {{ EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string }})
           .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT;
-      const ebvaultMandatorySetupRequired =
-        ebvaultMandatoryGateDecision?.kind === "setup_required" ||
-        ebvaultMandatoryLoginRedirect === "/settings/security/two-factor";
-      if (ebvaultMandatorySetupRequired) {{
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault DEEP LINK] mandatory setup route detected", {{
+      const ebcofreMandatorySetupRequired =
+        ebcofreMandatoryGateDecision?.kind === "setup_required" ||
+        ebcofreMandatoryLoginRedirect === "/settings/security/two-factor";
+      if (ebcofreMandatorySetupRequired) {{
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre DEEP LINK] mandatory setup route detected", {{
           requestedUrl: routerState.url,
-          gateDecision: ebvaultMandatoryGateDecision?.kind,
+          gateDecision: ebcofreMandatoryGateDecision?.kind,
         }});
-        const ebvaultDiscardedPreLoginUrl = await routerService.getAndClearLoginRedirectUrl();
-        const ebvaultRequestedPath = routerState.url.split("?")[0].split("#")[0];
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault DEEP LINK] stale redirect value", ebvaultDiscardedPreLoginUrl);
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault DEEP LINK] clearing stale persisted redirect");
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault DEBUG] /vault navigation source suppressed: deepLinkGuard persisted login redirect", {{
+        const ebcofreDiscardedPreLoginUrl = await routerService.getAndClearLoginRedirectUrl();
+        const ebcofreRequestedPath = routerState.url.split("?")[0].split("#")[0];
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre DEEP LINK] stale redirect value", ebcofreDiscardedPreLoginUrl);
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre DEEP LINK] clearing stale persisted redirect");
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre DEBUG] /vault navigation source suppressed: deepLinkGuard persisted login redirect", {{
           requestedUrl: routerState.url,
-          discardedUrl: ebvaultDiscardedPreLoginUrl,
+          discardedUrl: ebcofreDiscardedPreLoginUrl,
         }});
         if (
-          ebvaultRequestedPath === "/settings/security/two-factor" ||
-          ebvaultRequestedPath.startsWith("/settings/security/two-factor/")
+          ebcofreRequestedPath === "/settings/security/two-factor" ||
+          ebcofreRequestedPath.startsWith("/settings/security/two-factor/")
         ) {{
-          (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault 2FA SETUP] setup route allowed after suppressing stale protected destination");
-          (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault DEEP LINK] returning true immediately for mandatory setup");
+          (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre 2FA SETUP] setup route allowed after suppressing stale protected destination");
+          (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre DEEP LINK] returning true immediately for mandatory setup");
           return true;
         }}
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault 2FA SETUP] deep-link protected destination redirected back to setup", {{
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre 2FA SETUP] deep-link protected destination redirected back to setup", {{
           requestedUrl: routerState.url,
           target: "/settings/security/two-factor",
         }});
         return router.createUrlTree(["/settings/security/two-factor"]);
       }}
-      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault DEEP LINK] falling through to upstream behavior", {{
+      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre DEEP LINK] falling through to upstream behavior", {{
         requestedUrl: routerState.url,
       }});
 """
 
 AUTH_GUARD_STATUS_ANCHOR = "  const authStatus = await authService.getAuthStatus();\n\n"
 AUTH_GUARD_SETUP_BYPASS_BLOCK = f"""  let authStatus = await authService.getAuthStatus();
-  console.log("[EBvault REFRESH] restored auth status", {{
+  console.log("[EBcofre REFRESH] restored auth status", {{
     source: "auth.guard",
     requestedUrl: routerState.url,
     authStatus,
   }});
 
-  const ebvaultRequestedPath = routerState.url.split("?")[0].split("#")[0];
-  const ebvaultIsProtectedStartupRoute =
-    !ebvaultRequestedPath.startsWith("/login") &&
-    !ebvaultRequestedPath.startsWith("/2fa") &&
-    ebvaultRequestedPath !== "/lock" &&
-    !ebvaultRequestedPath.startsWith("/lock/");
+  const ebcofreRequestedPath = routerState.url.split("?")[0].split("#")[0];
+  const ebcofreIsProtectedStartupRoute =
+    !ebcofreRequestedPath.startsWith("/login") &&
+    !ebcofreRequestedPath.startsWith("/2fa") &&
+    ebcofreRequestedPath !== "/lock" &&
+    !ebcofreRequestedPath.startsWith("/lock/");
   if (
     (authStatus === AuthenticationStatus.LoggedOut || authStatus === AuthenticationStatus.Locked) &&
-    ebvaultIsProtectedStartupRoute
+    ebcofreIsProtectedStartupRoute
   ) {{
-    for (let ebvaultRefreshAttempt = 1; ebvaultRefreshAttempt <= 10; ebvaultRefreshAttempt++) {{
+    for (let ebcofreRefreshAttempt = 1; ebcofreRefreshAttempt <= 10; ebcofreRefreshAttempt++) {{
       await new Promise((resolve) => setTimeout(resolve, 100));
       authStatus = await authService.getAuthStatus();
-      console.log("[EBvault REFRESH] restored auth status retry", {{
+      console.log("[EBcofre REFRESH] restored auth status retry", {{
         source: "auth.guard",
         requestedUrl: routerState.url,
-        attempt: ebvaultRefreshAttempt,
+        attempt: ebcofreRefreshAttempt,
         authStatus,
       }});
       if (authStatus !== AuthenticationStatus.LoggedOut && authStatus !== AuthenticationStatus.Locked) {{
@@ -265,37 +265,37 @@ AUTH_GUARD_SETUP_BYPASS_BLOCK = f"""  let authStatus = await authService.getAuth
     }}
   }}
   if (authStatus === AuthenticationStatus.LoggedOut) {{
-    console.log("[EBvault REFRESH] redirect to /login source auth.guard/loggedOut", {{
+    console.log("[EBcofre REFRESH] redirect to /login source auth.guard/loggedOut", {{
       requestedUrl: routerState.url,
     }});
   }}
-  if (authStatus === AuthenticationStatus.Locked && ebvaultIsProtectedStartupRoute) {{
-    console.log("[EBvault REFRESH] redirect to /login source auth.guard/locked", {{
+  if (authStatus === AuthenticationStatus.Locked && ebcofreIsProtectedStartupRoute) {{
+    console.log("[EBcofre REFRESH] redirect to /login source auth.guard/locked", {{
       requestedUrl: routerState.url,
     }});
   }}
 
   // {AUTH_GUARD_MARKER}: the restricted setup route must not wait on normal vault shell state.
-  const ebvaultMandatoryGateDecision =
+  const ebcofreMandatoryGateDecision =
     (globalThis as {{ EBVAULT_MANDATORY_2FA_GATE_DECISION?: {{ kind?: string }} }})
       .EBVAULT_MANDATORY_2FA_GATE_DECISION;
-  const ebvaultMandatoryLoginRedirect =
+  const ebcofreMandatoryLoginRedirect =
     (globalThis as {{ EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string }})
       .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT;
-  const ebvaultMandatorySetupRequired =
-    ebvaultMandatoryGateDecision?.kind === "setup_required" ||
-    ebvaultMandatoryLoginRedirect === "/settings/security/two-factor";
-  const ebvaultMandatorySetupRoute =
-    ebvaultRequestedPath === "/settings/security/two-factor" ||
-    ebvaultRequestedPath.startsWith("/settings/security/two-factor/");
+  const ebcofreMandatorySetupRequired =
+    ebcofreMandatoryGateDecision?.kind === "setup_required" ||
+    ebcofreMandatoryLoginRedirect === "/settings/security/two-factor";
+  const ebcofreMandatorySetupRoute =
+    ebcofreRequestedPath === "/settings/security/two-factor" ||
+    ebcofreRequestedPath.startsWith("/settings/security/two-factor/");
   if (
     authStatus !== AuthenticationStatus.LoggedOut &&
-    ebvaultMandatorySetupRequired &&
-    ebvaultMandatorySetupRoute
+    ebcofreMandatorySetupRequired &&
+    ebcofreMandatorySetupRoute
   ) {{
-    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault AUTH GUARD] mandatory setup route allowed immediately", {{
+    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre AUTH GUARD] mandatory setup route allowed immediately", {{
       requestedUrl: routerState.url,
-      gateDecision: ebvaultMandatoryGateDecision?.kind,
+      gateDecision: ebcofreMandatoryGateDecision?.kind,
     }});
     return true;
   }}
@@ -338,11 +338,11 @@ def remove_legacy_early_return(run_method: str) -> str:
 
     return_index = run_method.find("    return;")
     if return_index == -1:
-        raise RuntimeError("legacy EBvault bootstrap skip marker found but return statement was not found")
+        raise RuntimeError("legacy EBcofre bootstrap skip marker found but return statement was not found")
 
     after_return = run_method.find("\n", return_index)
     if after_return == -1:
-        raise RuntimeError("legacy EBvault bootstrap skip return is malformed")
+        raise RuntimeError("legacy EBcofre bootstrap skip return is malformed")
 
     patched_body = PATCHED_PREFIX.replace(RUN_SIGNATURE + "\n", "")
     return RUN_SIGNATURE + "\n" + patched_body + run_method[after_return + 1 :]
@@ -412,7 +412,7 @@ def ensure_completion_log(run_method: str) -> str:
 
 
 def upgrade_regeneration_logging(run_method: str) -> str:
-    if "[EBvault LOGIN] before key regeneration" in run_method:
+    if "[EBcofre LOGIN] before key regeneration" in run_method:
         return run_method
     if REGEN_LINE not in run_method:
         return run_method
@@ -423,27 +423,27 @@ def upgrade_gate_wait(run_method: str) -> str:
     if "EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT" in run_method:
         return run_method
 
-    anchor = '      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault 2FA] sync deferred without throwing during login bootstrap");'
+    anchor = '      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre 2FA] sync deferred without throwing during login bootstrap");'
     if anchor not in run_method:
         return run_method
 
-    gate_wait = """      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] mandatory no-TOTP gate check starting before default navigation");
-      const ebvaultMandatoryGatePromise =
+    gate_wait = """      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] mandatory no-TOTP gate check starting before default navigation");
+      const ebcofreMandatoryGatePromise =
         (globalThis as { EBVAULT_MANDATORY_2FA_GATE_PROMISE?: Promise<{ kind?: string }> })
           .EBVAULT_MANDATORY_2FA_GATE_PROMISE;
-      const ebvaultMandatoryGateDecision =
-        ebvaultMandatoryGatePromise != null
-          ? await ebvaultMandatoryGatePromise
+      const ebcofreMandatoryGateDecision =
+        ebcofreMandatoryGatePromise != null
+          ? await ebcofreMandatoryGatePromise
           : (globalThis as { EBVAULT_MANDATORY_2FA_GATE_DECISION?: { kind?: string } })
               .EBVAULT_MANDATORY_2FA_GATE_DECISION;
-      if (ebvaultMandatoryGateDecision?.kind === "setup_required") {
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] mandatory gate result: setup required");
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] default /vault navigation skipped because mandatory setup is required");
+      if (ebcofreMandatoryGateDecision?.kind === "setup_required") {
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] mandatory gate result: setup required");
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] default /vault navigation skipped because mandatory setup is required");
         (globalThis as { EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT?: string })
           .EBVAULT_MANDATORY_2FA_LOGIN_REDIRECT = "/settings/security/two-factor";
       } else {
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] mandatory gate result: " + (ebvaultMandatoryGateDecision?.kind ?? "unknown"));
-        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault LOGIN] continuing original Web Vault login flow");
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] mandatory gate result: " + (ebcofreMandatoryGateDecision?.kind ?? "unknown"));
+        (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre LOGIN] continuing original Web Vault login flow");
       }"""
     return run_method.replace(anchor, f"{anchor}\n{gate_wait}", 1)
 

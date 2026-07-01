@@ -1,6 +1,6 @@
 # Deprecated: use Python scripts in `scripts/` instead
 
-These unified diff patches are **no longer applied** during the EBvault build.
+These unified diff patches are **no longer applied** during the EBcofre build.
 
 They failed frequently when the upstream Bitwarden clients commit changed line
 context (malformed hunks, reversed patches, `.rej` reject files).

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Improve EBvault contrast for light nudge cards."""
+"""Improve EBcofre contrast for light nudge cards."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-LEGACY_MARKER = "EBvault readable soft callout foreground"
-MARKER = "EBvault readable light nudge card"
+LEGACY_MARKER = "EBcofre readable soft callout foreground"
+MARKER = "EBcofre readable light nudge card"
 READABLE_LIGHT_CARD_TEXT = "!tw-text-gray-900"
 
 
@@ -25,7 +25,7 @@ def restore_callout_if_needed(clients_dir: Path) -> None:
       case "danger":
         return "!tw-text-fg-danger-strong";
       case "info":
-        // {LEGACY_MARKER}: soft EBvault cards use a light background, so use dark text.
+        // {LEGACY_MARKER}: soft EBcofre cards use a light background, so use dark text.
         return "!tw-text-fg-heading";
       case "success":
         return "!tw-text-fg-heading";
@@ -65,16 +65,16 @@ def replace_once(path: Path, old: str, new: str, label: str) -> None:
         updated = text.replace("!tw-text-green-950", READABLE_LIGHT_CARD_TEXT)
         if updated != text:
             path.write_text(updated, encoding="utf-8")
-            print(f"  updated EBvault {label} contrast to dark readable text")
+            print(f"  updated EBcofre {label} contrast to dark readable text")
             return
-        print(f"  EBvault contrast patch already present in {label}")
+        print(f"  EBcofre contrast patch already present in {label}")
         return
 
     if old not in text:
         raise SystemExit(f"ERROR: expected {label} block not found: {path}")
 
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
-    print(f"  improved EBvault {label} contrast")
+    print(f"  improved EBcofre {label} contrast")
 
 
 def patch_generator_nudge(clients_dir: Path) -> None:
@@ -83,7 +83,7 @@ def patch_generator_nudge(clients_dir: Path) -> None:
     new = (
         f'  <div class="tw-mb-4 [&_aside]:{READABLE_LIGHT_CARD_TEXT} '
         f'[&_header]:{READABLE_LIGHT_CARD_TEXT} [&_p]:{READABLE_LIGHT_CARD_TEXT} '
-        f'[&_button]:{READABLE_LIGHT_CARD_TEXT}" data-ebvault-contrast="{MARKER}">'
+        f'[&_button]:{READABLE_LIGHT_CARD_TEXT}" data-ebcofre-contrast="{MARKER}">'
     )
     replace_once(path, old, new, "generator nudge")
 
@@ -94,7 +94,7 @@ def patch_new_item_nudge(clients_dir: Path) -> None:
     new = (
         f'  <bit-callout class="[&_aside]:{READABLE_LIGHT_CARD_TEXT} '
         f'[&_header]:{READABLE_LIGHT_CARD_TEXT} [&_a]:{READABLE_LIGHT_CARD_TEXT}" '
-        f'data-ebvault-contrast="{MARKER}" '
+        f'data-ebcofre-contrast="{MARKER}" '
         f'[title]="nudgeTitle" [icon]="null" (dismiss)="dismissNewItemSpotlight()">'
     )
     replace_once(path, old, new, "new-item nudge")
@@ -102,7 +102,7 @@ def patch_new_item_nudge(clients_dir: Path) -> None:
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("usage: apply-ebvault-contrast-patch.py <clients-dir>", file=sys.stderr)
+        print("usage: apply-ebcofre-contrast-patch.py <clients-dir>", file=sys.stderr)
         return 2
 
     clients_dir = Path(sys.argv[1])

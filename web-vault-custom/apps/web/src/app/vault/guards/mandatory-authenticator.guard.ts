@@ -35,7 +35,7 @@ function evaluateMandatoryAuthenticatorAccess(url: string): boolean | UrlTree {
   const gatePhase = getMandatoryGatePhase();
   const mode = getMandatory2faMode();
 
-  mandatory2faDebugLog("[EBvault GUARD] mandatoryAuthenticatorAccess start", {
+  mandatory2faDebugLog("[EBcofre GUARD] mandatoryAuthenticatorAccess start", {
     targetUrl: url,
     gatePhase,
     state,
@@ -56,15 +56,15 @@ function evaluateMandatoryAuthenticatorAccess(url: string): boolean | UrlTree {
   }
 
   if (isMandatorySetupAllowedUrl(url)) {
-    mandatory2faDebugLog("[EBvault 2FA SETUP] allowing mandatory setup route", {
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] allowing mandatory setup route", {
       url,
       gatePhase,
       mandatorySetupRequired: state.mandatorySetupRequired,
     });
-    mandatory2faDebugLog("[EBvault 2FA SETUP] /settings parent guard allow setup route");
-    mandatory2faDebugLog("[EBvault 2FA SETUP] /settings/security parent guard allow setup route");
-    mandatory2faDebugLog("[EBvault 2FA SETUP] /settings/security/two-factor route allowed");
-    mandatory2faDebugLog("[EBvault 2FA SETUP] setup route allowed");
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] /settings parent guard allow setup route");
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] /settings/security parent guard allow setup route");
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] /settings/security/two-factor route allowed");
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] setup route allowed");
     return allowTrue(router, url, "mandatory setup route");
   }
 
@@ -86,7 +86,7 @@ function evaluateMandatoryAuthenticatorAccess(url: string): boolean | UrlTree {
 
   if (state.mandatorySetupRequired) {
     mandatory2faLog("route blocked - redirect to mandatory 2FA setup", { url });
-    mandatory2faDebugLog("[EBvault 2FA SETUP] setup navigation requested", {
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] setup navigation requested", {
       route: url,
       target: MANDATORY_TWO_FACTOR_SETUP_URL,
     });
@@ -96,7 +96,7 @@ function evaluateMandatoryAuthenticatorAccess(url: string): boolean | UrlTree {
   }
 
   if (gatePhase === "pending" && !state.currentAuthFlowPassedTotp) {
-    mandatory2faDebugLog("[EBvault 2FA SETUP] blocked navigation away from setup until Authenticator is configured", {
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] blocked navigation away from setup until Authenticator is configured", {
       url,
       gatePhase,
       state,
@@ -121,9 +121,9 @@ function evaluateMandatoryAuthenticatorAccess(url: string): boolean | UrlTree {
 }
 
 export const mandatoryAuthenticatorGuard: CanActivateChildFn = (_route, state) => {
-  mandatory2faDebugLog("[EBvault OUTER GUARD] mandatoryAuthenticatorGuard entered", { url: state.url });
+  mandatory2faDebugLog("[EBcofre OUTER GUARD] mandatoryAuthenticatorGuard entered", { url: state.url });
   const result = evaluateMandatoryAuthenticatorAccess(state.url);
-  mandatory2faDebugLog("[EBvault OUTER GUARD] mandatoryAuthenticatorGuard returning to Angular", {
+  mandatory2faDebugLog("[EBcofre OUTER GUARD] mandatoryAuthenticatorGuard returning to Angular", {
     url: state.url,
     ...describeGuardResult(result),
   });
@@ -131,11 +131,11 @@ export const mandatoryAuthenticatorGuard: CanActivateChildFn = (_route, state) =
 };
 
 export const mandatoryAuthenticatorActivate: CanActivateFn = (_route, state) => {
-  mandatory2faDebugLog("[EBvault OUTER GUARD] mandatoryAuthenticatorActivate entered", {
+  mandatory2faDebugLog("[EBcofre OUTER GUARD] mandatoryAuthenticatorActivate entered", {
     url: state.url,
   });
   const result = evaluateMandatoryAuthenticatorAccess(state.url);
-  mandatory2faDebugLog("[EBvault OUTER GUARD] mandatoryAuthenticatorActivate returning to Angular", {
+  mandatory2faDebugLog("[EBcofre OUTER GUARD] mandatoryAuthenticatorActivate returning to Angular", {
     url: state.url,
     ...describeGuardResult(result),
   });
@@ -149,15 +149,15 @@ export const mandatoryFullReloginLockGuard: CanActivateFn = (_route, state) => {
 
   const messagingService = inject(MessagingService);
   resetCurrentAuthFlowTotp("lock route requires full re-login");
-  mandatory2faDebugLog("[EBvault LOCK] lock requested", { route: state.url });
-  mandatory2faDebugLog("[EBvault LOCK] current TOTP flow reset");
-  mandatory2faDebugLog("[EBvault LOCK] full TOTP re-auth required", { route: state.url });
-  mandatory2faDebugLog("[EBvault LOCK] redirecting to TOTP challenge", {
+  mandatory2faDebugLog("[EBcofre LOCK] lock requested", { route: state.url });
+  mandatory2faDebugLog("[EBcofre LOCK] current TOTP flow reset");
+  mandatory2faDebugLog("[EBcofre LOCK] full TOTP re-auth required", { route: state.url });
+  mandatory2faDebugLog("[EBcofre LOCK] redirecting to TOTP challenge", {
     route: state.url,
     target: "/login",
   });
-  mandatory2faDebugLog("[EBvault LOCK] stale /lock returnUrl cleared");
-  mandatory2faDebugLog("[EBvault LOCK] no local unlock bypass allowed");
+  mandatory2faDebugLog("[EBcofre LOCK] stale /lock returnUrl cleared");
+  mandatory2faDebugLog("[EBcofre LOCK] no local unlock bypass allowed");
 
   if (!lockReloginLogoutRequested) {
     lockReloginLogoutRequested = true;
@@ -173,7 +173,7 @@ export const mandatoryFullReloginLockGuard: CanActivateFn = (_route, state) => {
 export { MANDATORY_TWO_FACTOR_SETUP_URL };
 
 function allowTrue(router: Router, url: string, reason: string): true {
-  mandatory2faDebugLog("[EBvault GUARD] mandatoryAuthenticatorAccess allow", {
+  mandatory2faDebugLog("[EBcofre GUARD] mandatoryAuthenticatorAccess allow", {
     targetUrl: url,
     reason,
   });
@@ -184,7 +184,7 @@ function allowTrue(router: Router, url: string, reason: string): true {
 function logGuardState(source: string, router: Router, stateUrl: string): void {
   const state = getMandatory2faState();
   const windowRef = typeof window === "undefined" ? null : window;
-  mandatory2faDebugLog("[EBvault ROUTER DEBUG]", {
+  mandatory2faDebugLog("[EBcofre ROUTER DEBUG]", {
     source,
     routerUrl: router.url,
     stateUrl,
@@ -208,19 +208,19 @@ function logGuardReturn(
     finalUrl: result === true ? url : result.toString?.(),
   };
   if (result === false) {
-    mandatory2faDebugLog("[EBvault GUARD] mandatoryAuthenticatorAccess block", {
+    mandatory2faDebugLog("[EBcofre GUARD] mandatoryAuthenticatorAccess block", {
       targetUrl: url,
       reason,
     });
   } else if (result !== true) {
-    mandatory2faDebugLog("[EBvault GUARD] mandatoryAuthenticatorAccess redirect", {
+    mandatory2faDebugLog("[EBcofre GUARD] mandatoryAuthenticatorAccess redirect", {
       targetUrl: url,
       redirectTo: result.toString?.(),
       reason,
     });
   }
   mandatory2faNavLog(`mandatoryAuthenticatorGuard/${reason}`, detail);
-  mandatory2faDebugLog("[EBvault GUARD TRACE] returning to Angular", {
+  mandatory2faDebugLog("[EBcofre GUARD TRACE] returning to Angular", {
     url,
     reason,
     ...describeGuardResult(result),

@@ -6,9 +6,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-MARKER = "EBvault login 2FA submit error handling"
-IMPORT_MARKER = "EBvault login 2FA ErrorResponse import"
-REMEMBER_MARKER = "EBvault remember device disabled"
+MARKER = "EBcofre login 2FA submit error handling"
+IMPORT_MARKER = "EBcofre login 2FA ErrorResponse import"
+REMEMBER_MARKER = "EBcofre remember device disabled"
 
 ERROR_RESPONSE_IMPORT = (
     'import { ErrorResponse } from "@bitwarden/common/models/response/error.response";\n'
@@ -91,10 +91,10 @@ def apply_remember_device_ts_patch(path: Path) -> bool:
             )
         text = text.replace(
             remember_line,
-            f"""    // {REMEMBER_MARKER}: EBvault requires TOTP every login.
+            f"""    // {REMEMBER_MARKER}: EBcofre requires TOTP every login.
     void remember;
     const rememberValue = false;
-    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault 2FA] remember device option disabled");""",
+    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre 2FA] remember device option disabled");""",
             1,
         )
 

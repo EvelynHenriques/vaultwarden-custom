@@ -50,7 +50,7 @@ $OverlayFiles = @(
     "apps/web/src/app/admin-console/organizations/layouts/organization-layout.component.html"
 )
 
-Write-Host "Applying EBvault web-vault customizations from $CustomDir"
+Write-Host "Applying EBcofre web-vault customizations from $CustomDir"
 
 foreach ($relative in $OverlayFiles) {
     $source = Join-Path $CustomDir $relative
@@ -73,19 +73,19 @@ New-Item -ItemType Directory -Force -Path (Split-Path $shieldLogoDestination -Pa
 Copy-Item $shieldLogoSource $shieldLogoDestination -Force
 Write-Host "  updated apps/web/src/images/icons/logo-shield.svg"
 
-$ebvaultLogoSource = Join-Path $CustomDir "apps\web\src\images\icons\logo-ebvault.svg"
-$ebvaultLogoDestination = Join-Path $ClientsDir "apps\web\src\images\icons\logo-ebvault.svg"
-if (-not (Test-Path $ebvaultLogoSource)) {
-    throw "Missing overlay file: apps/web/src/images/icons/logo-ebvault.svg"
+$ebcofreLogoSource = Join-Path $CustomDir "apps\web\src\images\icons\logo-ebcofre.svg"
+$ebcofreLogoDestination = Join-Path $ClientsDir "apps\web\src\images\icons\logo-ebcofre.svg"
+if (-not (Test-Path $ebcofreLogoSource)) {
+    throw "Missing overlay file: apps/web/src/images/icons/logo-ebcofre.svg"
 }
-New-Item -ItemType Directory -Force -Path (Split-Path $ebvaultLogoDestination -Parent) | Out-Null
-Copy-Item $ebvaultLogoSource $ebvaultLogoDestination -Force
-Write-Host "  updated apps/web/src/images/icons/logo-ebvault.svg"
+New-Item -ItemType Directory -Force -Path (Split-Path $ebcofreLogoDestination -Parent) | Out-Null
+Copy-Item $ebcofreLogoSource $ebcofreLogoDestination -Force
+Write-Host "  updated apps/web/src/images/icons/logo-ebcofre.svg"
 
-$serverLogo = Join-Path (Join-Path $ScriptDir "..") "src\static\images\logo-ebvault.svg"
+$serverLogo = Join-Path (Join-Path $ScriptDir "..") "src\static\images\logo-ebcofre.svg"
 New-Item -ItemType Directory -Force -Path (Split-Path $serverLogo -Parent) | Out-Null
-Copy-Item $ebvaultLogoSource $serverLogo -Force
-Write-Host "  updated src/static/images/logo-ebvault.svg"
+Copy-Item $ebcofreLogoSource $serverLogo -Force
+Write-Host "  updated src/static/images/logo-ebcofre.svg"
 
 $serverShieldLogo = Join-Path (Join-Path $ScriptDir "..") "src\static\images\logo-shield.svg"
 New-Item -ItemType Directory -Force -Path (Split-Path $serverShieldLogo -Parent) | Out-Null
@@ -100,7 +100,7 @@ foreach ($candidate in @("python3", "python", "py")) {
     }
 }
 if (-not $python) {
-    throw "python3 or python is required to apply EBvault routing/favicon patches"
+    throw "python3 or python is required to apply EBcofre routing/favicon patches"
 }
 
 $patcher = Join-Path $ScriptDir "apply-web-vault-source-patches.py"

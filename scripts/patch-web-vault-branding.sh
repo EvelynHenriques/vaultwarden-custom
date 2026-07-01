@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Replace user-visible Bitwarden / Vaultwarden / legacy branding with EBvault.
+# Replace user-visible Bitwarden / Vaultwarden / legacy branding with EBcofre.
 # Preserves bitwarden.com URLs and package identifiers.
 set -euo pipefail
 
@@ -18,32 +18,32 @@ patch_file() {
     -e 's/vault\.bitwarden\.com/\x01VAULTBW\x01/g' \
     -e 's/com\.8bit\.bitwarden/\x01BWPKG\x01/g' \
     -e 's/github\.com\/bitwarden/\x01GHBW\x01/g' \
-    -e 's/Mais produtos do Bitwarden/Mais produtos do EBvault/g' \
-    -e 's/Mais do Bitwarden/Mais do EBvault/g' \
-    -e 's/Bitwarden Authenticator/EBvault Authenticator/g' \
-    -e 's/Autenticador EB Vault/Autenticador EBvault/g' \
-    -e 's/Autenticador Cofre/Autenticador EBvault/g' \
-    -e 's/Bitwarden Inc\./EBvault/g' \
-    -e 's/Bitwarden Inc/EBvault/g' \
+    -e 's/Mais produtos do Bitwarden/Mais produtos do EBcofre/g' \
+    -e 's/Mais do Bitwarden/Mais do EBcofre/g' \
+    -e 's/Bitwarden Authenticator/EBcofre Authenticator/g' \
+    -e 's/Autenticador EB Vault/Autenticador EBcofre/g' \
+    -e 's/Autenticador Cofre/Autenticador EBcofre/g' \
+    -e 's/Bitwarden Inc\./EBcofre/g' \
+    -e 's/Bitwarden Inc/EBcofre/g' \
     -e 's/"newToBitwarden": "[^"]*"/"newToBitwarden": "Novo?"/g' \
-    -e 's/"logInToBitwarden": "[^"]*"/"logInToBitwarden": "Conecte-se ao EBvault"/g' \
-    -e 's/"bitWebVault": "[^"]*"/"bitWebVault": "EBvault"/g' \
-    -e 's/"webVault": "[^"]*"/"webVault": "EBvault"/g' \
-    -e 's/"appLogoLabel": "[^"]*"/"appLogoLabel": "EBvault"/g' \
-    -e 's/"passwordManager": "[^"]*"/"passwordManager": "EBvault"/g' \
+    -e 's/"logInToBitwarden": "[^"]*"/"logInToBitwarden": "Conecte-se ao EBcofre"/g' \
+    -e 's/"bitWebVault": "[^"]*"/"bitWebVault": "EBcofre"/g' \
+    -e 's/"webVault": "[^"]*"/"webVault": "EBcofre"/g' \
+    -e 's/"appLogoLabel": "[^"]*"/"appLogoLabel": "EBcofre"/g' \
+    -e 's/"passwordManager": "[^"]*"/"passwordManager": "EBcofre"/g' \
     -e 's/Novo no Bitwarden?/Novo?/g' \
     -e 's/New to Bitwarden?/New?/g' \
-    -e 's/Novo no EBvault?/Novo?/g' \
-    -e 's/New to EBvault?/New?/g' \
-    -e 's/Conecte-se ao Bitwarden/Conecte-se ao EBvault/g' \
+    -e 's/Novo no EBcofre?/Novo?/g' \
+    -e 's/New to EBcofre?/New?/g' \
+    -e 's/Conecte-se ao Bitwarden/Conecte-se ao EBcofre/g' \
     -e 's/Novo no Bitwarden/Novo/g' \
-    -e 's/Log in to Bitwarden/Log in to EBvault/g' \
-    -e 's/Bitwarden/EBvault/g' \
-    -e 's/Vaultwarden/EBvault/g' \
-    -e 's/EBvault web do EBvault/EBvault/g' \
-    -e 's/web do EBvault/EBvault/g' \
-    -e 's/EBVault/EBvault/g' \
-    -e 's/EB Vault/EBvault/g' \
+    -e 's/Log in to Bitwarden/Log in to EBcofre/g' \
+    -e 's/Bitwarden/EBcofre/g' \
+    -e 's/Vaultwarden/EBcofre/g' \
+    -e 's/EBcofre web do EBcofre/EBcofre/g' \
+    -e 's/web do EBcofre/EBcofre/g' \
+    -e 's/EBcofre/EBcofre/g' \
+    -e 's/EB Vault/EBcofre/g' \
     -e 's/\x01BWDOMAIN\x01/bitwarden.com/g' \
     -e 's/\x01VAULTBW\x01/vault.bitwarden.com/g' \
     -e 's/\x01BWPKG\x01/com.8bit.bitwarden/g' \
@@ -52,7 +52,7 @@ patch_file() {
   mv "${tmp}" "${file}"
 }
 
-echo "Patching EBvault branding under ${TARGET_DIR}"
+echo "Patching EBcofre branding under ${TARGET_DIR}"
 
 while IFS= read -r -d '' file; do
   patch_file "${file}"

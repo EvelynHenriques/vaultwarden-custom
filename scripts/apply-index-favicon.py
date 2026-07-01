@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Idempotently apply EBvault favicon and title to apps/web/src/index.html."""
+"""Idempotently apply EBcofre favicon and title to apps/web/src/index.html."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def apply_index_html(path: Path) -> bool:
     if "<app-root" not in text:
         raise RuntimeError(f"{path}: missing <app-root> — refusing to modify")
 
-    text = re.sub(r"<title[^>]*>.*?</title>", "<title>EBvault</title>", text, count=1, flags=re.DOTALL)
+    text = re.sub(r"<title[^>]*>.*?</title>", "<title>EBcofre</title>", text, count=1, flags=re.DOTALL)
 
     text = re.sub(r"\s*<link[^>]*rel=[\"']apple-touch-icon[\"'][^>]*>\s*", "\n", text)
     text = re.sub(r"\s*<link[^>]*rel=[\"']icon[\"'][^>]*>\s*", "\n", text)
@@ -44,10 +44,10 @@ def apply_index_html(path: Path) -> bool:
 
     if text != original:
         path.write_text(text, encoding="utf-8")
-        print(f"  updated EBvault title/favicon in {path.name}")
+        print(f"  updated EBcofre title/favicon in {path.name}")
         return True
 
-    print(f"  index.html already has EBvault favicon/title")
+    print(f"  index.html already has EBcofre favicon/title")
     return False
 
 

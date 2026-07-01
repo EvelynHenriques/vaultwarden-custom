@@ -218,11 +218,11 @@ export class TwoFactorSetupAuthenticatorComponent
     new window.QRious({
       element: document.getElementById("qr"),
       value:
-        "otpauth://totp/EBvault:" +
+        "otpauth://totp/EBcofre:" +
         Utils.encodeRFC3986URIComponent(email) +
         "?secret=" +
         encodeURIComponent(this.key) +
-        "&issuer=EBvault",
+        "&issuer=EBcofre",
       size: 160,
     });
   }

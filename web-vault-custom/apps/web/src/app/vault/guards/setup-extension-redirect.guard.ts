@@ -47,10 +47,10 @@ export const setupExtensionRedirectGuard: CanActivateFn = async (_route, state) 
   const twoFactorService = inject(TwoFactorService);
   const url = state.url;
 
-  mandatory2faDebugLog("[EBvault GUARD TRACE] guard started: setupExtensionRedirectGuard", url);
+  mandatory2faDebugLog("[EBcofre GUARD TRACE] guard started: setupExtensionRedirectGuard", url);
   try {
     if (isMandatoryAuthFlowInProgress() && normalizeMandatorySetupPath(url) === "/vault") {
-      mandatory2faDebugLog("[EBvault GUARD TRACE] guard completed: setupExtensionRedirectGuard", url, {
+      mandatory2faDebugLog("[EBcofre GUARD TRACE] guard completed: setupExtensionRedirectGuard", url, {
         result: true,
         reason: "active TOTP login flow; skip setup-extension onboarding",
       });
@@ -103,7 +103,7 @@ export const setupExtensionRedirectGuard: CanActivateFn = async (_route, state) 
     });
     return completeGuard("setupExtensionRedirectGuard", url, router.createUrlTree(["/setup-extension"]));
   } catch (error) {
-    mandatory2faDebugLog("[EBvault GUARD TRACE] guard failed: setupExtensionRedirectGuard", url, {
+    mandatory2faDebugLog("[EBcofre GUARD TRACE] guard failed: setupExtensionRedirectGuard", url, {
       error,
     });
     throw error;
@@ -128,7 +128,7 @@ export const blockSetupExtensionUntilMandatory2faGuard: CanActivateFn = async ()
 };
 
 function completeGuard(name: string, url: string, result: boolean | UrlTree): boolean | UrlTree {
-  mandatory2faDebugLog("[EBvault GUARD TRACE] guard completed:", name, url, {
+  mandatory2faDebugLog("[EBcofre GUARD TRACE] guard completed:", name, url, {
     result: result === true ? true : result === false ? false : "UrlTree",
   });
   return result;

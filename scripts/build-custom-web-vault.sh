@@ -38,7 +38,7 @@ fi
 
 "${SCRIPT_DIR}/apply-web-vault-custom.sh" "${CLIENTS_DIR}"
 
-# Rebrand locale strings (Bitwarden/Vaultwarden -> EBvault) before webpack bundles them.
+# Rebrand locale strings (Bitwarden/Vaultwarden -> EBcofre) before webpack bundles them.
 "${SCRIPT_DIR}/patch-web-vault-branding.sh" "${CLIENTS_DIR}/apps/web/src/locales"
 
 pushd "${CLIENTS_DIR}" >/dev/null
@@ -59,8 +59,8 @@ mv "${CLIENTS_DIR}/apps/web/build" "${OUTPUT_DIR}"
 # Favicon, manifest, and document title in the built web-vault output.
 if [[ -f "${OUTPUT_DIR}/index.html" ]]; then
   INDEX="${OUTPUT_DIR}/index.html"
-  sed -i 's/<title[^>]*>[^<]*<\/title>/<title>EBvault<\/title>/' "${INDEX}" 2>/dev/null || \
-    sed -i '' 's/<title[^>]*>[^<]*<\/title>/<title>EBvault<\/title>/' "${INDEX}" 2>/dev/null || true
+  sed -i 's/<title[^>]*>[^<]*<\/title>/<title>EBcofre<\/title>/' "${INDEX}" 2>/dev/null || \
+    sed -i '' 's/<title[^>]*>[^<]*<\/title>/<title>EBcofre<\/title>/' "${INDEX}" 2>/dev/null || true
   # Remove only <link rel="icon" ...> tags — never delete whole lines (minified index.html is often one line).
   sed -i 's/<link[^>]*rel="icon"[^>]*>//g' "${INDEX}" 2>/dev/null || \
     sed -i '' 's/<link[^>]*rel="icon"[^>]*>//g' "${INDEX}" 2>/dev/null || true
@@ -98,8 +98,8 @@ MANIFEST="${OUTPUT_DIR}/manifest.json"
 if [[ -f "${MANIFEST}" ]]; then
   cat > "${MANIFEST}" <<'EOF'
 {
-  "name": "EBvault",
-  "short_name": "EBvault",
+  "name": "EBcofre",
+  "short_name": "EBcofre",
   "icons": [
     {
       "src": "images/icons/logo-shield.svg",

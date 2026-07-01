@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply all EBvault source patches idempotently (replaces fragile patch(1) files)."""
+"""Apply all EBcofre source patches idempotently (replaces fragile patch(1) files)."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def main() -> int:
     oss_routing = clients_dir / "apps/web/src/app/oss-routing.module.ts"
     org_routing = clients_dir / "apps/web/src/app/admin-console/organizations/organization-routing.module.ts"
 
-    print("Applying EBvault source patches (Python, idempotent)...")
+    print("Applying EBcofre source patches (Python, idempotent)...")
     run_step("disable server notifications", "apply-disable-server-notifications-patch.py", str(clients_dir))
     run_step("index favicon/title", "apply-index-favicon.py", str(clients_dir))
     run_step("registration login redirect", "apply-registration-login-redirect-patch.py", str(clients_dir))
@@ -38,7 +38,7 @@ def main() -> int:
     run_step("login 2FA submit UX", "apply-mandatory-2fa-login-two-factor-patch.py", str(clients_dir))
     run_step("defer post-login sync", "apply-mandatory-2fa-defer-login-sync-patch.py", str(clients_dir))
     run_step("verify mandatory 2FA generated flow", "verify-mandatory-2fa-generated-flow.py", str(clients_dir))
-    run_step("EBvault contrast cleanup", "apply-ebvault-contrast-patch.py", str(clients_dir))
+    run_step("EBcofre contrast cleanup", "apply-ebvault-contrast-patch.py", str(clients_dir))
     run_step("marketing routing", "apply-marketing-routing.py", str(oss_routing))
     run_step("organization routing", "apply-organization-routing.py", str(org_routing))
 
@@ -46,7 +46,7 @@ def main() -> int:
         print(f"  removing stale reject file: {rej.relative_to(clients_dir)}")
         rej.unlink()
 
-    print("EBvault source patches applied successfully.")
+    print("EBcofre source patches applied successfully.")
     return 0
 
 

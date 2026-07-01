@@ -9,15 +9,15 @@ from pathlib import Path
 START_EMAIL_ANCHOR = (
     "    const result = await this.accountApiService.registerSendVerificationEmail(request);"
 )
-START_EMAIL_LOG = '    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] email submitted for verification");'
+START_EMAIL_LOG = '    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre ACCOUNT] email submitted for verification");'
 START_VERIFY_ANCHOR = "    this.state = RegistrationStartState.CHECK_EMAIL;"
-START_VERIFY_LOG = '    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] verify email screen shown");'
+START_VERIFY_LOG = '    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre ACCOUNT] verify email screen shown");'
 
 FINISH_LINK_ANCHOR = "      await this.initEmailVerificationFlow();"
-FINISH_LINK_OPENED_LOG = '      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] verification link opened");'
-FINISH_SET_PASSWORD_LOG = '      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] set password screen loaded");'
+FINISH_LINK_OPENED_LOG = '      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre ACCOUNT] verification link opened");'
+FINISH_SET_PASSWORD_LOG = '      (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre ACCOUNT] set password screen loaded");'
 
-FINISH_SUCCESS_MARKER = "[EBvault ACCOUNT] redirecting to login after password setup"
+FINISH_SUCCESS_MARKER = "[EBcofre ACCOUNT] redirecting to login after password setup"
 
 FINISH_REPLACEMENT = """    // Show acct created toast
     this.toastService.showToast({
@@ -26,8 +26,8 @@ FINISH_REPLACEMENT = """    // Show acct created toast
       message: this.i18nService.t("newAccountCreated2"),
     });
 
-    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] password defined successfully");
-    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBvault ACCOUNT] redirecting to login after password setup");
+    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre ACCOUNT] password defined successfully");
+    (globalThis as any).EBVAULT_2FA_DEBUG === true && console.log("[EBcofre ACCOUNT] redirecting to login after password setup");
     await this.router.navigate(["/login"], { queryParams: { email: this.email } });
     this.submitting = false;"""
 
@@ -80,10 +80,10 @@ def patch_registration_start(path: Path) -> bool:
 
     if text != original:
         path.write_text(text, encoding="utf-8")
-        print(f"  updated EBvault registration start logs in {path.name}")
+        print(f"  updated EBcofre registration start logs in {path.name}")
         return True
 
-    print(f"  EBvault registration start logs already applied in {path.name}")
+    print(f"  EBcofre registration start logs already applied in {path.name}")
     return False
 
 
@@ -120,10 +120,10 @@ def patch_registration_finish(path: Path) -> bool:
 
     if text != original:
         path.write_text(text, encoding="utf-8")
-        print(f"  updated EBvault registration finish redirect in {path.name}")
+        print(f"  updated EBcofre registration finish redirect in {path.name}")
         return True
 
-    print(f"  EBvault registration finish redirect already applied in {path.name}")
+    print(f"  EBcofre registration finish redirect already applied in {path.name}")
     return False
 
 

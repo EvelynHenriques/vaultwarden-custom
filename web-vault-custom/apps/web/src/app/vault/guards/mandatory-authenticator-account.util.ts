@@ -98,7 +98,7 @@ export function logMandatoryGuardDecision(
   context: MandatoryGuardContext,
   extra?: Record<string, unknown>,
 ): void {
-  mandatory2faDebugLog(`[EBvault 2FA] guard decision: ${decision}`, {
+  mandatory2faDebugLog(`[EBcofre 2FA] guard decision: ${decision}`, {
     route: context.path,
     isPublicRoute: context.isPublicRoute,
     isMandatorySetupRoute: context.isMandatorySetupRoute,

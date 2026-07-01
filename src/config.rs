@@ -653,10 +653,10 @@ make_config! {
         admin_token:            Pass,   true,   option;
 
         /// Product name |> Display name used in the web UI, emails, and admin panel
-        product_name:           String, true,   def,    "EBvault".to_owned();
+        product_name:           String, true,   def,    "EBcofre".to_owned();
 
         /// Invitation organization name |> Name shown in the invitation emails that don't come from a specific organization
-        invitation_org_name:    String, true,   def,    "EBvault".to_owned();
+        invitation_org_name:    String, true,   def,    "EBcofre".to_owned();
 
         /// Events days retain |> Number of days to retain events stored in the database. If unset, events are kept indefinitely.
         events_days_retain:     i64,    false,   option;
@@ -883,7 +883,7 @@ make_config! {
         /// From Address
         smtp_from:                     String, true,   def,     String::new();
         /// From Name
-        smtp_from_name:                String, true,   def,     "EBvault".to_owned();
+        smtp_from_name:                String, true,   def,     "EBcofre".to_owned();
         /// Username
         smtp_username:                 String, true,   option;
         /// Password

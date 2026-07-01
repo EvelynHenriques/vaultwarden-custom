@@ -49,7 +49,7 @@ OVERLAY_FILES=(
   "apps/web/src/app/admin-console/organizations/layouts/organization-layout.component.html"
 )
 
-echo "Applying EBvault web-vault customizations from ${CUSTOM_DIR}"
+echo "Applying EBcofre web-vault customizations from ${CUSTOM_DIR}"
 
 for relative in "${OVERLAY_FILES[@]}"; do
   source="${CUSTOM_DIR}/${relative}"
@@ -81,7 +81,7 @@ if ! awk '
       exit 2
     }
   }
-  in_lock_vault && /lockVault received; EBvault requires full re-login before vault access/ {
+  in_lock_vault && /lockVault received; EBcofre requires full re-login before vault access/ {
     saw_enforce_marker = 1
   }
   in_lock_vault && /await this\.logOut\(true\)/ && saw_enforce_marker {
@@ -99,21 +99,21 @@ if ! awk '
     }
   }
 ' "${app_component}"; then
-  echo "ERROR: EBvault lock behavior invalid: enforce mode must force full re-login, and lockService.lock() may only appear in the off/observe mode branch" >&2
+  echo "ERROR: EBcofre lock behavior invalid: enforce mode must force full re-login, and lockService.lock() may only appear in the off/observe mode branch" >&2
   exit 1
 fi
-if ! grep -Fq "lockVault received; EBvault requires full re-login before vault access" "${app_component}"; then
-  echo "ERROR: EBvault full re-login lock behavior marker missing in app.component.ts" >&2
+if ! grep -Fq "lockVault received; EBcofre requires full re-login before vault access" "${app_component}"; then
+  echo "ERROR: EBcofre full re-login lock behavior marker missing in app.component.ts" >&2
   exit 1
 fi
-if ! grep -Fq "locked; EBvault requires full re-login before vault access" "${app_component}"; then
-  echo "ERROR: EBvault locked-event full re-login marker missing in app.component.ts" >&2
+if ! grep -Fq "locked; EBcofre requires full re-login before vault access" "${app_component}"; then
+  echo "ERROR: EBcofre locked-event full re-login marker missing in app.component.ts" >&2
   exit 1
 fi
 
 user_layout="${CLIENTS_DIR}/apps/web/src/app/layouts/user-layout.component.ts"
 if ! grep -Fq "this.showRouterOutlet = onSetupRoute || setupPending || !hideVaultChrome;" "${user_layout}"; then
-  echo "ERROR: EBvault mandatory setup outlet sequencing marker missing in user-layout.component.ts" >&2
+  echo "ERROR: EBcofre mandatory setup outlet sequencing marker missing in user-layout.component.ts" >&2
   exit 1
 fi
 
@@ -128,22 +128,22 @@ else
   exit 1
 fi
 
-ebvault_logo_source="${CUSTOM_DIR}/apps/web/src/images/icons/logo-ebvault.svg"
-ebvault_logo_destination="${CLIENTS_DIR}/apps/web/src/images/icons/logo-ebvault.svg"
-if [[ -f "${ebvault_logo_source}" ]]; then
-  mkdir -p "$(dirname "${ebvault_logo_destination}")"
-  cp "${ebvault_logo_source}" "${ebvault_logo_destination}"
-  echo "  updated apps/web/src/images/icons/logo-ebvault.svg"
+ebcofre_logo_source="${CUSTOM_DIR}/apps/web/src/images/icons/logo-ebcofre.svg"
+ebcofre_logo_destination="${CLIENTS_DIR}/apps/web/src/images/icons/logo-ebcofre.svg"
+if [[ -f "${ebcofre_logo_source}" ]]; then
+  mkdir -p "$(dirname "${ebcofre_logo_destination}")"
+  cp "${ebcofre_logo_source}" "${ebcofre_logo_destination}"
+  echo "  updated apps/web/src/images/icons/logo-ebcofre.svg"
 else
-  echo "  missing overlay file: apps/web/src/images/icons/logo-ebvault.svg" >&2
+  echo "  missing overlay file: apps/web/src/images/icons/logo-ebcofre.svg" >&2
   exit 1
 fi
 
-server_logo="${SCRIPT_DIR}/../src/static/images/logo-ebvault.svg"
-if [[ -f "${ebvault_logo_source}" ]]; then
+server_logo="${SCRIPT_DIR}/../src/static/images/logo-ebcofre.svg"
+if [[ -f "${ebcofre_logo_source}" ]]; then
   mkdir -p "$(dirname "${server_logo}")"
-  cp "${ebvault_logo_source}" "${server_logo}"
-  echo "  updated src/static/images/logo-ebvault.svg"
+  cp "${ebcofre_logo_source}" "${server_logo}"
+  echo "  updated src/static/images/logo-ebcofre.svg"
 fi
 
 server_shield_logo="${SCRIPT_DIR}/../src/static/images/logo-shield.svg"
@@ -159,7 +159,7 @@ if command -v python3 >/dev/null 2>&1; then
 elif command -v python >/dev/null 2>&1; then
   PYTHON=python
 else
-  echo "ERROR: python3 or python is required to apply EBvault routing/favicon patches" >&2
+  echo "ERROR: python3 or python is required to apply EBcofre routing/favicon patches" >&2
   exit 1
 fi
 

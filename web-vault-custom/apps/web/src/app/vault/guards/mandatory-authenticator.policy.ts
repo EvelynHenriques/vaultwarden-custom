@@ -6,7 +6,7 @@ import { TwoFactorService } from "@bitwarden/common/auth/two-factor";
 /** Only whitelisted authenticated route while mandatory Authenticator 2FA is pending. */
 export const MANDATORY_TWO_FACTOR_SETUP_URL = "/settings/security/two-factor";
 
-const LOG = "[EBvault 2FA]";
+const LOG = "[EBcofre 2FA]";
 
 /** Set to `false` to disable temporary mandatory-2FA debug logs after validation. */
 export let MANDATORY_2FA_DEBUG_ENABLED = false;
@@ -48,7 +48,7 @@ export function mandatoryRefreshLog(message: string, detail?: unknown): void {
   if (typeof console === "undefined" || !console.log) {
     return;
   }
-  console.log(`[EBvault REFRESH] ${message}`, detail ?? "");
+  console.log(`[EBcofre REFRESH] ${message}`, detail ?? "");
 }
 
 function isMandatory2faDebugEnabled(): boolean {
@@ -140,7 +140,7 @@ export function mandatory2faStateLog(
     return;
   }
 
-  mandatory2faDebugLog("[EBvault 2FA STATE]", {
+  mandatory2faDebugLog("[EBcofre 2FA STATE]", {
     source,
     hasAuthenticatorConfigured,
     currentAuthFlowPassedTotp,
@@ -155,7 +155,7 @@ export function mandatory2faStateLog(
 export function markCurrentAuthFlowPassedTotp(source: string): void {
   currentAuthFlowPassedTotp = true;
   setCurrentAuthFlowPassedTotpGlobal(true);
-  mandatory2faDebugLog("[EBvault 2FA LOGIN] /identity/connect/token 2FA success", { source });
+  mandatory2faDebugLog("[EBcofre 2FA LOGIN] /identity/connect/token 2FA success", { source });
   log(`current auth flow passed TOTP (${source})`);
   mandatory2faStateLog(source);
   if (hasAuthenticatorConfigured) {
@@ -207,7 +207,7 @@ export function mandatory2faNavLog(
     return;
   }
 
-  mandatory2faDebugLog("[EBvault 2FA NAV]", {
+  mandatory2faDebugLog("[EBcofre 2FA NAV]", {
     source,
     currentUrl: detail.currentUrl,
     requestedUrl: detail.requestedUrl,
@@ -674,7 +674,7 @@ async function fetchMandatoryAuthenticatorStatus(
     mandatorySetupRequired = !hasEnabledAuthenticator;
     mandatoryGateReleased = hasEnabledAuthenticator && currentAuthFlowPassedTotp;
     if (!hasEnabledAuthenticator) {
-      mandatory2faDebugLog("[EBvault 2FA SETUP] /api/two-factor returned empty");
+      mandatory2faDebugLog("[EBcofre 2FA SETUP] /api/two-factor returned empty");
     }
 
     log("hasAuthenticatorConfigured", hasAuthenticatorConfigured);
@@ -705,7 +705,7 @@ async function fetchMandatoryAuthenticatorStatus(
     }
 
     log("decision = missing authenticator");
-    mandatory2faDebugLog("[EBvault 2FA SETUP] mandatory setup required");
+    mandatory2faDebugLog("[EBcofre 2FA SETUP] mandatory setup required");
     syncGatePhaseFromState();
     log("gate state = blocked");
     mandatory2faStateLog("fetchMandatoryAuthenticatorStatus");
@@ -908,7 +908,7 @@ function logGeneratedUrlTree(source: string, router: Router, tree: UrlTree): voi
   }
 
   const windowRef = typeof window === "undefined" ? null : window;
-  mandatory2faDebugLog("[EBvault ROUTER DEBUG] generated UrlTree", {
+  mandatory2faDebugLog("[EBcofre ROUTER DEBUG] generated UrlTree", {
     source,
     routerUrl: router.url,
     windowLocationHref: windowRef?.location?.href,

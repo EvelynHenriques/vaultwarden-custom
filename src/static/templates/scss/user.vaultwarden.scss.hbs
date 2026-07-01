@@ -1,4 +1,4 @@
-/* EBvault olive-green theme (loaded via /css/vaultwarden.css). */
+/* EBcofre olive-green theme (loaded via /css/vaultwarden.css). */
 
 $olive-50: #f4f6ef;
 $olive-100: #e9eedc;
@@ -67,9 +67,9 @@ $gold-600: #d4a017;
 
   --color-bg-avatar-brand: var(--color-brand-600);
   --color-bg-avatar-brand-hover: var(--color-brand-700);
-  --ebvault-light-panel-fg: #{$text-dark};
-  --ebvault-dark-panel-fg: #{$text-light};
-  --ebvault-dark-panel-fg-muted: #{$text-light-muted};
+  --ebcofre-light-panel-fg: #{$text-dark};
+  --ebcofre-dark-panel-fg: #{$text-light};
+  --ebcofre-dark-panel-fg-muted: #{$text-light-muted};
 }
 
 /* ========== LIGHT THEME ========== */
@@ -344,7 +344,7 @@ bit-avatar,
   color: #{$text-light} !important;
 }
 
-/* Sidebar logo — EBvault JPEG assets */
+/* Sidebar logo — EBcofre JPEG assets */
 bit-nav-logo bit-svg svg,
 auth-password-manager-logo svg,
 app-password-manager-logo svg,
@@ -416,7 +416,7 @@ bit-side-nav .tw-text-fg-body-subtle {
 }
 
 /* Auth / login / registration — olive-green base, gold accents (no pink/blue) */
-@mixin ebvault-svg-palette-overrides {
+@mixin ebcofre-svg-palette-overrides {
   [fill="#175DDC"],
   [fill="#175ddc"],
   [fill="#0054de"],
@@ -481,10 +481,10 @@ bit-side-nav .tw-text-fg-body-subtle {
   }
 }
 
-@mixin ebvault-auth-svg-recolor {
+@mixin ebcofre-auth-svg-recolor {
   filter: hue-rotate(125deg) saturate(1.35) brightness(1.04) !important;
 
-  @include ebvault-svg-palette-overrides;
+  @include ebcofre-svg-palette-overrides;
 }
 
 .layout_frontend bit-landing-layout svg,
@@ -505,7 +505,7 @@ app-anon-layout-wrapper bit-landing-hero svg,
 .theme_light bit-landing-hero svg,
 .layout_frontend two-factor-icon svg,
 .layout_frontend app-two-factor-icon svg {
-  @include ebvault-auth-svg-recolor;
+  @include ebcofre-auth-svg-recolor;
 }
 
 /* Registration / login — prevent terms text truncation */
@@ -629,7 +629,7 @@ body.theme_dark.layout_frontend bit-landing-footer {
 .theme_dark [class*="tw-bg-bg-success"] small,
 .theme_dark [class*="tw-bg-bg-success"] i,
 .theme_dark [class*="tw-bg-bg-success"] svg {
-  color: var(--ebvault-dark-panel-fg) !important;
+  color: var(--ebcofre-dark-panel-fg) !important;
 }
 
 .theme_dark bit-callout[type="success"] small,
@@ -642,31 +642,31 @@ body.theme_dark.layout_frontend bit-landing-footer {
 .theme_dark [class*="tw-bg-bg-success"] small,
 .theme_dark [class*="tw-bg-bg-success"] [bitTypography="helper"],
 .theme_dark [class*="tw-bg-bg-success"] .tw-text-fg-body-subtle {
-  color: var(--ebvault-dark-panel-fg-muted) !important;
+  color: var(--ebcofre-dark-panel-fg-muted) !important;
 }
 
-/* Marked light panels on dark EBvault pages need dark foreground for readable contrast. */
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"],
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] [bitTypography],
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] aside,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] header,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] h1,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] h2,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] h3,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] h4,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] p,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] span,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] a,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] button,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] i,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] svg,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-fg-body,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-fg-heading,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-fg-body-subtle,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-fg-brand,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-fg-brand-strong,
-.theme_dark [data-ebvault-contrast="EBvault readable light nudge card"] .tw-text-muted {
-  color: var(--ebvault-light-panel-fg) !important;
+/* Marked light panels on dark EBcofre pages need dark foreground for readable contrast. */
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"],
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] [bitTypography],
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] aside,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] header,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] h1,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] h2,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] h3,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] h4,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] p,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] span,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] a,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] button,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] i,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] svg,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] .tw-text-fg-body,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] .tw-text-fg-heading,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] .tw-text-fg-body-subtle,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] .tw-text-fg-brand,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] .tw-text-fg-brand-strong,
+.theme_dark [data-ebcofre-contrast="EBcofre readable light nudge card"] .tw-text-muted {
+  color: var(--ebcofre-light-panel-fg) !important;
 }
 
 .theme_light bit-empty-state p {
